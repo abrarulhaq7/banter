@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Button } from '@/components/ui';
+import { AppText, Icon, IconButton } from '@/components/ui';
 import { radius, spacing, useTheme } from '@/theme';
 
 type LineCardProps = {
-  /** Used in test ids: `line-<testKey>`, `keep-<testKey>`, `line-status-<testKey>`. */
+  /** Used in test ids: `line-<testKey>`, `copy-<testKey>`, `keep-<testKey>`, `line-status-<testKey>`. */
   testKey: string;
   text: string;
   /** Small line above the text: the detail it hooks to, or where a kept line came from. */
@@ -15,7 +15,7 @@ type LineCardProps = {
   onToggleKeep: () => void;
 };
 
-/** One line to send. Tap the text to copy it; Keep pins it while other tones are tried. */
+/** One line to send. Tap it, or the copy button, to copy; the bookmark keeps it. */
 export function LineCard({ testKey, text, caption, copied, kept, onCopy, onToggleKeep }: LineCardProps) {
   const { colors } = useTheme();
 
@@ -33,23 +33,27 @@ export function LineCard({ testKey, text, caption, copied, kept, onCopy, onToggl
         accessibilityHint="Copies this line"
         style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
         {caption ? (
-          <AppText variant="caption" color="accentAlt">
+          <AppText variant="caption" color="accentAlt" numberOfLines={1}>
             {caption}
           </AppText>
         ) : null}
         <AppText>{text}</AppText>
       </Pressable>
       <View style={styles.footer}>
-        <AppText testID={`line-status-${testKey}`} variant="caption" color={copied ? 'success' : 'textMuted'}>
-          {copied ? 'Copied' : 'Tap to copy'}
-        </AppText>
-        <Button
+        <View style={styles.status}>
+          {copied ? <Icon name="check" size={14} color="success" /> : null}
+          <AppText testID={`line-status-${testKey}`} variant="caption" color={copied ? 'success' : 'textMuted'}>
+            {copied ? 'Copied' : 'Tap to copy'}
+          </AppText>
+        </View>
+        <IconButton testID={`copy-${testKey}`} icon="copy" label="Copy" color="textMuted" onPress={onCopy} />
+        <IconButton
           testID={`keep-${testKey}`}
-          variant="ghost"
-          size="sm"
+          icon={kept ? 'kept' : 'keep'}
           label={kept ? 'Kept' : 'Keep'}
+          color={kept ? 'accent' : 'textMuted'}
+          selected={kept}
           onPress={onToggleKeep}
-          style={styles.keep}
         />
       </View>
     </View>
@@ -57,9 +61,9 @@ export function LineCard({ testKey, text, caption, copied, kept, onCopy, onToggl
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, borderWidth: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
-  body: { gap: spacing.xs },
+  card: { borderRadius: radius.lg, borderWidth: 1, paddingLeft: spacing.lg, paddingRight: spacing.xs, paddingTop: spacing.md },
+  body: { gap: spacing.xs, paddingRight: spacing.md },
   pressed: { opacity: 0.6 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  keep: { paddingHorizontal: 0 },
+  footer: { flexDirection: 'row', alignItems: 'center' },
+  status: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
 });

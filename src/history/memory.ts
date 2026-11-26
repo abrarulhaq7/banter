@@ -14,12 +14,22 @@ export type Memory = {
   awaitingReplyLineId: string | null;
 };
 
-/** Turns the newest interactions with a person (newest first) into prompt memory. */
-export function buildMemory(interactions: InteractionWithLines[]): Memory {
+/**
+ * Turns the newest interactions with a person (newest first) into prompt memory.
+ *
+ * `sameScreenshot` holds the ids of the sets already made for the screenshot being worked
+ * on. Those are options the sender is still choosing between, not messages she has seen:
+ * a line copied from one of them a moment ago is never "waiting for a reply".
+ */
+export function buildMemory(
+  interactions: InteractionWithLines[],
+  sameScreenshot: ReadonlySet<string> = new Set(),
+): Memory {
   const recent = interactions.slice(0, MEMORY_SIZE);
 
   let awaitingReplyLineId: string | null = null;
   for (const interaction of recent) {
+    if (sameScreenshot.has(interaction.id)) continue;
     const waiting = interaction.lines
       .filter((line) => line.copied_at && !line.result)
       .sort((a, b) => (b.copied_at ?? '').localeCompare(a.copied_at ?? ''))[0];
@@ -36,6 +46,7 @@ export function buildMemory(interactions: InteractionWithLines[]): Memory {
       at: interaction.created_at,
       modeLabel: DEFAULT_MODES[interaction.mode_id as ModeId]?.label ?? interaction.mode_id,
       toneLabel: interaction.tone_label,
+      ...(sameScreenshot.has(interaction.id) ? { sameScreenshot: true } : {}),
       lines: interaction.lines.map((line) => ({
         text: line.text,
         copied: line.copied_at !== null,

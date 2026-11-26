@@ -60,6 +60,31 @@ describe('buildMemory', () => {
     expect(memory.awaitingReplyLineId).toBeNull();
   });
 
+  it('does not treat a line copied for the screenshot being worked on as sent and waiting', () => {
+    const memory = buildMemory(
+      [
+        interaction('this-shot', '2026-11-23T10:00:00Z', [line('just-copied', { copied_at: '2026-11-23T10:00:30Z' })]),
+        interaction('last-week', '2026-11-16T10:00:00Z', [line('sent-then', { copied_at: '2026-11-16T10:01:00Z' })]),
+      ],
+      new Set(['this-shot']),
+    );
+
+    // The line to look for in a chat is the one from last week, not the one copied a moment ago.
+    expect(memory.awaitingReplyLineId).toBe('sent-then');
+    expect(memory.items[0]).toMatchObject({ sameScreenshot: true });
+    expect(memory.items[0].lines[0].awaitingReply).toBe(false);
+    expect(memory.items[1].sameScreenshot).toBeUndefined();
+    expect(memory.items[1].lines[0].awaitingReply).toBe(true);
+  });
+
+  it('has no line to look for when the only copied line is from the screenshot being worked on', () => {
+    const memory = buildMemory(
+      [interaction('this-shot', '2026-11-23T10:00:00Z', [line('just-copied', { copied_at: '2026-11-23T10:00:30Z' })])],
+      new Set(['this-shot']),
+    );
+    expect(memory.awaitingReplyLineId).toBeNull();
+  });
+
   it('uses only the five newest interactions', () => {
     const many = Array.from({ length: 8 }, (_, index) =>
       interaction(`i${index}`, `2026-11-${20 - index}T10:00:00Z`, [line(`l${index}`)]),

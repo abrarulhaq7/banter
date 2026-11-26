@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { MIN_PASSWORD_LENGTH, useAuth, validateEmail, validatePassword } from '@/auth';
-import { AppText, Button, Card, Screen, TextField } from '@/components/ui';
-import { spacing } from '@/theme';
+import { AppText, Banner, Button, Icon, Screen, TextField } from '@/components/ui';
+import { radius, spacing, useTheme } from '@/theme';
 
 type AuthFormProps = {
   mode: 'signIn' | 'signUp';
@@ -28,6 +28,7 @@ const COPY = {
 /** The sign-in and sign-up screens. They differ only in wording and password rules. */
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
+  const { colors } = useTheme();
   const { signIn, signUp, setupProblem } = useAuth();
   const copy = COPY[mode];
 
@@ -60,8 +61,25 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <Screen testID={mode === 'signIn' ? 'sign-in-screen' : 'sign-up-screen'}>
+    <Screen
+      testID={mode === 'signIn' ? 'sign-in-screen' : 'sign-up-screen'}
+      fill
+      footer={
+        <>
+          <Button testID="submit-button" label={copy.submit} onPress={submit} loading={busy} />
+          <Button
+            testID="switch-button"
+            variant="ghost"
+            label={copy.switchLabel}
+            disabled={busy}
+            onPress={() => router.replace(copy.switchTo)}
+          />
+        </>
+      }>
       <View style={styles.header}>
+        <View style={[styles.mark, { backgroundColor: colors.accentSoft }]}>
+          <Icon name="generate" size={28} color="accent" />
+        </View>
         <AppText variant="display" accessibilityRole="header">
           Banter
         </AppText>
@@ -69,14 +87,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       </View>
 
       {setupProblem ? (
-        <Card testID="setup-problem">
-          <AppText variant="label" color="accentAlt">
-            Setup needed
-          </AppText>
-          <AppText variant="caption" color="textMuted">
-            {setupProblem}
-          </AppText>
-        </Card>
+        <Banner testID="setup-problem" tone="warning" title="Setup needed">
+          {setupProblem}
+        </Banner>
       ) : null}
 
       <View style={styles.fields}>
@@ -115,32 +128,28 @@ export function AuthForm({ mode }: AuthFormProps) {
       </View>
 
       {formError ? (
-        <AppText testID="form-error" color="danger" accessibilityRole="alert">
+        <Banner tone="danger" messageTestID="form-error">
           {formError}
-        </AppText>
+        </Banner>
       ) : null}
       {notice ? (
-        <AppText testID="form-notice" color="success" accessibilityRole="alert">
+        <Banner tone="success" messageTestID="form-notice">
           {notice}
-        </AppText>
+        </Banner>
       ) : null}
-
-      <View style={styles.actions}>
-        <Button testID="submit-button" label={copy.submit} onPress={submit} loading={busy} />
-        <Button
-          testID="switch-button"
-          variant="ghost"
-          label={copy.switchLabel}
-          disabled={busy}
-          onPress={() => router.replace(copy.switchTo)}
-        />
-      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: spacing.xs, marginTop: spacing.xxl },
+  header: { gap: spacing.xs, marginTop: spacing.xl },
+  mark: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
   fields: { gap: spacing.lg },
-  actions: { gap: spacing.sm },
 });

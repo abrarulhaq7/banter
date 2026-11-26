@@ -1,76 +1,46 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Card, Chip, Screen, ScreenHeader } from '@/components/ui';
-import { dataErrorMessage } from '@/data';
+import {
+  AppText,
+  Avatar,
+  Banner,
+  Icon,
+  ListRow,
+  OptionList,
+  Screen,
+  ScreenHeader,
+  Sheet,
+} from '@/components/ui';
 import { DEFAULT_MODES, type ModeId } from '@/engine';
-import { useHistory, type InteractionWithLines } from '@/history';
+import { tonesTried, useHistory } from '@/history';
 import { CONTEXT_LABELS, timeAgo } from '@/history/labels';
-import type { ContextId, LineResult, LineRow } from '@/lib/database.types';
+import type { ContextId } from '@/lib/database.types';
 import { radius, spacing, useTheme } from '@/theme';
 
-const CONTEXTS = Object.keys(CONTEXT_LABELS) as ContextId[];
-const ADJUSTMENT = { new_lines: 'New lines', shorter: 'Shorter', bolder: 'Bolder' } as const;
+import { SHOT_STATUS } from './shot-status';
+import { usePersonHistory } from './use-person-history';
 
-type Loaded = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; items: InteractionWithLines[] };
+const CONTEXTS = (Object.keys(CONTEXT_LABELS) as ContextId[]).map((id) => ({ value: id, label: CONTEXT_LABELS[id] }));
 
-/** One person: every screenshot, the lines for it, which were used and how it went. */
+const modeLabel = (modeId: string) => DEFAULT_MODES[modeId as ModeId]?.label ?? modeId;
+
+/** One person: who she is, and one row per screenshot Banter was used on. */
 export function PersonScreen({ id }: { id: string }) {
   const router = useRouter();
   const { colors } = useTheme();
   const history = useHistory();
   const person = history.people.find((item) => item.id === id);
+  const { state, screenshots, reload } = usePersonHistory(id);
 
-  const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
-  const [screenshots, setScreenshots] = useState<Record<string, string>>({});
-  /** Results marked here, shown at once while the save goes through. */
-  const [marked, setMarked] = useState<Record<string, LineResult | null>>({});
+  const [contextOpen, setContextOpen] = useState(false);
   /** A choice made here, shown at once. Until then the saved one is shown, whenever it arrives. */
   const [chosenContext, setChosenContext] = useState<ContextId | null>(null);
   const context = chosenContext ?? person?.context ?? null;
 
-  const load = async (isCurrent: () => boolean = () => true) => {
-    try {
-      const items = await history.listInteractions(id);
-      if (!isCurrent()) return;
-      setLoaded({ status: 'ready', items });
-
-      // One stored file can serve several sets from the same screenshot.
-      const paths = [...new Set(items.map((item) => item.screenshot_path).filter((path): path is string => !!path))];
-      const links = await Promise.all(paths.map(async (path) => [path, await history.screenshotUrl(path)] as const));
-      if (!isCurrent()) return;
-      setScreenshots(Object.fromEntries(links.filter((link): link is readonly [string, string] => !!link[1])));
-    } catch (error) {
-      if (isCurrent()) setLoaded({ status: 'error', message: dataErrorMessage(error, 'load this history') });
-    }
-  };
-
-  useEffect(() => {
-    let current = true;
-    void (async () => {
-      await load(() => current);
-    })();
-    return () => {
-      current = false;
-    };
-    // Loads once for this person.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const mark = (line: LineRow, result: LineResult) => {
-    const current = line.id in marked ? marked[line.id] : line.result;
-    // Tapping the chosen result again clears it.
-    const next = current === result ? null : result;
-    setMarked((previous) => ({ ...previous, [line.id]: next }));
-    void history.save({
-      kind: 'linePatch',
-      lineId: line.id,
-      patch: { result: next, result_at: next ? new Date().toISOString() : null },
-    });
-  };
-
   const chooseContext = (next: ContextId) => {
+    setContextOpen(false);
     if (!person || next === context) return;
     setChosenContext(next);
     void history.save({ kind: 'personContext', username: person.username, context: next });
@@ -85,139 +55,93 @@ export function PersonScreen({ id }: { id: string }) {
   }
 
   return (
-    <Screen testID="person-screen">
-      <ScreenHeader title={`@${person.username}`} onBack={() => router.back()} />
-
-      <View style={styles.group}>
-        <AppText variant="label" color="textMuted">
-          How you know her
-        </AppText>
-        <View style={styles.chips}>
-          {CONTEXTS.map((item) => (
-            <Chip
-              key={item}
-              testID={`person-context-${item}`}
-              label={CONTEXT_LABELS[item]}
-              selected={item === context}
-              onPress={() => chooseContext(item)}
-            />
-          ))}
+    <Screen testID="person-screen" contentStyle={styles.content}>
+      <ScreenHeader onBack={() => router.back()} />
+      <View style={styles.identity}>
+        <Avatar name={person.username} size={56} />
+        <View style={styles.fill}>
+          <AppText testID="person-title" variant="title" accessibilityRole="header" numberOfLines={1}>
+            @{person.username}
+          </AppText>
+          <AppText variant="caption" color="textMuted">
+            {timeAgo(person.last_interaction_at) ? `Last used ${timeAgo(person.last_interaction_at)}` : 'Not used yet'}
+          </AppText>
         </View>
       </View>
 
-      {loaded.status === 'loading' ? <ActivityIndicator color={colors.accent} /> : null}
-      {loaded.status === 'error' ? (
-        <Card testID="timeline-error">
-          <AppText color="danger" accessibilityRole="alert">
-            {loaded.message}
-          </AppText>
-          <Button
-            variant="ghost"
-            size="sm"
-            label="Try again"
-            style={styles.inline}
-            onPress={() => {
-              setLoaded({ status: 'loading' });
-              void load();
-            }}
-          />
-        </Card>
+      <ListRow
+        testID="person-context-row"
+        icon="person"
+        title="How you know her"
+        value={context ? CONTEXT_LABELS[context] : 'Not set'}
+        onPress={() => setContextOpen(true)}
+      />
+
+      {state.status === 'loading' ? <ActivityIndicator color={colors.accent} /> : null}
+      {state.status === 'error' ? (
+        <Banner testID="timeline-error" tone="danger" action={{ label: 'Try again', onPress: reload }}>
+          {state.message}
+        </Banner>
       ) : null}
-      {loaded.status === 'ready' && loaded.items.length === 0 ? (
+      {state.status === 'ready' && state.shots.length === 0 ? (
         <AppText testID="timeline-empty" color="textMuted">
           Nothing saved for her yet.
         </AppText>
       ) : null}
 
-      {loaded.status === 'ready'
-        ? loaded.items.map((item, index) => {
-            const heading = [
-              item.tone_label,
-              DEFAULT_MODES[item.mode_id as ModeId]?.label ?? item.mode_id,
-              item.adjustment ? ADJUSTMENT[item.adjustment] : null,
-            ]
-              .filter(Boolean)
-              .join(' · ');
-            const analysis = item.analysis as { advice?: string; declined?: string } | null;
-            // Show the screenshot once, on the first (oldest) set made from it.
-            const previous = loaded.items[index + 1];
-            const showScreenshot =
-              item.screenshot_path && previous?.screenshot_path !== item.screenshot_path
-                ? screenshots[item.screenshot_path]
-                : undefined;
-
+      {state.status === 'ready' && state.shots.length > 0 ? (
+        <View style={styles.list}>
+          <AppText variant="label" color="textMuted">
+            Screenshots
+          </AppText>
+          {state.shots.map((shot, index) => {
+            const status = SHOT_STATUS[shot.status];
+            const link = shot.screenshotPath ? screenshots[shot.screenshotPath] : undefined;
             return (
-              <View key={item.id} testID={`timeline-item-${index}`} style={styles.group}>
-                <View style={styles.header}>
-                  <AppText testID={`timeline-heading-${index}`} variant="heading" accessibilityRole="header">
-                    {heading}
-                  </AppText>
-                  <AppText variant="caption" color="textMuted">
-                    {timeAgo(item.created_at)}
-                  </AppText>
-                </View>
-
-                {showScreenshot ? (
-                  <Image
-                    testID={`timeline-screenshot-${index}`}
-                    source={{ uri: showScreenshot }}
-                    resizeMode="contain"
-                    accessibilityLabel="The screenshot these lines were written for"
-                    style={[styles.screenshot, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                  />
-                ) : null}
-
-                {item.noticed ? (
-                  <AppText variant="caption" color="textMuted">
-                    Noticed: {item.noticed}
-                  </AppText>
-                ) : null}
-                {analysis?.advice ? <AppText>{analysis.advice}</AppText> : null}
-                {analysis?.declined ? <AppText color="accentAlt">No lines: {analysis.declined}</AppText> : null}
-
-                {item.lines.map((line, position) => {
-                  const result = line.id in marked ? marked[line.id] : line.result;
-                  const used = line.copied_at !== null;
-                  return (
-                    <Card key={line.id} testID={`timeline-line-${index}-${position}`} selected={used}>
-                      <AppText>{line.text}</AppText>
-                      <AppText
-                        testID={`timeline-line-state-${index}-${position}`}
-                        variant="caption"
-                        color={used ? 'success' : 'textMuted'}>
-                        {[used ? 'Copied' : 'Not used', line.kept_at ? 'Kept' : null].filter(Boolean).join(' · ')}
-                      </AppText>
-                      {used ? (
-                        <View style={styles.chips}>
-                          <Chip
-                            testID={`replied-${index}-${position}`}
-                            label="Replied"
-                            selected={result === 'replied'}
-                            onPress={() => mark(line, 'replied')}
-                          />
-                          <Chip
-                            testID={`no-reply-${index}-${position}`}
-                            label="No reply"
-                            selected={result === 'no_reply'}
-                            onPress={() => mark(line, 'no_reply')}
-                          />
-                        </View>
-                      ) : null}
-                    </Card>
-                  );
-                })}
-              </View>
+              <ListRow
+                key={shot.id}
+                testID={`shot-row-${index}`}
+                leading={
+                  link ? (
+                    <Image
+                      source={{ uri: link }}
+                      resizeMode="cover"
+                      accessibilityLabel="Screenshot"
+                      style={[styles.thumb, { borderColor: colors.border, backgroundColor: colors.raised }]}
+                    />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbEmpty, { borderColor: colors.border, backgroundColor: colors.raised }]}>
+                      <Icon name="screenshot" size={18} color="textMuted" />
+                    </View>
+                  )
+                }
+                title={tonesTried(shot, modeLabel)}
+                subtitle={`${status.label} · ${timeAgo(shot.latestAt) ?? ''}`}
+                trailing={<Icon name={status.icon} size={18} color={status.color} />}
+                onPress={() => router.push({ pathname: '/people/[id]/[shot]', params: { id, shot: shot.id } })}
+              />
             );
-          })
-        : null}
+          })}
+        </View>
+      ) : null}
+
+      <Sheet
+        testID="person-context-sheet"
+        visible={contextOpen}
+        title="How you know her"
+        subtitle="Banter uses this when it writes lines for her."
+        onClose={() => setContextOpen(false)}>
+        <OptionList testIDPrefix="person-context" options={CONTEXTS} value={context} onSelect={chooseContext} />
+      </Sheet>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  group: { gap: spacing.sm },
-  header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  inline: { alignSelf: 'flex-start', paddingHorizontal: 0 },
-  screenshot: { height: 220, borderRadius: radius.lg, borderWidth: 1 },
+  content: { gap: spacing.lg },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  fill: { flex: 1, gap: spacing.xxs },
+  list: { gap: spacing.sm },
+  thumb: { width: 40, height: 52, borderRadius: radius.sm, borderWidth: 1 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
 });

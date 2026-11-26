@@ -36,7 +36,65 @@ appId: com.banterlines.app
     text: "Deep Sea"
 - takeScreenshot: theme-deep-sea
 
+# --- The parts added in Phase 5.5 ---------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: "banner-info"
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: blocks-icons-and-notices
+- scrollUntilVisible:
+    element:
+      id: "open-dialog"
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: blocks-rows-and-choosing
+
+# Segmented control: picking one selects it.
+- tapOn:
+    id: "segment-opener"
+- assertVisible:
+    id: "segment-opener"
+    selected: true
+
+# Toast: appears, then goes away by itself.
+- tapOn:
+    id: "show-toast"
+- assertVisible:
+    id: "toast"
+- extendedWaitUntil:
+    notVisible:
+      id: "toast"
+    timeout: 6000
+
+# Sheet: opens, a choice closes it.
+- tapOn:
+    id: "open-sheet"
+- assertVisible:
+    id: "sample-option-b"
+- takeScreenshot: blocks-sheet
+- tapOn:
+    id: "sample-option-b"
+- assertNotVisible:
+    id: "sample-option-b"
+
+# Dialog: opens, Cancel closes it.
+- tapOn:
+    id: "open-dialog"
+- assertVisible:
+    id: "dialog-confirm"
+- takeScreenshot: blocks-dialog
+- tapOn:
+    id: "dialog-cancel"
+- assertNotVisible:
+    id: "dialog-confirm"
+
 # Chips: picking one selects it.
+- scrollUntilVisible:
+    element:
+      id: "tone-Flirty"
+    direction: DOWN
+- waitForAnimationToEnd
 - tapOn:
     id: "tone-Flirty"
 - assertVisible:
@@ -44,6 +102,11 @@ appId: com.banterlines.app
     selected: true
 
 # Line card: tap to copy.
+- scrollUntilVisible:
+    element:
+      id: "sample-line"
+    direction: DOWN
+- waitForAnimationToEnd
 - tapOn:
     id: "sample-line"
 - assertVisible:

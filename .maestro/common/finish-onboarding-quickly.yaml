@@ -1,26 +1,23 @@
-# From the first onboarding screen: gives a name, skips the key. Ends on the Generate screen.
+# From the first onboarding screen: gives a name, leaves the rest empty, skips the key.
+# Ends on the Generate screen.
 appId: com.banterlines.app
 ---
 - tapOn:
     id: "profile-name"
 - inputText: "Sam"
 - runFlow: close-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: "profile-submit"
-    direction: DOWN
-- waitForAnimationToEnd
+- tapOn:
+    id: "profile-submit"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-voice-screen"
+    timeout: 15000
 - tapOn:
     id: "profile-submit"
 - extendedWaitUntil:
     visible:
       id: "onboarding-key-screen"
     timeout: 15000
-- scrollUntilVisible:
-    element:
-      id: "skip-key"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "skip-key"
 - extendedWaitUntil:

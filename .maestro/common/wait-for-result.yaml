@@ -41,3 +41,6 @@ appId: com.banterlines.app
 - assertVisible:
     id: "result-heading-0"
     text: ${HEADING}
+# The Results screen slides in when the lines arrive. iOS drops taps made during the slide,
+# and Maestro only waits by itself after its own taps.
+- waitForAnimationToEnd

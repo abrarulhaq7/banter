@@ -16,18 +16,12 @@ appId: com.banterlines.app
 - runFlow: ../common/ensure-signed-out.yaml
 - runFlow: ../common/sign-up-new-account.yaml
 
-# --- About you --------------------------------------------------------------------------
+# --- Step 1: about you --------------------------------------------------------------------
 - takeScreenshot: onboarding-about
 
-# A name is required.
-- scrollUntilVisible:
-    element:
-      id: "profile-submit"
-    direction: DOWN
-- waitForAnimationToEnd
+# A name is required. Continue is pinned to the bottom: nothing to scroll.
 - tapOn:
     id: "profile-submit"
-- runFlow: ../common/scroll-to-top.yaml
 - assertVisible: "Enter your name."
 
 - tapOn:
@@ -53,11 +47,19 @@ appId: com.banterlines.app
     id: "profile-city"
 - inputText: "Lahore"
 - runFlow: ../common/close-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: "profile-submit"
-    direction: DOWN
-- waitForAnimationToEnd
+- tapOn:
+    id: "profile-submit"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-voice-screen"
+    timeout: 15000
+
+# --- Step 2: how you sound (optional) -----------------------------------------------------
+- takeScreenshot: onboarding-voice
+- tapOn:
+    id: "profile-interests"
+- inputText: "Football, cooking"
+- runFlow: ../common/close-keyboard.yaml
 - tapOn:
     id: "profile-submit"
 - extendedWaitUntil:
@@ -65,7 +67,7 @@ appId: com.banterlines.app
       id: "onboarding-key-screen"
     timeout: 15000
 
-# --- First key --------------------------------------------------------------------------
+# --- Step 3: first key --------------------------------------------------------------------
 - takeScreenshot: onboarding-key
 
 # A made-up Gemini key is sent to Gemini and rejected.
@@ -73,11 +75,6 @@ appId: com.banterlines.app
     id: "key-input"
 - inputText: "fake-gemini-key-for-banter-tests"
 - runFlow: ../common/close-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: "key-submit"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "key-submit"
 - extendedWaitUntil:
@@ -86,11 +83,6 @@ appId: com.banterlines.app
 - takeScreenshot: onboarding-wrong-key
 
 # Carry on without a key.
-- scrollUntilVisible:
-    element:
-      id: "skip-key"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "skip-key"
 - extendedWaitUntil:
@@ -106,8 +98,8 @@ appId: com.banterlines.app
     id: "greeting"
     text: "Hi Sam."
 - assertVisible:
-    id: "key-summary"
-    text: "No key yet.*"
+    id: "manage-keys"
+    text: ".*No key yet.*"
 - takeScreenshot: settings-no-key
 
 # --- Restart: still past onboarding, profile still there --------------------------------
@@ -122,25 +114,46 @@ appId: com.banterlines.app
     id: "greeting"
     text: "Hi Sam."
 
-# --- Edit the profile ---------------------------------------------------------------------
+# --- About you: one row per fact, each edited in its own sheet ----------------------------
 - tapOn:
     id: "edit-profile"
 - assertVisible:
     id: "profile-screen"
+# A row reads "title, what is saved".
 - assertVisible:
-    id: "profile-name"
-    text: "Sam"
+    id: "profile-row-name"
+    text: ".*Sam.*"
+- assertVisible:
+    id: "profile-row-age"
+    text: ".*27.*"
+- assertVisible:
+    id: "profile-row-city"
+    text: ".*Lahore.*"
+- assertVisible:
+    id: "profile-row-interests"
+    text: ".*Football, cooking.*"
+- assertVisible:
+    id: "profile-row-work"
+    text: ".*Not set.*"
+- takeScreenshot: profile
+
+- tapOn:
+    id: "profile-row-name"
+- assertVisible:
+    id: "profile-edit"
 - tapOn:
     id: "profile-name"
 - inputText: "my"
-- runFlow: ../common/close-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: "profile-submit"
-    direction: DOWN
-- waitForAnimationToEnd
+- takeScreenshot: profile-name-sheet
 - tapOn:
-    id: "profile-submit"
+    id: "profile-save"
+- extendedWaitUntil:
+    visible:
+      id: "profile-row-name"
+      text: ".*Sammy.*"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"
@@ -149,7 +162,7 @@ appId: com.banterlines.app
     id: "greeting"
     text: "Hi Sammy."
 
-# --- Add a key from home: a made-up OpenAI key is rejected by OpenAI ----------------------
+# --- Add a key from Settings: a made-up OpenAI key is rejected by OpenAI ------------------
 - tapOn:
     id: "manage-keys"
 - assertVisible:
@@ -162,18 +175,20 @@ appId: com.banterlines.app
     id: "provider-openai"
     selected: true
 - runFlow: ../common/close-keyboard.yaml
-- scrollUntilVisible:
-    element:
-      id: "key-submit"
-    direction: DOWN
-- waitForAnimationToEnd
+# The model is one row; its choices are in a sheet.
+- tapOn:
+    id: "key-model"
+- assertVisible:
+    id: "key-model-sheet"
+- takeScreenshot: add-key-model-sheet
+- tapOn:
+    id: "sheet-close"
 - tapOn:
     id: "key-submit"
 - extendedWaitUntil:
     visible: "OpenAI rejected this key.*"
     timeout: 30000
 - takeScreenshot: add-key-wrong-openai-key
-- runFlow: ../common/scroll-to-top.yaml
 - tapOn:
     id: "back-button"
 - assertVisible:

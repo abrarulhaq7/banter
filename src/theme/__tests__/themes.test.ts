@@ -30,6 +30,19 @@ const TEXT_PAIRS: [ColorRole, ColorRole][] = [
   ['danger', 'background'],
   ['danger', 'surface'],
   ['success', 'surface'],
+  ['info', 'surface'],
+  ['warning', 'surface'],
+  ['accent', 'accentSoft'],
+  ['info', 'infoSoft'],
+  ['warning', 'warningSoft'],
+  ['success', 'successSoft'],
+  ['danger', 'dangerSoft'],
+  ['text', 'accentSoft'],
+  ['text', 'infoSoft'],
+  ['text', 'warningSoft'],
+  ['text', 'successSoft'],
+  ['text', 'dangerSoft'],
+  ['textMuted', 'raised'],
 ];
 
 describe('themes', () => {

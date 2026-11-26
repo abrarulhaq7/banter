@@ -93,8 +93,15 @@ export type GenerateController = SessionState & {
   setContext: (context: ContextId) => void;
   /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
   setUsername: (username: string) => string | null;
-  generate: () => Promise<void>;
-  adjust: (kind: Adjustment) => Promise<void>;
+  /**
+   * Asks for lines with the chosen mode and tone, or with `tone` when one is given (it
+   * becomes the chosen tone). Resolves to true when a new set arrived.
+   */
+  generate: (tone?: ToneId) => Promise<boolean>;
+  /** New lines, shorter or bolder, from the set with this id (the newest when left out). */
+  adjust: (kind: Adjustment, setId?: string) => Promise<boolean>;
+  /** Repeats the last request, after it failed. */
+  retry: () => Promise<boolean>;
   copyLine: (lineId: string, text: string) => Promise<void>;
   toggleKeep: (line: KeptLine) => void;
   dismissError: () => void;
@@ -109,6 +116,12 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   /** Where this screenshot is stored. One file serves every set made from it. */
   const screenshotPath = useRef<string | null>(null);
+  /** What was asked for last, so "Try again" repeats exactly that. */
+  const lastRequest = useRef<{ adjustment: Adjustment | null; fromId: string | null; tone: ToneId | null }>({
+    adjustment: null,
+    fromId: null,
+    tone: null,
+  });
 
   const userId = session?.user.id ?? null;
   const candidates = keyCandidates(keys, models, deps.now().getTime());
@@ -125,9 +138,15 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     }
   };
 
-  const run = async (adjustment: { kind: Adjustment; previousLines: string[] } | null, from?: ResultSet) => {
-    if (state.phase !== 'idle' || !state.screenshot) return;
+  const run = async (
+    adjustment: { kind: Adjustment; previousLines: string[] } | null,
+    from?: ResultSet,
+    chosenTone?: ToneId,
+  ): Promise<boolean> => {
+    if (state.phase !== 'idle' || !state.screenshot) return false;
     const screenshot = state.screenshot;
+    lastRequest.current = { adjustment: adjustment?.kind ?? null, fromId: from?.id ?? null, tone: chosenTone ?? null };
+    if (chosenTone) dispatch({ type: 'setTone', tone: chosenTone });
 
     // An adjustment keeps the mode and tone of the set it adjusts.
     const mode = from?.mode ?? state.mode;
@@ -136,14 +155,14 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
         ? null
         : from
           ? (TONE_IDS.find((id) => DEFAULT_TONES[id].label === from.toneLabel) ?? state.tone)
-          : state.tone;
+          : (chosenTone ?? state.tone);
     const tone = toneId ? DEFAULT_TONES[toneId] : null;
 
     dispatch({ type: 'generateStarted' });
     try {
       // Once the person is known, what was said to them before goes into the prompt.
       const memory = state.username
-        ? await history.memoryFor(state.username)
+        ? await history.memoryFor(state.username, new Set(state.sets.map((set) => set.id)))
         : { items: [], awaitingReplyLineId: null };
 
       const result = await deps.runEngine({
@@ -245,11 +264,19 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           durationMs: result.durationMs,
         },
       });
+      return true;
     } catch (error) {
       // The engine only throws EngineError, but a screen must never crash on a surprise.
       const engineError = isEngineError(error) ? error : new EngineError('unreadable');
       dispatch({ type: 'generateFailed', error: { kind: engineError.kind, message: engineError.message } });
+      return false;
     }
+  };
+
+  const adjust = async (kind: Adjustment, setId?: string): Promise<boolean> => {
+    const from = (setId ? state.sets.find((set) => set.id === setId) : undefined) ?? state.sets[0];
+    const previousLines = adjustableLines(from);
+    return previousLines ? run({ kind, previousLines }, from) : false;
   };
 
   return {
@@ -286,11 +313,11 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
       return null;
     },
 
-    generate: () => run(null),
-    adjust: async (kind) => {
-      const newest = state.sets[0];
-      const previousLines = adjustableLines(newest);
-      if (previousLines) await run({ kind, previousLines }, newest);
+    generate: (tone) => run(null, undefined, tone),
+    adjust,
+    retry: () => {
+      const last = lastRequest.current;
+      return last.adjustment ? adjust(last.adjustment, last.fromId ?? undefined) : run(null, undefined, last.tone ?? undefined);
     },
 
     copyLine: async (lineId, text) => {

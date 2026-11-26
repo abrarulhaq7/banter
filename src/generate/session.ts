@@ -178,3 +178,17 @@ export function adjustableLines(set: ResultSet | undefined): string[] | null {
 export function setLabel(set: Pick<ResultSet, 'toneLabel' | 'modeLabel'>): string {
   return [set.toneLabel, set.modeLabel].filter(Boolean).join(' · ');
 }
+
+const ADJUSTMENT_LABEL: Record<Adjustment, string> = { new_lines: 'New lines', shorter: 'Shorter', bolder: 'Bolder' };
+
+/** The full name of a set: "Flirty · Story reply · Shorter". */
+export function setHeading(set: Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment'>): string {
+  return [setLabel(set), set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null].filter(Boolean).join(' · ');
+}
+
+/** The short name of a set, for the chips that switch between sets: "Flirty · Shorter". */
+export function setChipLabel(set: Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment'>): string {
+  return [set.toneLabel ?? set.modeLabel, set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null]
+    .filter(Boolean)
+    .join(' · ');
+}

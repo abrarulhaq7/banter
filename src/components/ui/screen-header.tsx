@@ -1,27 +1,42 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { spacing } from '@/theme';
 
 import { AppText } from './app-text';
-import { Button } from './button';
+import { IconButton } from './icon-button';
 
 export type ScreenHeaderProps = {
-  title: string;
+  /** Left out on screens that show their own heading under the bar. */
+  title?: string;
   subtitle?: string;
   /** Shows a Back button above the title. */
   onBack?: () => void;
+  /** Buttons at the top right. */
+  right?: ReactNode;
+  /** Test id of the title text. */
+  titleTestID?: string;
 };
 
 /** The title block at the top of a screen. */
-export function ScreenHeader({ title, subtitle, onBack }: ScreenHeaderProps) {
+export function ScreenHeader({ title, subtitle, onBack, right, titleTestID }: ScreenHeaderProps) {
   return (
     <View style={styles.container}>
-      {onBack ? (
-        <Button testID="back-button" variant="ghost" size="sm" label="Back" onPress={onBack} style={styles.back} />
+      {onBack || right ? (
+        <View style={styles.bar}>
+          {onBack ? (
+            <IconButton testID="back-button" icon="back" label="Back" variant="filled" onPress={onBack} />
+          ) : (
+            <View />
+          )}
+          {right}
+        </View>
       ) : null}
-      <AppText variant="title" accessibilityRole="header">
-        {title}
-      </AppText>
+      {title ? (
+        <AppText testID={titleTestID} variant="title" accessibilityRole="header">
+          {title}
+        </AppText>
+      ) : null}
       {subtitle ? <AppText color="textMuted">{subtitle}</AppText> : null}
     </View>
   );
@@ -29,5 +44,5 @@ export function ScreenHeader({ title, subtitle, onBack }: ScreenHeaderProps) {
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  back: { alignSelf: 'flex-start', paddingHorizontal: 0 },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
 });

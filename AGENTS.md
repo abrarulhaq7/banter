@@ -50,13 +50,29 @@ npm run test:db        # applies supabase/migrations to a throwaway local Postgr
 npm run ios            # build and install the development build on the iOS simulator
 npm start              # dev server for the development build
 source scripts/env.sh  # Java 17 and Android SDK paths (needed for Maestro and Android builds)
-npm run e2e            # Maestro flows in .maestro/ (simulator booted, dev server running)
+npm run e2e            # offline Maestro flows in .maestro/ (simulator booted, dev server running)
+npm run e2e:live       # Maestro flows against the real Supabase project; starts its own production-mode server
 npm run lines -- samples/   # run sample screenshots through the generation engine (needs keys.local.json)
 npm run db:prompts     # write supabase/paste-prompts.sql from src/engine/default-prompts.ts
 ```
 
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
-- Build screens from `src/components/ui` (`Screen`, `AppText`, `Button`, `Chip`, `Card`, `TextField`) and the `spacing`, `radius` and `typography` tokens.
+- Build screens from `src/components/ui` and the `spacing`, `radius` and `typography` tokens. The parts: `Screen` (with `footer` and `fill`), `ScreenHeader`, `AppText`, `Button`, `IconButton`, `BarButton`, `Icon`, `Chip`, `ChipRow`, `SegmentedControl`, `OptionList`, `Card`, `ListRow`, `Avatar`, `Banner`, `Sheet`, `Dialog`, `TextField`, and `useToast()`.
+- Icons come only from `Icon` (`src/components/ui/icon.tsx`, built on `expo-symbols`). Add a name there, with both the iOS and the Android symbol; do not use `@expo/vector-icons`.
+- Colours with a meaning: `info`, `warning`, `success`, `danger`, each with a `…Soft` background. Use `Banner` for notices instead of red text on a card.
+- The tab bar is `Tabs` from `expo-router/js-tabs` (the `expo-router` export of `Tabs` is deprecated in SDK 58). Tab screens pass `edges={['top', 'left', 'right']}` to `Screen`.
+- Screens are components in `src/components/<area>/`; files in `src/app/` only read route params and render them. That is what lets the screens be unit tested.
+
+## Layout rules (PLAN.md, Phase 5.5)
+
+Do not add a feature by appending another block to an existing screen. Decide where it belongs first.
+
+1. One job per screen.
+2. Lists scroll; nothing else should need to. A screen that is not a list fits on one phone screen (`<Screen fill>`); a longer form is split into steps.
+3. The main action is pinned to the bottom (`<Screen footer={…}>`).
+4. Detail is one tap deeper, not unfolded in place: a list shows short rows, a row opens its own screen.
+5. A rarely changed choice is one `ListRow` showing its value, and opens a `Sheet`.
+6. Small edits and confirmations happen in a `Sheet` or a `Dialog`. Deleting and signing out always ask first.
 - Never commit keys, `.env` files or anything in `samples/`.
 - Made-up keys in tests and flows must look fake (`fake-gemini-key-for-tests`), never like a real key. GitHub flags key-shaped strings even when they are invented; `scripts/__tests__/no-key-shaped-strings.test.js` fails the check if one appears.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
@@ -77,5 +93,11 @@ Maestro reads the accessibility tree, which does not know what is actually cover
 - **`launchApp` with `clearState`:** reopens the Expo dev menu over the app. Use `common/ensure-signed-out.yaml` to get a clean start instead.
 - **Secure text fields** are blank in screenshots. That is iOS, not an empty field.
 - **Dev server:** start it without `CI=1`, or code changes are not picked up.
+- **A tap that "COMPLETED" but did nothing, in development mode:** about one live run in three lost the first tap on Results after the lines arrived (2026-11-26). The tap never reached the app: no touch event at all, nothing on screen in a recording. It did not happen in 8 runs with the app's code in production mode. It was not the screen transition, vibration, a remount or a visible overlay; the exact cause in the development build is not known. So `npm run e2e:live` runs against its own production-mode server on port 8082 (`expo start --no-dev --minify`), started and stopped by `scripts/e2e-live.sh`. The offline flows need development-only screens and use the dev server on 8081. If this shows up in an offline flow, rerun before changing app code.
+- **Which server a flow uses:** `common/open-app.yaml` reads `METRO_PORT` (default 8081).
+- **`ListRow` is a tappable card with a label**, so the pitfall above applies: its subtitle's `testID` is not in the tree. The row's label is "title, value, subtitle"; assert on the row's `id` with `text: ".*what you expect.*"`.
+- **A `ListRow` with `actions`** (the key rows with up and down arrows): the row's `id` is on its tappable part, and each action button keeps its own `id` beside it.
+- **Sheets and dialogs** are React Native `Modal`s. Their content is in the tree while open; close a sheet with `sheet-close`.
+- **Flows that seed a real key** (`live/generate.yaml`, `live/history.yaml`) remove the key and the saved history in `onFlowComplete`, which runs even when the flow fails. Keep it that way: a failed run must not leave a real key in a test account.
 
 When a flow fails, read the failure screenshot and the `screen-hierarchy` JSON under `.maestro/artifacts/<run>/` before changing app code.

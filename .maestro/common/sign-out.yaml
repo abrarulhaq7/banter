@@ -1,4 +1,5 @@
 # From any screen that shows a Sign out button (Settings, or the first onboarding screen).
+# Settings asks "Sign out?" first; onboarding does not.
 appId: com.banterlines.app
 ---
 - scrollUntilVisible:
@@ -9,6 +10,13 @@ appId: com.banterlines.app
 - waitForAnimationToEnd
 - tapOn:
     id: "sign-out-button"
+- runFlow:
+    when:
+      visible:
+        id: "dialog-confirm"
+    commands:
+      - tapOn:
+          id: "dialog-confirm"
 - extendedWaitUntil:
     visible:
       id: "sign-in-screen"

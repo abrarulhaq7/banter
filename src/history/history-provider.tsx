@@ -21,8 +21,11 @@ type HistoryContextValue = {
   personByUsername: (username: string) => PersonRow | undefined;
   /** Queues a change and tries to send it at once. Never throws. */
   save: (entry: OutboxEntry) => Promise<void>;
-  /** The last interactions with this person, as prompt memory. Empty when offline. */
-  memoryFor: (username: string) => Promise<Memory>;
+  /**
+   * The last interactions with this person, as prompt memory. Empty when offline.
+   * `sameScreenshot`: ids of the sets already made for the screenshot being worked on.
+   */
+  memoryFor: (username: string, sameScreenshot?: ReadonlySet<string>) => Promise<Memory>;
   listInteractions: (personId: string) => Promise<InteractionWithLines[]>;
   screenshotUrl: (path: string) => Promise<string | null>;
 };
@@ -122,11 +125,11 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
       await flush();
     },
 
-    async memoryFor(username) {
+    async memoryFor(username, sameScreenshot) {
       const person = people.find((item) => item.username === username);
       if (!person) return NO_MEMORY;
       try {
-        return buildMemory(await source.repo.listInteractions(person.id, MEMORY_SIZE));
+        return buildMemory(await source.repo.listInteractions(person.id, MEMORY_SIZE), sameScreenshot);
       } catch {
         // No connection: lines are still written, just without the history.
         return NO_MEMORY;

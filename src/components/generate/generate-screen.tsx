@@ -1,321 +1,221 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Card, Chip, Screen, type ScrollHandle } from '@/components/ui';
+import {
+  AppText,
+  Banner,
+  Button,
+  Chip,
+  ChipRow,
+  Icon,
+  ListRow,
+  OptionList,
+  Screen,
+  SegmentedControl,
+  Sheet,
+} from '@/components/ui';
 import { DEFAULT_MODES, DEFAULT_TONES, type ContextId, type ModeId, type ToneId } from '@/engine';
-import { adjustableLines } from '@/generate/session';
-import { useGenerate, type GenerateDeps } from '@/generate/use-generate';
+import { useGenerateSession } from '@/generate/generate-provider';
+import { CONTEXT_LABELS } from '@/history/labels';
+import { haptics } from '@/lib/haptics';
 import { radius, spacing, useTheme } from '@/theme';
 
-import { LineCard } from './line-card';
-import { PersonRow } from './person-row';
-import { ResultSetView } from './result-set-view';
-
-const MODES = Object.keys(DEFAULT_MODES) as ModeId[];
+const MODES = (Object.keys(DEFAULT_MODES) as ModeId[]).map((mode) => ({ value: mode, label: DEFAULT_MODES[mode].label }));
 const TONES = Object.keys(DEFAULT_TONES) as ToneId[];
-const CONTEXTS: { id: ContextId; label: string }[] = [
-  { id: 'stranger', label: 'Stranger' },
-  { id: 'mutual_follow', label: 'Mutual follow' },
-  { id: 'know_her', label: 'Know her' },
-  { id: 'already_talking', label: 'Already talking' },
-];
+const CONTEXTS = (Object.keys(CONTEXT_LABELS) as ContextId[]).map((id) => ({ value: id, label: CONTEXT_LABELS[id] }));
 
-type GenerateScreenProps = {
-  /** Tests replace the photo library, the AI call and the clipboard. */
-  deps?: Partial<GenerateDeps>;
-};
-
-/** Home: pick a screenshot, choose mode and tone, get lines. */
-export function GenerateScreen({ deps }: GenerateScreenProps) {
+/**
+ * The Generate tab: choose a screenshot and how the lines should sound, then ask for them.
+ * The lines themselves open on the Results screen. Everything here fits on one screen.
+ */
+export function GenerateScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const session = useGenerate(deps);
-
-  // After a generation the new lines, or the error, are below the fold. Bring them into view.
-  const scrollRef = useRef<ScrollHandle>(null);
-  const resultsTop = useRef(0);
-  const newestSetId = session.sets[0]?.id;
-  const errorMessage = session.error?.message;
-  useEffect(() => {
-    if (newestSetId || errorMessage) {
-      scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - spacing.sm), animated: true });
-    }
-  }, [newestSetId, errorMessage]);
+  const session = useGenerateSession();
+  const [contextOpen, setContextOpen] = useState(false);
 
   const busy = session.phase !== 'idle';
   const isAnalyse = session.mode === 'analyse';
-  const keptIds = new Set(session.kept.map((line) => line.id));
-  const canAdjust = adjustableLines(session.sets[0]) !== null;
+  const setCount = session.sets.length;
 
-  const errorAction = (() => {
-    switch (session.error?.kind) {
-      case 'no_keys':
-        return { label: 'Add a key', run: () => router.push('/keys/add') };
-      case 'wrong_key':
-      case 'limit':
-      case 'no_credit':
-        return { label: 'Manage keys', run: () => router.push('/keys') };
-      case 'screenshot':
-        return { label: 'Pick from gallery', run: session.pickScreenshot };
-      case undefined:
-        return null;
-      default:
-        return { label: 'Try again', run: session.generate };
-    }
-  })();
+  // Results opens at once and shows the wait, the lines, or what went wrong. Opening it
+  // here, on the tap, matters: a screen the app opens by itself after a wait can lose the
+  // user's first tap on iOS (seen on the simulator: the tap never reached the app).
+  const getLines = () => {
+    router.push('/results');
+    void session.generate().then((arrived) => (arrived ? haptics.success() : haptics.error()));
+  };
+
+  // Only a problem with choosing the screenshot is shown here. A failed request for lines
+  // is shown on Results, where it was asked for.
+  const screenshotError = session.error?.kind === 'screenshot' ? session.error : null;
 
   return (
-    <Screen testID="generate-screen" scrollViewRef={scrollRef}>
-      <View style={styles.titleRow}>
-        <AppText variant="display" accessibilityRole="header">
-          Banter
-        </AppText>
-        <View style={styles.titleLinks}>
+    <Screen
+      testID="generate-screen"
+      fill
+      edges={['top', 'left', 'right']}
+      contentStyle={styles.content}
+      footer={
+        <View style={styles.footerRow}>
+          {setCount > 0 ? (
+            <Button
+              testID="view-lines"
+              style={styles.fill}
+              variant="secondary"
+              label={`Lines (${setCount})`}
+              onPress={() => router.push('/results')}
+              disabled={busy}
+            />
+          ) : null}
           <Button
-            testID="open-people"
-            variant="ghost"
-            size="sm"
-            label="People"
-            style={styles.titleLink}
-            onPress={() => router.push('/people')}
-          />
-          <Button
-            testID="open-settings"
-            variant="ghost"
-            size="sm"
-            label="Settings"
-            style={styles.titleLink}
-            onPress={() => router.push('/settings')}
+            testID="generate-button"
+            style={styles.main}
+            icon="generate"
+            label={isAnalyse ? 'Analyse this chat' : 'Get lines'}
+            onPress={getLines}
+            disabled={busy || !session.screenshot}
           />
         </View>
-      </View>
+      }>
+      <AppText variant="display" accessibilityRole="header">
+        Banter
+      </AppText>
 
       {!session.hasUsableKey ? (
-        <Card testID="no-key-notice">
-          <AppText variant="label" color="accentAlt">
-            Add an AI key to start
-          </AppText>
-          <AppText variant="caption" color="textMuted">
-            Banter writes lines with your own key from Gemini, OpenAI or Claude.
-          </AppText>
-          <Button
-            testID="no-key-add"
-            variant="ghost"
-            size="sm"
-            label="Add a key"
-            style={styles.inlineAction}
-            onPress={() => router.push('/keys/add')}
-          />
-        </Card>
+        <Banner
+          testID="no-key-notice"
+          tone="warning"
+          title="Add an AI key to start"
+          action={{ testID: 'no-key-add', label: 'Add a key', onPress: () => router.push('/keys/add') }}>
+          Banter writes lines with your own key from Gemini, OpenAI or Claude.
+        </Banner>
       ) : null}
 
-      <View style={styles.group}>
+      {/* The screenshot takes whatever room the rest leaves. */}
+      <View style={[styles.zone, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {session.screenshot ? (
           <Image
             testID="screenshot-preview"
             source={{ uri: session.screenshot.previewUri }}
             resizeMode="contain"
             accessibilityLabel="The screenshot you chose"
-            style={[styles.preview, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={styles.preview}
           />
         ) : (
-          <AppText color="textMuted">
-            Take a screenshot in Instagram of her story, profile or chat, then choose it here.
-          </AppText>
+          <View testID="screenshot-empty" style={styles.empty}>
+            <Icon name="screenshot" size={40} color="accent" />
+            <AppText color="textMuted" style={styles.centerText}>
+              Screenshot her story, profile or chat in Instagram, then choose it here.
+            </AppText>
+          </View>
         )}
-        {/* Full labels need the full width before a screenshot is chosen; after that the
-            two buttons share a row with shorter labels. */}
-        <View style={session.screenshot ? styles.buttonRow : styles.group}>
-          <Button
-            testID="use-latest"
-            style={session.screenshot ? styles.fill : undefined}
-            variant={session.screenshot ? 'secondary' : 'primary'}
-            label={session.screenshot ? 'Use newest' : 'Use latest screenshot'}
-            onPress={session.useLatestScreenshot}
-            loading={session.phase === 'loadingScreenshot'}
-            disabled={busy}
-          />
-          <Button
-            testID="pick-gallery"
-            style={session.screenshot ? styles.fill : undefined}
-            variant="secondary"
-            label={session.screenshot ? 'Pick another' : 'Pick from gallery'}
-            onPress={session.pickScreenshot}
-            disabled={busy}
-          />
-        </View>
+      </View>
+      <View style={styles.row}>
+        <Button
+          testID="use-latest"
+          style={styles.fill}
+          size="sm"
+          variant={session.screenshot ? 'secondary' : 'primary'}
+          icon="screenshot"
+          label="Use latest"
+          onPress={session.useLatestScreenshot}
+          loading={session.phase === 'loadingScreenshot'}
+          disabled={busy}
+        />
+        <Button
+          testID="pick-gallery"
+          style={styles.fill}
+          size="sm"
+          variant="secondary"
+          icon="gallery"
+          label="From gallery"
+          onPress={session.pickScreenshot}
+          disabled={busy}
+        />
       </View>
 
-      <View style={styles.group}>
-        <AppText variant="label" color="textMuted">
-          Mode
-        </AppText>
-        <View style={styles.chips}>
-          {MODES.map((mode) => (
-            <Chip
-              key={mode}
-              testID={`mode-${mode}`}
-              label={DEFAULT_MODES[mode].label}
-              selected={mode === session.mode}
-              onPress={() => session.setMode(mode)}
-              disabled={busy}
-            />
-          ))}
-        </View>
-      </View>
+      <SegmentedControl
+        testIDPrefix="mode"
+        options={MODES}
+        value={session.mode}
+        onChange={session.setMode}
+        disabled={busy}
+      />
 
       {!isAnalyse ? (
-        <View style={styles.group}>
-          <AppText variant="label" color="textMuted">
-            Tone
-          </AppText>
-          <View style={styles.chips}>
-            {TONES.map((tone) => (
-              <Chip
-                key={tone}
-                testID={`tone-${tone}`}
-                label={DEFAULT_TONES[tone].label}
-                selected={tone === session.tone}
-                onPress={() => session.setTone(tone)}
-                disabled={busy}
-              />
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      <View style={styles.group}>
-        <AppText variant="label" color="textMuted">
-          How you know her (optional)
-        </AppText>
-        <View style={styles.chips}>
-          {CONTEXTS.map((context) => (
+        <ChipRow testID="tone-row">
+          {TONES.map((tone) => (
             <Chip
-              key={context.id}
-              testID={`context-${context.id}`}
-              label={context.label}
-              selected={context.id === session.context}
-              onPress={() => session.setContext(context.id)}
+              key={tone}
+              testID={`tone-${tone}`}
+              label={DEFAULT_TONES[tone].label}
+              selected={tone === session.tone}
+              onPress={() => session.setTone(tone)}
               disabled={busy}
             />
           ))}
-        </View>
-      </View>
+        </ChipRow>
+      ) : null}
 
-      <Button
-        testID="generate-button"
-        label={isAnalyse ? 'Analyse this chat' : session.sets.length > 0 ? 'Get lines in this tone' : 'Get lines'}
-        onPress={session.generate}
-        loading={session.phase === 'generating'}
-        disabled={busy || !session.screenshot}
+      <ListRow
+        testID="context-row"
+        icon="person"
+        title="How you know her"
+        value={session.context ? CONTEXT_LABELS[session.context] : 'Not set'}
+        onPress={() => setContextOpen(true)}
       />
 
-      {/* Marks where the results begin, for scrolling to them. */}
-      <View
-        onLayout={(event) => {
-          resultsTop.current = event.nativeEvent.layout.y;
-        }}
-      />
-
-      {session.error ? (
-        <Card testID="generate-error">
-          <AppText testID="generate-error-message" color="danger" accessibilityRole="alert">
-            {session.error.message}
-          </AppText>
-          {errorAction ? (
-            <Button
-              testID="generate-error-action"
-              variant="ghost"
-              size="sm"
-              label={errorAction.label}
-              style={styles.inlineAction}
-              onPress={errorAction.run}
-              disabled={busy}
-            />
-          ) : null}
-        </Card>
+      {screenshotError ? (
+        <Banner
+          testID="generate-error"
+          tone="danger"
+          messageTestID="generate-error-message"
+          action={{
+            testID: 'generate-error-action',
+            label: 'Pick from gallery',
+            onPress: session.pickScreenshot,
+            disabled: busy,
+          }}>
+          {screenshotError.message}
+        </Banner>
       ) : null}
 
-      {session.sets.length > 0 ? (
-        <PersonRow username={session.username} onChange={session.setUsername} />
-      ) : null}
-
-      {session.kept.length > 0 ? (
-        <View testID="kept-strip" style={styles.group}>
-          <AppText variant="heading" accessibilityRole="header">
-            Kept
-          </AppText>
-          {session.kept.map((line, position) => (
-            <LineCard
-              key={line.id}
-              testKey={`kept-${position}`}
-              text={line.text}
-              caption={line.label}
-              copied={session.copiedLineId === `kept:${line.id}`}
-              kept
-              onCopy={() => session.copyLine(`kept:${line.id}`, line.text)}
-              onToggleKeep={() => session.toggleKeep(line)}
-            />
-          ))}
-        </View>
-      ) : null}
-
-      {session.sets.map((set, index) => (
-        <View key={set.id} style={styles.group}>
-          <ResultSetView
-            set={set}
-            index={index}
-            copiedLineId={session.copiedLineId}
-            keptIds={keptIds}
-            onCopy={session.copyLine}
-            onToggleKeep={session.toggleKeep}
-          />
-          {index === 0 && canAdjust ? (
-            <View style={styles.buttonRow}>
-              <Button
-                testID="adjust-new_lines"
-                style={styles.fill}
-                variant="secondary"
-                size="sm"
-                label="New lines"
-                onPress={() => session.adjust('new_lines')}
-                disabled={busy}
-              />
-              <Button
-                testID="adjust-shorter"
-                style={styles.fill}
-                variant="secondary"
-                size="sm"
-                label="Shorter"
-                onPress={() => session.adjust('shorter')}
-                disabled={busy}
-              />
-              <Button
-                testID="adjust-bolder"
-                style={styles.fill}
-                variant="secondary"
-                size="sm"
-                label="Bolder"
-                onPress={() => session.adjust('bolder')}
-                disabled={busy}
-              />
-            </View>
-          ) : null}
-        </View>
-      ))}
+      <Sheet
+        testID="context-sheet"
+        visible={contextOpen}
+        title="How you know her"
+        subtitle="Optional. Banter remembers it for this person. Tap the chosen one again to clear it."
+        onClose={() => setContextOpen(false)}>
+        <OptionList
+          testIDPrefix="context"
+          options={CONTEXTS}
+          value={session.context}
+          onSelect={(context) => {
+            session.setContext(context);
+            setContextOpen(false);
+          }}
+        />
+      </Sheet>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  titleLinks: { flexDirection: 'row', gap: spacing.md },
-  titleLink: { paddingHorizontal: 0 },
-  group: { gap: spacing.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  buttonRow: { flexDirection: 'row', gap: spacing.sm },
+  content: { gap: spacing.md, paddingBottom: spacing.md },
+  zone: {
+    flex: 1,
+    minHeight: 150,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  preview: { flex: 1 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
+  centerText: { textAlign: 'center' },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  footerRow: { flexDirection: 'row', gap: spacing.sm },
   fill: { flex: 1 },
-  inlineAction: { alignSelf: 'flex-start', paddingHorizontal: 0 },
-  preview: { height: 200, borderRadius: radius.lg, borderWidth: 1 },
+  main: { flex: 2 },
 });

@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 5 (People and history) is built and tested on the simulator against the real Supabase project with real Gemini answers (2026-11-25), waiting for your approval.** Phase 4 (Generate screen) is done. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
+Status: **Phase 5.5 (App feel) is built and tested on the simulator (2026-11-26), waiting for your approval: tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -60,14 +60,24 @@ are cold) and one suggested reply.
 
 ## 4. Screens
 
+Up to Phase 5 the app had one long Generate screen holding everything. From Phase 5.5
+the screens are these (the rules behind the split are in Phase 5.5):
+
+Bottom tab bar: **Generate · People · My tones (from Phase 6) · Settings**
+
 1. Sign in / Sign up
-2. Onboarding: about you, then add your first API key
-3. Generate (home): screenshot, mode, tone, context, results
-4. People: list of everyone you have used Banter with
-5. Person: timeline of screenshots, lines, chosen line, result
-6. My tones: edit what each tone means, add your own, reset
-7. Keys: add, order, disable, delete keys; pick model per provider
-8. Settings: profile, theme, data controls, sign out
+2. Onboarding, three short steps: about you, how you sound, your first API key
+3. Generate (tab): the screenshot and the choices for it. Nothing else
+4. Results (opens after "Get lines"): the lines for this screenshot, one set at a time
+5. People (tab): list of everyone you have used Banter with
+6. Person: who she is, and one row per screenshot you used Banter on
+7. Screenshot detail: the lines written for one screenshot, which were used, how it went
+8. My tones (tab, Phase 6): edit what each tone means, add your own, reset
+9. Settings (tab): a short list that opens About you, AI keys, Theme, Data, Sign out
+10. About you: one row per fact; a row opens a sheet to change it
+11. AI keys: one row per key, in the order they are tried; a row opens its key
+12. One key: name, model, on or off, check again, delete
+13. Add a key: provider, the key, model
 
 ## 5. Data in Supabase
 
@@ -526,11 +536,182 @@ Known limits:
 - **A person cannot be deleted or renamed from the People screen yet**, and there are no
   notes. Say if you want these in this phase.
 
+### Phase 5.5 — App feel
+
+Goal: Banter looks and behaves like a phone app: icons, a bottom tab bar, dialogs and
+sheets, more than one colour, and no screen you have to scroll through to use.
+
+Added on 2026-11-25 at your request, before Phase 6, so My tones and the rest of
+Settings are built with these parts from the start instead of being redone.
+
+**Layout rules** (they apply to every screen from now on, and I check them in tests):
+
+1. **One job per screen.** Choosing a screenshot is one job; reading the lines is another.
+2. **Lists scroll. Nothing else should need to.** A screen that is not a list fits on one
+   phone screen. A form too long for that is split into steps.
+3. **The main button is pinned to the bottom**, always in reach without scrolling.
+4. **Detail is one tap deeper, not unfolded in place.** A list shows short rows; tapping a
+   row opens its own screen.
+5. **A choice that is rarely changed shows as one row** with its current value, and opens
+   a sheet to change it.
+6. **Small edits and confirmations happen in a sheet or a dialog**, not on a new page and
+   not inline in the middle of other content.
+
+**Step A: building blocks.** Built and shown on the dev-only gallery screen first, so you
+approve the look before any real screen changes.
+
+1. Icons: one `Icon` component on `expo-symbols`, which Expo recommends (Apple's symbols
+   on iOS, Google's on Android). `@expo/vector-icons` is being retired, so it is not used.
+2. Colours: every theme gets info, warning, success and danger, each as a soft background
+   with a matching text colour. Still defined only in `src/theme`.
+3. Cards and rows: raised, outlined and tinted cards. A list row with an icon or an
+   initial on the left, two lines of text, and an arrow on the right.
+4. Controls: a segmented control (for the four modes), a one-line chip row that scrolls
+   sideways (for tones), and a bottom action bar that stays pinned.
+5. Dialog: a confirm dialog, in the danger colour for deleting and signing out.
+6. Sheet: a bottom sheet for small edits and pickers (Expo Router's `formSheet`).
+7. Toast: a short message at the bottom for "Copied", "Kept", "Saved".
+8. Vibration: a light tap on Copy, Keep and errors (`expo-haptics`).
+
+**Step B: navigation.** The tab bar and the new routes, with today's content moved into
+them unchanged, so the structure can be tested before the screens are redrawn.
+
+1. Bottom tab bar in the app's own theme colours: Generate, People, Settings. The
+   system-drawn tab bar is not used: on new iPhones its colour cannot be set and it does
+   not follow the in-app theme. (I read Expo's page for the system one; I will read the
+   page for the themed one before building.)
+2. The tab bar is hidden on screens opened on top of a tab (Results, Person, Screenshot
+   detail, key and profile forms), which have a Back button instead.
+3. The current screenshot and its line sets are held above both Generate and Results, so
+   going back and forth loses nothing.
+
+**Step C: the screens, one at a time.**
+
+1. **Generate:** a large screenshot area (tap for the latest, or pick from the gallery),
+   the modes as a segmented control, the tones as one row of chips, "How you know her" as
+   one row that opens a sheet, and "Get lines" pinned to the bottom. No scrolling.
+2. **Results:** opens when the lines arrive. The screenshot as a thumbnail and "Saved
+   under @username" at the top (tap to correct it in a sheet). One set of three lines on
+   screen. Earlier sets are still never replaced: a row of chips ("Casual", "Flirty",
+   "Flirty · Shorter") switches between them instead of stacking them down the page.
+   Another tone, New lines, Shorter and Bolder sit in the pinned bottom bar. Kept lines
+   open from a "Kept (2)" button into a sheet. Copy shows a toast and a tap.
+3. **People:** rows with an initial, the username, how you know her and when. A search
+   field once the list is long.
+4. **Person:** her name and how you know her at the top (changed in a sheet), then one
+   short row per screenshot: thumbnail, date, tones tried, and an icon for how it went.
+5. **Screenshot detail:** opens from a row. The same layout as Results, with Copied, Kept,
+   Replied and No reply. This replaces the long timeline.
+6. **Settings:** a short list with icons: Profile, API keys, Theme, Sign out. Sign out and
+   every delete ask in a dialog first.
+7. **Keys, Profile, Sign in, Onboarding:** icons, the new cards, pinned main buttons, and
+   any form longer than one screen split into steps.
+
+How I test: each layout rule that can be checked is checked. On the smallest phone the
+app supports, a Maestro flow confirms the main button of Generate and of Results is
+visible without scrolling, and that three lines fit on Results. Every existing flow is
+updated for the tab bar and must still pass, including the two live ones for Generate
+and history. Unit tests cover the new parts. Screenshots of every screen in all three
+themes at the end of each step.
+
+What it costs: no database changes. One rebuild of the simulator app, because icons and
+vibration are native parts. Nothing that Phase 5 saves changes.
+
+**Phase 5.5 result (2026-11-26):** built and tested on the simulator, waiting for your
+approval. `npm run check` passes (528 unit tests). The offline Maestro flows pass.
+The five live flows pass against the real Supabase project with real Gemini answers.
+Screenshots in `.maestro/artifacts/phase-5.5/`.
+
+Built:
+
+- **Tab bar:** Generate, People, Settings, in the theme's colours, with icons.
+- **Generate tab:** only the screenshot and the choices. Modes are a segmented control,
+  tones one row of chips, "How you know her" one row that opens a sheet. "Get lines" is
+  pinned to the bottom. It fits on one screen.
+- **Results screen:** opens the moment "Get lines" is tapped and shows "Reading the
+  screenshot…" until the lines arrive. One set of three lines on screen; chips switch
+  between sets, so nothing is replaced and nothing stacks. Tone, New lines, Shorter and
+  Bolder are pinned to the bottom and act on the set being looked at. Kept lines open in
+  a sheet from a counter at the top. The username is corrected in a sheet. A failed
+  request is explained here, with Try again repeating exactly what failed.
+- **People tab:** rows with an initial, the username, how you know her and when; a search
+  field from eight people on.
+- **Person:** her name, "How you know her" as one row, then one short row per screenshot
+  with the tones tried and how it went (She replied, No reply, Sent, Not used).
+- **Screenshot detail:** opens from a row. The screenshot is a thumbnail (tap to see it
+  large); the sets are behind chips; a copied line can be marked She replied or No reply.
+  This replaces the long timeline.
+- **Settings tab:** a short menu with icons: About you, AI keys, Theme (its own screen),
+  Sign out. Sign out asks in a dialog first.
+- **About you:** six rows showing what is saved (Name, Age, City, Work or study,
+  Interests, How you text). A row opens a sheet with that one field and Save.
+- **AI keys:** one row per key with its state and model, and up and down arrows for the
+  order. "Add a key" is pinned to the bottom. A row opens the key.
+- **One key:** a short menu: Name and Model open sheets, then Turn off, Check again and
+  Delete. Delete asks in the app's own dialog. What the provider said about a rejected
+  key is shown here in a red notice, not in the list.
+- **Add a key:** provider as a segmented control, the key, Model as one row that opens a
+  sheet, an optional name. "Check and save" is pinned.
+- **Onboarding:** three steps that each fit on one screen with Continue pinned: about you
+  (name, age, city, work), how you sound (interests, how you text; optional), your key.
+  It was two steps with one long form.
+- **Sign in and sign up:** buttons pinned to the bottom; problems shown as notices.
+- **Building blocks** (`src/components/ui`): icons, icon buttons, banners in four colours,
+  list rows, avatar, segmented control, chip row, option list, sheet, dialog, toast,
+  pinned footer, raised and tinted cards. All shown on the dev-only gallery screen.
+- **Feedback:** a toast for Copied, Kept and Saved, and a light vibration on copy, keep
+  and when lines arrive or fail.
+- **Colours:** info and warning joined success and danger, each with a soft background,
+  in all three themes. Contrast is checked by tests.
+
+Changed from the plan above, with the reason:
+
+- **Sheets and dialogs are React Native's `Modal`, not Expo Router's `formSheet`.** A
+  sheet has to hand a value back to the screen under it and be covered by unit tests; a
+  route cannot do the first simply.
+- **Results opens on the tap, not when the lines arrive.** Better feedback, and one screen
+  less that appears by itself.
+- **The tab bar is `Tabs` from `expo-router/js-tabs`.** Read from the installed package:
+  the `expo-router` export I knew is deprecated in SDK 58.
+
+Not done in this phase:
+
+- **The "Could not load your account" and crash screens** were left as they were.
+- **Only the iPhone 17 simulator was used.** The "fits without scrolling" check has not
+  been run on a small phone, and nothing was run on Android.
+- **Screenshots in all three themes** exist for the gallery only.
+- **My tones tab** comes with Phase 6.
+
+Found while testing, and what was done:
+
+- **A lost first tap in development mode.** About one live run in three, the first tap on
+  Results after the lines arrived did nothing, and the next tap worked. With logging in
+  the app, the tap never arrived at all; a screen recording showed nothing on screen. It
+  was not the screen sliding in, the vibration, or the screen being rebuilt. With the
+  app's code in production mode it did not happen in 8 runs. The exact cause inside the
+  development build is not known. The live flows now run in production mode, as the app
+  ships (`npm run e2e:live` starts its own server on port 8082). This should be watched
+  for on a real phone in Phase 8.
+- **A Phase 5 bug: the AI refused to write a second tone.** A line copied a moment ago,
+  for the screenshot still being worked on, was passed to the AI as "sent, waiting for a
+  reply". It read that as silence and answered "do not chase". Fixed: sets made for the
+  same screenshot are now passed as "already offered", never as sent, and the prompt says
+  that only "sent, no reply" counts as unanswered.
+- **The automatic Replied / No reply from a chat screenshot does not work yet.** It needs
+  the person's history in the prompt, and for a new screenshot the person is only known
+  after the AI has answered. Phase 5 listed "the first set has no memory" as a limit; this
+  is its consequence, and I had not seen it then. Marking by hand works. A fix: have the
+  AI report the sender's last message in the chat and whether she answered it, and match
+  that to the saved line afterwards. To be decided with Phase 6.
+- **A failed live run can no longer leave your key in a test account:** the flows that
+  use the real key remove it and the saved history however the flow ends.
+
 ### Phase 6 — Personal prompts
 
 Goal: each user shapes the tones, and you can change defaults at any time.
 
-1. My tones screen: edit each tone's definition, add a custom tone, reset to default.
+1. My tones screen, as its own tab: a list of tones; tapping one opens it to edit its
+   definition. Add a custom tone, reset to default.
 2. "Personalise for me": the model reads your profile and your history (which lines you
    chose, which got replies) and suggests changes to your tones. You accept or reject.
 3. The app fetches default prompts from Supabase on start and keeps a copy for
@@ -549,7 +730,8 @@ Goal: the app feels finished for daily personal use.
    profile so it follows them to another phone, and cached on the phone so the app
    opens in the right colours before sign-in finishes.
 2. Usage view: how many generations per provider, model and key.
-3. Empty states, loading states, small animations, haptics.
+3. Empty states, loading states, small animations. (Haptics, icons, dialogs and the
+   tab bar moved to Phase 5.5.)
 4. App icon and splash screen for Banter. **Done on 2026-11-25** (see Phase 4 result).
 
 How I test: full Maestro run of every flow. Deletions confirmed in the database and
@@ -671,6 +853,11 @@ agreements are recorded here.
 
 - Work one phase at a time. Show simulator screenshots and test results at the end
   of each phase and wait for approval before the next.
+- Two servers: `npm start` is the dev server on port 8081 (development, offline flows).
+  `npm run e2e:live` starts and stops its own production-mode server on port 8082.
+- Screens follow the layout rules in Phase 5.5. The user's words on 2026-11-25: putting
+  everything on one long scrolling screen "is stupidity"; make design decisions like a
+  senior engineer, without being asked.
 - Test on the iOS simulator first. Make physical device builds only in Phase 8.
 - Ask the user when Supabase setup or any key is needed. Never commit keys.
 - The two reference images (`IMG_5087.HEIC`, `IMG_5088.HEIC`) show a keyboard-style

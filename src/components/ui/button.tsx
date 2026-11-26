@@ -9,11 +9,14 @@ import {
 import { MIN_TOUCH_TARGET, radius, spacing, useTheme, type ColorRole } from '@/theme';
 
 import { AppText } from './app-text';
+import { Icon, type IconName } from './icon';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export type ButtonProps = {
   label: string;
+  /** Drawn before the label. */
+  icon?: IconName;
   onPress?: () => void;
   /**
    * primary: the main action. secondary: other actions. ghost: low-emphasis text button.
@@ -38,6 +41,7 @@ const CONTENT_COLOR: Record<ButtonVariant, ColorRole> = {
 
 export function Button({
   label,
+  icon,
   onPress,
   variant = 'primary',
   size = 'md',
@@ -77,9 +81,12 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={colors[contentColor]} />
       ) : (
-        <AppText variant={size === 'sm' ? 'label' : 'bodyStrong'} color={contentColor} numberOfLines={1}>
-          {label}
-        </AppText>
+        <>
+          {icon ? <Icon name={icon} size={size === 'sm' ? 16 : 18} color={contentColor} /> : null}
+          <AppText variant={size === 'sm' ? 'label' : 'bodyStrong'} color={contentColor} numberOfLines={1}>
+            {label}
+          </AppText>
+        </>
       )}
     </Pressable>
   );
@@ -90,6 +97,8 @@ const styles = StyleSheet.create({
     minHeight: 50,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

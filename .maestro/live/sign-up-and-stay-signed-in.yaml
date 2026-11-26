@@ -23,9 +23,10 @@ appId: com.banterlines.app
 - runFlow: ../common/sign-up-new-account.yaml
 - runFlow: ../common/finish-onboarding-quickly.yaml
 - runFlow: ../common/go-to-settings.yaml
+# The row reads "About you, <email>".
 - assertVisible:
-    id: "account-email"
-    text: ${output.email}
+    id: "edit-profile"
+    text: ".*${output.email}.*"
 - takeScreenshot: live-signed-in
 
 # Restart the app without clearing anything: still signed in.
@@ -36,9 +37,10 @@ appId: com.banterlines.app
       id: "generate-screen"
     timeout: 90000
 - runFlow: ../common/go-to-settings.yaml
+# The row reads "About you, <email>".
 - assertVisible:
-    id: "account-email"
-    text: ${output.email}
+    id: "edit-profile"
+    text: ".*${output.email}.*"
 - takeScreenshot: live-still-signed-in-after-restart
 
 # Sign out: back to the sign-in screen, and the app is no longer reachable.

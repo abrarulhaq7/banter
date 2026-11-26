@@ -1,5 +1,5 @@
 import { PeopleScreen } from '@/components/people/people-screen';
 
-export default function PeopleRoute() {
+export default function PeopleTab() {
   return <PeopleScreen />;
 }

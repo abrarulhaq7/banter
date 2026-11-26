@@ -43,6 +43,12 @@ function profileText(profile: SenderProfile): string | null {
 
 function memoryText(memory: MemoryItem[]): string {
   const items = memory.slice(0, 5).map((item) => {
+    if (item.sameScreenshot) {
+      // Other sets for the screenshot in front of the model. He is still choosing: a copied
+      // line here is not a message she has had time to answer.
+      const heading = ['Just now, for this same screenshot', item.modeLabel, item.toneLabel].filter(Boolean).join(', ');
+      return [heading, ...item.lines.map((line) => `- "${line.text}" (already offered)`)].join('\n');
+    }
     const heading = [item.at.slice(0, 10), item.modeLabel, item.toneLabel].filter(Boolean).join(', ');
     const lines = item.lines.map((line) => {
       const outcome = !line.copied
@@ -58,7 +64,7 @@ function memoryText(memory: MemoryItem[]): string {
     });
     return [heading, ...lines].join('\n');
   });
-  return `${items.join('\n\n')}\n\nDo not repeat these lines or their hooks. You may refer back to something that was sent. If the last lines sent got no reply, do not chase.`;
+  return `${items.join('\n\n')}\n\nDo not repeat these lines or their hooks. You may refer back to something that was sent. Only a line marked "sent, no reply" went unanswered: then do not chase it, and write lines that stand on their own. "Sent, waiting for a reply" and "already offered" are not silence.`;
 }
 
 export function buildPrompt(input: PromptInput): BuiltPrompt {

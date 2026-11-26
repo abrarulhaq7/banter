@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/auth';
 import { CrashScreen } from '@/components/crash-screen';
+import { ToastProvider } from '@/components/ui';
 import { ThemeProvider, useTheme } from '@/theme';
 
 // Keep the splash screen up until the saved session has been read, so a signed-in user
@@ -23,7 +24,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <RootNavigator />
+        {/* Toasts ("Copied") are drawn above whichever screen is open. */}
+        <ToastProvider>
+          <RootNavigator />
+        </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

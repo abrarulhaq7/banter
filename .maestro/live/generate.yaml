@@ -1,4 +1,4 @@
-# Phase 4 acceptance test: the Generate screen end to end, with real answers from Gemini.
+# The Generate tab and the Results screen end to end, with real answers from Gemini.
 #
 # Uses the newest photo in the simulator (put there by scripts/sim-photos.sh, which
 # npm run e2e:live runs first) and the Gemini key from keys.local.json. The key is saved
@@ -9,6 +9,19 @@
 #
 #   npm run e2e:live -- .maestro/live/generate.yaml
 appId: com.banterlines.app
+# Runs however the flow ends, so a failed run never leaves the real key or saved history
+# in its test account.
+onFlowComplete:
+  - runScript:
+      file: ../scripts/remove-history.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-keys.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
 ---
 - runFlow:
     file: ../common/new-test-account.yaml
@@ -56,14 +69,29 @@ appId: com.banterlines.app
     visible:
       id: "screenshot-preview"
     timeout: 30000
+# Layout rule: everything on this tab, and its main button, is in reach without scrolling.
+- assertVisible:
+    id: "mode-story_reply"
+- assertVisible:
+    id: "tone-casual"
+- assertVisible:
+    id: "context-row"
+- assertVisible:
+    id: "generate-button"
 - takeScreenshot: generate-screenshot-chosen
 
-# --- Story reply, Casual -----------------------------------------------------------------
-- scrollUntilVisible:
-    element:
-      id: "generate-button"
-    direction: DOWN
-- waitForAnimationToEnd
+# "How you know her" is one row; the choices open in a sheet.
+- tapOn:
+    id: "context-row"
+- assertVisible:
+    id: "context-stranger"
+- takeScreenshot: generate-context-sheet
+- tapOn:
+    id: "context-stranger"
+- assertNotVisible:
+    id: "context-stranger"
+
+# --- Story reply, Casual: the lines open on their own screen ------------------------------
 - tapOn:
     id: "generate-button"
 - runFlow:
@@ -71,7 +99,14 @@ appId: com.banterlines.app
     env:
       HEADING: "Casual · Story reply"
 - assertVisible:
+    id: "results-screen"
+# Layout rule: three lines and the action bar fit without scrolling.
+- assertVisible:
     id: "line-0-0"
+- assertVisible:
+    id: "line-0-2"
+- assertVisible:
+    id: "adjust-shorter"
 - takeScreenshot: generate-lines-casual
 
 # Tap a line to copy it.
@@ -80,56 +115,50 @@ appId: com.banterlines.app
 - assertVisible:
     id: "line-status-0-0"
     text: "Copied"
+- assertVisible:
+    id: "toast"
 
 # Keep the second line.
-- scrollUntilVisible:
-    element:
-      id: "keep-0-1"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "keep-0-1"
-- runFlow: ../common/scroll-to-top.yaml
+- assertVisible:
+    id: "kept-button"
 
-# --- Another tone: the earlier lines stay ------------------------------------------------
-- scrollUntilVisible:
-    element:
-      id: "tone-flirty"
-    direction: DOWN
-- waitForAnimationToEnd
+# --- Another tone: the earlier lines stay, behind a chip ---------------------------------
+- tapOn:
+    id: "another-tone"
+- assertVisible:
+    id: "tone-flirty"
+- takeScreenshot: generate-tone-sheet
 - tapOn:
     id: "tone-flirty"
-- scrollUntilVisible:
-    element:
-      id: "generate-button"
-    direction: DOWN
-- waitForAnimationToEnd
-- tapOn:
-    id: "generate-button"
 - runFlow:
     file: ../common/wait-for-result.yaml
     env:
       HEADING: "Flirty · Story reply"
-# The kept line is pinned above the results.
-- assertVisible:
-    id: "kept-strip"
 - takeScreenshot: generate-kept-and-flirty
-# The Casual set is still there, below the Flirty one.
-- scrollUntilVisible:
-    element:
-      id: "result-heading-1"
-    direction: DOWN
+# The Casual set is one tap away.
+- tapOn:
+    id: "set-chip-1"
 - assertVisible:
-    id: "result-heading-1"
+    id: "result-heading-0"
     text: "Casual · Story reply"
+- tapOn:
+    id: "set-chip-0"
+- assertVisible:
+    id: "result-heading-0"
+    text: "Flirty · Story reply"
+
+# The kept line is in its sheet.
+- tapOn:
+    id: "kept-button"
+- assertVisible:
+    id: "line-kept-0"
+- takeScreenshot: generate-kept-sheet
+- tapOn:
+    id: "sheet-close"
 
 # --- Shorter -----------------------------------------------------------------------------
-- runFlow: ../common/scroll-to-top.yaml
-- scrollUntilVisible:
-    element:
-      id: "adjust-shorter"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "adjust-shorter"
 - runFlow:
@@ -138,23 +167,21 @@ appId: com.banterlines.app
       HEADING: "Flirty · Story reply · Shorter"
 - takeScreenshot: generate-shorter
 
-# --- Analyse -----------------------------------------------------------------------------
-- runFlow: ../common/scroll-to-top.yaml
-- scrollUntilVisible:
-    element:
-      id: "mode-analyse"
-    direction: DOWN
-- waitForAnimationToEnd
+# --- Analyse, from the Generate tab ------------------------------------------------------
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 15000
+# The lines made so far are one tap away.
+- assertVisible:
+    id: "view-lines"
 - tapOn:
     id: "mode-analyse"
 # Analyse has no tone.
 - assertNotVisible:
     id: "tone-flirty"
-- scrollUntilVisible:
-    element:
-      id: "generate-button"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "generate-button"
 - runFlow:
@@ -167,11 +194,13 @@ appId: com.banterlines.app
     id: "result-analysis-0|result-declined-0"
 - takeScreenshot: generate-analyse
 
-# --- Clean up: take the real key out of the test account ---------------------------------
-- runScript:
-    file: ../scripts/remove-keys.js
-    env:
-      EMAIL: ${output.email}
-      PASSWORD: ${output.password}
+# --- Leave the app signed out. The key and the saved history are removed by onFlowComplete. --
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 15000
 - runFlow: ../common/go-to-settings.yaml
+- takeScreenshot: settings
 - runFlow: ../common/sign-out.yaml

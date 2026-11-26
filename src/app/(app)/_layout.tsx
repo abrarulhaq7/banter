@@ -6,6 +6,7 @@ import { useAuth } from '@/auth';
 import { CrashScreen } from '@/components/crash-screen';
 import { AppText, Button, Screen, ScreenHeader } from '@/components/ui';
 import { KeysProvider, ProfileProvider, useProfile } from '@/data';
+import { GenerateProvider } from '@/generate/generate-provider';
 import { HistoryProvider } from '@/history';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { useTheme } from '@/theme';
@@ -24,7 +25,10 @@ export default function AppLayout() {
     <ProfileProvider key={userId} userId={userId}>
       <KeysProvider userId={userId}>
         <HistoryProvider userId={userId}>
-          <AppNavigator />
+          {/* Above the navigator, so the Generate tab and the Results screen share it. */}
+          <GenerateProvider>
+            <AppNavigator />
+          </GenerateProvider>
         </HistoryProvider>
       </KeysProvider>
     </ProfileProvider>
@@ -54,18 +58,21 @@ function AppNavigator() {
       }}>
       {/* New users go through onboarding once; everyone else gets the app. */}
       <Stack.Protected guard={onboarded}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="settings" />
+        {/* The tabs. Every other screen opens on top of them, with a Back button. */}
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="results" />
+        <Stack.Screen name="people/[id]/index" />
+        <Stack.Screen name="people/[id]/[shot]" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="theme" />
         <Stack.Screen name="keys/index" />
         <Stack.Screen name="keys/add" />
         <Stack.Screen name="keys/[id]" />
-        <Stack.Screen name="people/index" />
-        <Stack.Screen name="people/[id]" />
       </Stack.Protected>
 
       <Stack.Protected guard={!onboarded}>
         <Stack.Screen name="onboarding/about" />
+        <Stack.Screen name="onboarding/voice" />
         <Stack.Screen name="onboarding/first-key" />
       </Stack.Protected>
     </Stack>

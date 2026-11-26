@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { radius, spacing, useTheme } from '@/theme';
+import { radius, spacing, useTheme, type ColorRole } from '@/theme';
+
+/** outlined: the default. raised: stands out a little. tinted: a soft colour, for emphasis. */
+export type CardVariant = 'outlined' | 'raised' | 'tinted';
+
+const SURFACE: Record<CardVariant, ColorRole> = { outlined: 'surface', raised: 'raised', tinted: 'accentSoft' };
 
 export type CardProps = {
   children: ReactNode;
@@ -11,6 +16,7 @@ export type CardProps = {
   accessibilityLabel?: string;
   /** Draws the border in the accent colour, for the chosen item in a list. */
   selected?: boolean;
+  variant?: CardVariant;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -20,13 +26,14 @@ export function Card({
   onPress,
   accessibilityLabel,
   selected = false,
+  variant = 'outlined',
   style,
   testID,
 }: CardProps) {
   const { colors } = useTheme();
   const themed = {
-    backgroundColor: colors.surface,
-    borderColor: selected ? colors.accent : colors.border,
+    backgroundColor: colors[SURFACE[variant]],
+    borderColor: selected ? colors.accent : variant === 'outlined' ? colors.border : colors[SURFACE[variant]],
   };
 
   if (!onPress) {

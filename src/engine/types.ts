@@ -37,6 +37,11 @@ export type MemoryItem = {
   at: string;
   modeLabel: string;
   toneLabel?: string | null;
+  /**
+   * True for a set written a moment ago for the screenshot now being worked on. The sender
+   * is still choosing between these: none of them counts as sent, whatever was copied.
+   */
+  sameScreenshot?: boolean;
   lines: {
     text: string;
     copied: boolean;

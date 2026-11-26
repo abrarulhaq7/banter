@@ -36,7 +36,32 @@ else
   echo "No samples/ images: the Generate flow will have no photo to use." >&2
 fi
 
+# The live flows run the app's code in production mode, as it ships, from a second server.
+# In development mode the build's developer extras sometimes swallow the first tap on a
+# screen (found on 2026-11-26: about one run in three failed that way, none in production
+# mode). The dev server on 8081 is left alone.
+PORT=8082
+STARTED_SERVER=""
+running() { curl -s -m 2 "localhost:$PORT/status" 2>/dev/null | grep -q running; }
+if ! running; then
+  echo "Starting a production-mode server on port $PORT. The first run builds the app's code, which takes a minute."
+  mkdir -p .maestro/artifacts
+  npx expo start --dev-client --no-dev --minify --port "$PORT" > .maestro/artifacts/live-server.log 2>&1 &
+  STARTED_SERVER=1
+  for _ in $(seq 1 90); do running && break; sleep 1; done
+  if ! running; then
+    echo "The server on port $PORT did not start. See .maestro/artifacts/live-server.log" >&2
+    exit 2
+  fi
+fi
+stop_server() {
+  if [[ -n "$STARTED_SERVER" ]]; then
+    lsof -ti "tcp:$PORT" 2>/dev/null | xargs kill 2>/dev/null || true
+  fi
+}
+trap stop_server EXIT
+
 source scripts/env.sh
-exec maestro test --test-output-dir .maestro/artifacts \
-  -e SUPABASE_URL="$URL" -e SUPABASE_KEY="$KEY" -e GEMINI_KEY="$GEMINI_KEY" \
+maestro test --test-output-dir .maestro/artifacts \
+  -e SUPABASE_URL="$URL" -e SUPABASE_KEY="$KEY" -e GEMINI_KEY="$GEMINI_KEY" -e METRO_PORT="$PORT" \
   "${@:-.maestro/live}"

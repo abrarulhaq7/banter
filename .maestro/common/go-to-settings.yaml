@@ -1,9 +1,8 @@
-# From the Generate screen (home): opens Settings.
+# From any tab (Generate, People, Settings): opens the Settings tab.
 appId: com.banterlines.app
 ---
-- runFlow: scroll-to-top.yaml
 - tapOn:
-    id: "open-settings"
+    id: "tab-settings"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"

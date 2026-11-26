@@ -33,43 +33,42 @@ appId: com.banterlines.app
 - runFlow: ../common/go-to-settings.yaml
 - extendedWaitUntil:
     visible:
-      id: "key-summary"
-      text: "2 keys saved, 2 active."
+      id: "manage-keys"
+      text: ".*2 keys saved, 2 active..*"
     timeout: 30000
 
 - tapOn:
     id: "manage-keys"
 - assertVisible:
     id: "keys-screen"
+# A row reads "name, state · model".
 - assertVisible:
-    id: "key-label-0"
-    text: "Seed A"
+    id: "key-card-0"
+    text: ".*Seed A.*Active.*"
 - assertVisible:
-    id: "key-label-1"
-    text: "Seed B"
+    id: "key-card-1"
+    text: ".*Seed B.*"
 - takeScreenshot: keys-list
 
 # Order: move the first key down.
 - tapOn:
     id: "key-down-0"
 - assertVisible:
-    id: "key-label-0"
-    text: "Seed B"
+    id: "key-card-0"
+    text: ".*Seed B.*"
 - assertVisible:
-    id: "key-label-1"
-    text: "Seed A"
+    id: "key-card-1"
+    text: ".*Seed A.*"
 
-# Check again: OpenAI rejects the made-up key, and the key is marked as rejected.
+# A row opens its key. Check again: OpenAI rejects the made-up key, and it is marked rejected.
 - tapOn:
-    id: "key-edit-0"
+    id: "key-card-0"
 - assertVisible:
     id: "edit-key-screen"
+- assertVisible:
+    id: "edit-key-title"
+    text: "Seed B"
 - takeScreenshot: key-edit
-- scrollUntilVisible:
-    element:
-      id: "edit-key-check"
-    direction: DOWN
-- waitForAnimationToEnd
 - tapOn:
     id: "edit-key-check"
 - extendedWaitUntil:
@@ -79,32 +78,31 @@ appId: com.banterlines.app
 - assertVisible:
     id: "edit-key-error"
     text: "OpenAI rejected this key.*"
-- runFlow: ../common/scroll-to-top.yaml
+- takeScreenshot: key-rejected
 - tapOn:
     id: "back-button"
 - assertVisible:
-    id: "key-status-0"
-    text: "Rejected"
+    id: "key-card-0"
+    text: ".*Seed B.*Rejected.*"
 
 # Turn the other key off.
 - tapOn:
-    id: "key-edit-1"
-- scrollUntilVisible:
-    element:
-      id: "edit-key-toggle"
-    direction: DOWN
-- waitForAnimationToEnd
+    id: "key-card-1"
+- assertVisible:
+    id: "edit-key-title"
+    text: "Seed A"
 - tapOn:
     id: "edit-key-toggle"
 - extendedWaitUntil:
-    visible: "Turn this key on"
+    visible:
+      id: "edit-key-toggle"
+      text: ".*Turn this key on.*"
     timeout: 15000
-- runFlow: ../common/scroll-to-top.yaml
 - tapOn:
     id: "back-button"
 - assertVisible:
-    id: "key-status-1"
-    text: "Off"
+    id: "key-card-1"
+    text: ".*Seed A.*Off.*"
 - takeScreenshot: keys-list-after-changes
 
 # Restart: order and states were saved, not just shown.
@@ -120,42 +118,57 @@ appId: com.banterlines.app
 - runFlow: ../common/go-to-settings.yaml
 - extendedWaitUntil:
     visible:
-      id: "key-summary"
-      text: "2 keys saved, 0 active."
+      id: "manage-keys"
+      text: ".*2 keys saved, 0 active..*"
     timeout: 30000
 - tapOn:
     id: "manage-keys"
 - assertVisible:
-    id: "key-label-0"
-    text: "Seed B"
+    id: "key-card-0"
+    text: ".*Seed B.*Rejected.*"
 - assertVisible:
-    id: "key-status-0"
-    text: "Rejected"
-- assertVisible:
-    id: "key-status-1"
-    text: "Off"
+    id: "key-card-1"
+    text: ".*Seed A.*Off.*"
 
-# Delete the rejected key.
+# Rename the key that is off, in its sheet.
 - tapOn:
-    id: "key-edit-0"
-- scrollUntilVisible:
-    element:
-      id: "edit-key-delete"
-    direction: DOWN
-- waitForAnimationToEnd
+    id: "key-card-1"
+- tapOn:
+    id: "edit-key-name"
+- assertVisible:
+    id: "key-name-sheet"
+- tapOn:
+    id: "edit-key-label"
+- inputText: "2"
+- takeScreenshot: key-name-sheet
+- tapOn:
+    id: "edit-key-save"
+- extendedWaitUntil:
+    visible:
+      id: "edit-key-title"
+      text: "Seed A2"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+
+# Delete the rejected key: the app asks first.
+- tapOn:
+    id: "key-card-0"
 - tapOn:
     id: "edit-key-delete"
 - assertVisible: "Delete this key\\?"
-- tapOn: "Delete"
+- takeScreenshot: key-delete-dialog
+- tapOn:
+    id: "dialog-confirm"
 - extendedWaitUntil:
     visible:
       id: "keys-screen"
     timeout: 15000
 - assertVisible:
-    id: "key-label-0"
-    text: "Seed A"
+    id: "key-card-0"
+    text: ".*Seed A2.*"
 - assertNotVisible:
-    id: "key-label-1"
+    id: "key-card-1"
 
 # Leave the app signed out for the next flow.
 - tapOn:

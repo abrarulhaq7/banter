@@ -26,6 +26,21 @@ export type ThemeColors = {
   danger: string;
   /** Positive results: key accepted, "Replied". */
   success: string;
+  /** Neutral notices: a tip, something that is waiting. */
+  info: string;
+  /** Needs attention but is not an error: no key yet, a key that hit its limit. */
+  warning: string;
+  /**
+   * Soft backgrounds for banners, tags and tinted cards. Each one carries text and icons
+   * in the colour it is named after.
+   */
+  accentSoft: string;
+  infoSoft: string;
+  warningSoft: string;
+  successSoft: string;
+  dangerSoft: string;
+  /** Drawn half-transparent behind sheets and dialogs. */
+  scrim: string;
 };
 
 export type ColorRole = keyof ThemeColors;
@@ -58,6 +73,14 @@ export const themes: Record<ThemeName, Theme> = {
       accentAlt: '#ff8fb1',
       danger: '#ff7a85',
       success: '#6fdca4',
+      info: '#7fb8ff',
+      warning: '#ffc46b',
+      accentSoft: '#2b1f45',
+      infoSoft: '#16233a',
+      warningSoft: '#33270f',
+      successSoft: '#12301f',
+      dangerSoft: '#3a1820',
+      scrim: '#000000',
     },
   },
   ember: {
@@ -75,6 +98,14 @@ export const themes: Record<ThemeName, Theme> = {
       accentAlt: '#ffc46b',
       danger: '#ff6b7d',
       success: '#7fd99a',
+      info: '#7fb8ff',
+      warning: '#ffc46b',
+      accentSoft: '#3a1c14',
+      infoSoft: '#17222f',
+      warningSoft: '#33260f',
+      successSoft: '#16301d',
+      dangerSoft: '#3a171c',
+      scrim: '#000000',
     },
   },
   deepSea: {
@@ -92,6 +123,14 @@ export const themes: Record<ThemeName, Theme> = {
       accentAlt: '#7fb2ff',
       danger: '#ff7f8a',
       success: '#8fe07f',
+      info: '#7fb2ff',
+      warning: '#ffcb6b',
+      accentSoft: '#0f332f',
+      infoSoft: '#12243d',
+      warningSoft: '#2f2710',
+      successSoft: '#14301a',
+      dangerSoft: '#3a181d',
+      scrim: '#000000',
     },
   },
 };

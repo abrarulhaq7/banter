@@ -1,8 +1,13 @@
-# Starts the development build and loads the app from the dev server.
+# Starts the development build and loads the app from a server on this Mac.
 # Shared by the other flows: `- runFlow: common/open-app.yaml`
+#
+# METRO_PORT chooses the server. 8081 is the dev server (`npm start`), used by the offline
+# flows. `npm run e2e:live` passes 8082, where it runs the app's code in production mode.
 appId: com.banterlines.app
+env:
+  METRO_PORT: ${METRO_PORT || '8081'}
 ---
 - launchApp
-# A development build opens on the dev launcher. This link loads the app from the dev server.
-- openLink: "exp+banter://?__expo_url=http%3A%2F%2Flocalhost%3A8081&__expo_disable_fab=1&__expo_disable_onboarding=1"
+# A development build opens on the dev launcher. This link loads the app from the server.
+- openLink: "exp+banter://?__expo_url=http%3A%2F%2Flocalhost%3A${METRO_PORT}&__expo_disable_fab=1&__expo_disable_onboarding=1"
 - runFlow: accept-open-link.yaml

@@ -113,6 +113,32 @@ describe('buildPrompt', () => {
     expect(user).toContain('- "Latest sent" (sent, waiting for a reply)');
     expect(user).toContain('- "Older sent" (sent)');
   });
+  it('lists sets made for the same screenshot as offered, never as sent', () => {
+    const { user } = buildPrompt({
+      ...base,
+      memory: [
+        {
+          at: '2026-11-25T12:00:00Z',
+          modeLabel: 'Story reply',
+          toneLabel: 'Casual',
+          sameScreenshot: true,
+          lines: [
+            { text: 'Copied a moment ago', copied: true },
+            { text: 'Not picked', copied: false },
+          ],
+        },
+      ],
+    });
+
+    expect(user).toContain('Just now, for this same screenshot, Story reply, Casual');
+    expect(user).toContain('- "Copied a moment ago" (already offered)');
+    expect(user).toContain('- "Not picked" (already offered)');
+    expect(user).not.toContain('waiting for a reply)');
+    expect(user).not.toContain('(sent');
+    // Only a line marked as unanswered is silence.
+    expect(user).toContain('Only a line marked "sent, no reply" went unanswered');
+  });
+
 
   it('leaves tone and adjustments out of Analyse', () => {
     const { user } = buildPrompt({

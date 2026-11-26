@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
-import { KeyForm } from '@/components/key-form';
-import { AppText, Button, Screen, ScreenHeader } from '@/components/ui';
+import { AddKeyScreen } from '@/components/keys/add-key-screen';
 import { useProfile } from '@/data';
 
-/** Onboarding, step 2 of 2: the first API key. Finishing either way opens the app. */
-export default function OnboardingFirstKeyScreen() {
+/** Onboarding, step 3 of 3: the first API key. Finishing either way opens the app. */
+export default function OnboardingFirstKeyRoute() {
   const router = useRouter();
   const { save } = useProfile();
   const [busy, setBusy] = useState(false);
@@ -22,19 +21,14 @@ export default function OnboardingFirstKeyScreen() {
   };
 
   return (
-    <Screen testID="onboarding-key-screen">
-      <ScreenHeader
-        title="Your AI key"
-        subtitle="Step 2 of 2. Banter uses your own key from Gemini, OpenAI or Claude, so you pay only for what you use."
-        onBack={() => router.back()}
-      />
-      <KeyForm onSaved={finish} />
-      {error ? (
-        <AppText color="danger" accessibilityRole="alert">
-          {error}
-        </AppText>
-      ) : null}
-      <Button testID="skip-key" variant="ghost" label="Add a key later" onPress={finish} loading={busy} />
-    </Screen>
+    <AddKeyScreen
+      testID="onboarding-key-screen"
+      title="Your AI key"
+      subtitle="Step 3 of 3. Banter uses your own key from Gemini, OpenAI or Claude, so you pay only for what you use."
+      onBack={() => router.back()}
+      onSaved={finish}
+      error={error}
+      secondary={{ testID: 'skip-key', label: 'Add a key later', onPress: finish, loading: busy }}
+    />
   );
 }

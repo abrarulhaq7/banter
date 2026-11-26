@@ -17,8 +17,16 @@ export type ScrollHandle = ComponentRef<typeof ScrollView>;
 
 export type ScreenProps = {
   children: ReactNode;
-  /** Scrolls the content. Use for forms and long pages. Default: true. */
+  /** Scrolls the content. Use for lists and forms. Default: true. */
   scroll?: boolean;
+  /**
+   * For a screen designed to fit without scrolling: the content fills the height, so a
+   * child with `flex: 1` takes the room that is left. It still scrolls if it cannot fit
+   * (a very small phone, very large text), so nothing is ever out of reach.
+   */
+  fill?: boolean;
+  /** Stays pinned to the bottom, above the keyboard: the screen's main action. */
+  footer?: ReactNode;
   /** Safe-area edges to pad. Screens inside a tab bar should leave out 'bottom'. */
   edges?: readonly Edge[];
   /** Style for the content area (inside the padding). */
@@ -34,6 +42,8 @@ const DEFAULT_EDGES: readonly Edge[] = ['top', 'bottom', 'left', 'right'];
 export function Screen({
   children,
   scroll = true,
+  fill = false,
+  footer,
   edges = DEFAULT_EDGES,
   contentStyle,
   scrollViewRef,
@@ -44,7 +54,7 @@ export function Screen({
 
   // A scrolling screen pads its content by the bottom inset instead of the frame, so the
   // content scrolls under the home indicator rather than being cut off above it.
-  const scrollUnderBottom = scroll && edges.includes('bottom');
+  const scrollUnderBottom = scroll && !footer && edges.includes('bottom');
   const frameEdges = scrollUnderBottom ? edges.filter((edge) => edge !== 'bottom') : edges;
 
   return (
@@ -61,6 +71,7 @@ export function Screen({
             style={styles.fill}
             contentContainerStyle={[
               styles.content,
+              fill && styles.grow,
               scrollUnderBottom && { paddingBottom: spacing.xxl + insets.bottom },
               contentStyle,
             ]}
@@ -73,6 +84,11 @@ export function Screen({
         ) : (
           <View style={[styles.fill, styles.content, contentStyle]}>{children}</View>
         )}
+        {footer ? (
+          <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+            {footer}
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -80,6 +96,14 @@ export function Screen({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  grow: { flexGrow: 1 },
+  footer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
