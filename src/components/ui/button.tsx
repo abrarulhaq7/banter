@@ -6,17 +6,22 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { radius, spacing, useTheme, type ColorRole } from '@/theme';
+import { MIN_TOUCH_TARGET, radius, spacing, useTheme, type ColorRole } from '@/theme';
 
 import { AppText } from './app-text';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export type ButtonProps = {
   label: string;
   onPress?: () => void;
-  /** primary: the main action. secondary: other actions. ghost: low-emphasis text button. */
+  /**
+   * primary: the main action. secondary: other actions. ghost: low-emphasis text button.
+   * danger: a text button for deleting things.
+   */
   variant?: ButtonVariant;
+  /** sm is for rows of small actions inside a card. */
+  size?: 'md' | 'sm';
   disabled?: boolean;
   /** Shows a spinner and blocks presses. */
   loading?: boolean;
@@ -28,12 +33,14 @@ const CONTENT_COLOR: Record<ButtonVariant, ColorRole> = {
   primary: 'onAccent',
   secondary: 'text',
   ghost: 'accent',
+  danger: 'danger',
 };
 
 export function Button({
   label,
   onPress,
   variant = 'primary',
+  size = 'md',
   disabled = false,
   loading = false,
   style,
@@ -47,6 +54,7 @@ export function Button({
     primary: colors.accent,
     secondary: colors.raised,
     ghost: undefined,
+    danger: undefined,
   };
 
   return (
@@ -59,6 +67,7 @@ export function Button({
       accessibilityState={{ disabled: inactive, busy: loading }}
       style={({ pressed }) => [
         styles.base,
+        size === 'sm' && styles.small,
         { backgroundColor: background[variant] },
         variant === 'secondary' && { borderWidth: 1, borderColor: colors.border },
         pressed && styles.pressed,
@@ -68,7 +77,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={colors[contentColor]} />
       ) : (
-        <AppText variant="bodyStrong" color={contentColor} numberOfLines={1}>
+        <AppText variant={size === 'sm' ? 'label' : 'bodyStrong'} color={contentColor} numberOfLines={1}>
           {label}
         </AppText>
       )}
@@ -83,6 +92,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  small: {
+    minHeight: MIN_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.sm,
   },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.4 },

@@ -6,10 +6,7 @@
 appId: com.banterlines.app
 ---
 - runFlow: common/open-app.yaml
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 60000
+- runFlow: common/ensure-signed-out.yaml
 - assertVisible: "Sign in to continue."
 - takeScreenshot: sign-in
 

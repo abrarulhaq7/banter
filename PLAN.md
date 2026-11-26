@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 1 built and tested against the real Supabase project on 2026-11-25, waiting for your approval.** Next step: Phase 2.
+Status: **Phase 2 built and tested on 2026-11-25. One check is left for you: add one real key by hand** (see "Phase 2 result"). Next step: Phase 3.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -237,6 +237,47 @@ How I test: unit tests for key checking and caching with fake provider answers. 
 simulator: add a key, restart, key still there; add a wrong key, see a clear error.
 From you: type one real key into the app on the simulator. I do not need to see it.
 
+**Phase 2 result (2026-11-25):**
+
+- **Onboarding:** new users get two steps, "About you" then "Your AI key". Only the name
+  is required. The key step can be skipped with "Add a key later".
+- **Adding a key:** pick the provider, paste the key, optionally name it and pick a model.
+  The provider switches by itself to match the key's prefix. The key is checked with the
+  provider before it is saved, and a key the provider rejects is not saved.
+- **The check is free.** It asks the provider for its list of models, which uses none of
+  the key's allowance, and it also confirms the key can use the chosen model.
+- **Keys screen:** order with Up and Down, and an Edit screen to rename, change model,
+  check again, turn off or delete.
+- **Storage:** keys and the profile live in Supabase and are copied to the phone's secure
+  storage. The app shows the copy at once on start and works from it without internet.
+  Signing out removes the copy from the phone.
+- **Checks:** `npm run check` passes (type check, lint, 202 unit tests).
+- **Simulator, against the real project:** all five Maestro flows pass. They cover the
+  onboarding rules, Gemini and OpenAI each rejecting a made-up key with a clear message,
+  the profile and keys surviving an app restart, and reorder, check again, turn off and
+  delete on the keys screens. Screenshots in `.maestro/artifacts/phase-2/`.
+
+Not tested yet, and it needs you:
+
+- **A real, working key has never been added.** Every key so far was made up, to prove
+  rejection. The accepted path is covered only by unit tests with pretend provider
+  answers. Adding one real key by hand also proves the model names in the `models` table
+  are right for your account: the app refuses to save if the key cannot use the model.
+
+How to do it: run `npm start`, open Banter on the simulator, sign in, tap "Add a key",
+paste a real key with Cmd+V and tap "Check and save".
+
+Choices made in this phase that you may want to change:
+
+- The age rule (18 or older) is enforced in the form as well as in the database.
+- A key that is rate limited or has no credit at the moment of adding is not saved; the
+  app asks you to try again later.
+- Keys are shown in full while you paste them, and masked (last four characters) after.
+- Claude is called with plain web requests, not Anthropic's library, because that library
+  does not support React Native.
+- Test accounts are left in Supabase after each simulator run (`banter.e2e.*`). Safe to
+  delete under Authentication > Users.
+
 ### Phase 3 — Generation engine
 
 Goal: screenshot in, good lines out, on all three providers. No screens yet.
@@ -448,7 +489,8 @@ agreements are recorded here.
 - Commands: `npm run check` (type check, lint, unit tests), `npm run test:db` (database
   access rules on a local Postgres), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
-  `npm run e2e:live` (both need the real Supabase project).
+  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates three test
+  accounts per run).
 - Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
   `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in
   git, because they show another person and another company's app.

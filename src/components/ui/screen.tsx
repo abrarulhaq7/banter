@@ -58,6 +58,8 @@ export function Screen({
               contentStyle,
             ]}
             keyboardShouldPersistTaps="handled"
+            // Dragging the page puts the keyboard away, so it never traps a long form.
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}>
             {children}
           </ScrollView>

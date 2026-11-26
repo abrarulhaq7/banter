@@ -1,0 +1,9 @@
+# Closes the on-screen keyboard by dragging the page a little, as a person would.
+# Needed before tapping anything the keyboard covers: Maestro cannot see that it is covered.
+appId: com.banterlines.app
+---
+- swipe:
+    start: 50%, 38%
+    end: 50%, 26%
+    duration: 400
+- waitForAnimationToEnd

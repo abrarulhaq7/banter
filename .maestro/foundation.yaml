@@ -54,4 +54,5 @@ appId: com.banterlines.app
     element:
       id: "button-primary"
     direction: DOWN
+- waitForAnimationToEnd
 - takeScreenshot: building-blocks

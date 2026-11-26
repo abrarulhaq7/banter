@@ -1,0 +1,32 @@
+# Ends on the sign-in screen, whatever state an earlier run left the app in.
+appId: com.banterlines.app
+---
+# Wait for the app to finish loading: any of its first screens will do.
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen|home-screen|onboarding-about-screen|onboarding-key-screen"
+    timeout: 90000
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-key-screen"
+    commands:
+      - tapOn:
+          id: "back-button"
+- runFlow:
+    when:
+      notVisible:
+        id: "sign-in-screen"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "sign-out-button"
+          direction: DOWN
+          timeout: 20000
+      - waitForAnimationToEnd
+      - tapOn:
+          id: "sign-out-button"
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 20000

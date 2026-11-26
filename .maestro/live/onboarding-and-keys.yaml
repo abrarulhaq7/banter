@@ -1,0 +1,186 @@
+# Phase 2 acceptance test against the real Supabase project and the real providers:
+# onboarding rules, a wrong key is refused with a clear message, the profile is saved and
+# survives a restart, and the keys screens work with no key.
+#
+# No real key is used. The made-up keys below are sent to Gemini and OpenAI, which reject
+# them; that rejection is what this test checks. Adding a working key is checked by hand.
+#
+#   npm run e2e:live
+appId: com.banterlines.app
+env:
+  PASSWORD: "e2e-test-password-1"
+---
+- evalScript: ${output.email = 'banter.e2e.keys.' + Date.now() + '@example.com'}
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+
+# --- About you --------------------------------------------------------------------------
+- takeScreenshot: onboarding-about
+
+# A name is required.
+- scrollUntilVisible:
+    element:
+      id: "profile-submit"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "profile-submit"
+- runFlow: ../common/scroll-to-top.yaml
+- assertVisible: "Enter your name."
+
+- tapOn:
+    id: "profile-name"
+- inputText: "Sam"
+- assertVisible:
+    id: "profile-name"
+    text: "Sam"
+- assertNotVisible: "Enter your name."
+
+# Under 18 is refused.
+- tapOn:
+    id: "profile-age"
+- inputText: "16"
+- assertVisible: "Banter is for adults. You must be 18 or older."
+- takeScreenshot: onboarding-under-18
+
+# A valid profile goes through.
+- eraseText: 2
+- inputText: "27"
+- assertNotVisible: "Banter is for adults. You must be 18 or older."
+- tapOn:
+    id: "profile-city"
+- inputText: "Lahore"
+- runFlow: ../common/close-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "profile-submit"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "profile-submit"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-key-screen"
+    timeout: 15000
+
+# --- First key --------------------------------------------------------------------------
+- takeScreenshot: onboarding-key
+
+# A made-up Gemini key is sent to Gemini and rejected.
+- tapOn:
+    id: "key-input"
+- inputText: "AIzaSyNotARealKeyForBanterTesting0000000"
+- runFlow: ../common/close-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "key-submit"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "key-submit"
+- extendedWaitUntil:
+    visible: "Gemini rejected this key.*"
+    timeout: 30000
+- takeScreenshot: onboarding-wrong-key
+
+# Carry on without a key.
+- scrollUntilVisible:
+    element:
+      id: "skip-key"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "skip-key"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+- assertVisible:
+    id: "greeting"
+    text: "Hi Sam."
+- assertVisible:
+    id: "key-summary"
+    text: "No key yet.*"
+- takeScreenshot: home-no-key
+
+# --- Restart: still past onboarding, profile still there --------------------------------
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 90000
+- assertVisible:
+    id: "greeting"
+    text: "Hi Sam."
+
+# --- Edit the profile ---------------------------------------------------------------------
+- tapOn:
+    id: "edit-profile"
+- assertVisible:
+    id: "profile-screen"
+- assertVisible:
+    id: "profile-name"
+    text: "Sam"
+- tapOn:
+    id: "profile-name"
+- inputText: "my"
+- runFlow: ../common/close-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "profile-submit"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "profile-submit"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+- assertVisible:
+    id: "greeting"
+    text: "Hi Sammy."
+
+# --- Add a key from home: a made-up OpenAI key is rejected by OpenAI ----------------------
+- tapOn:
+    id: "manage-keys"
+- assertVisible:
+    id: "add-key-screen"
+- tapOn:
+    id: "key-input"
+- inputText: "sk-not-a-real-key-for-banter-testing-0000"
+# The provider follows what the key looks like.
+- assertVisible:
+    id: "provider-openai"
+    selected: true
+- runFlow: ../common/close-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "key-submit"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "key-submit"
+- extendedWaitUntil:
+    visible: "OpenAI rejected this key.*"
+    timeout: 30000
+- takeScreenshot: add-key-wrong-openai-key
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "home-screen"
+
+# Leave the app signed out for the next flow.
+- scrollUntilVisible:
+    element:
+      id: "sign-out-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "sign-out-button"
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 10000

@@ -14,7 +14,7 @@
     "check": "npm run typecheck && npm run lint && npm test",
     "e2e": "maestro test --test-output-dir .maestro/artifacts .maestro",
     "test:db": "bash scripts/test-db.sh",
-    "e2e:live": "maestro test --test-output-dir .maestro/artifacts .maestro/live",
+    "e2e:live": "bash scripts/e2e-live.sh",
     "db:bundle": "bash scripts/bundle-migrations.sh",
     "test:privacy": "node scripts/privacy-check.mjs"
   },

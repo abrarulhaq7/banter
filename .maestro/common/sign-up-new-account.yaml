@@ -1,0 +1,20 @@
+# From the sign-in screen: creates a new test account. Ends on the first onboarding screen.
+# Needs output.email (set by the calling flow) and PASSWORD.
+appId: com.banterlines.app
+---
+- tapOn:
+    id: "switch-button"
+- tapOn:
+    id: "email-input"
+- inputText: ${output.email}
+- tapOn:
+    id: "password-input"
+- inputText: ${PASSWORD}
+- tapOn: "Banter"
+- tapOn:
+    id: "submit-button"
+- runFlow: dismiss-password-prompt.yaml
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-about-screen"
+    timeout: 20000

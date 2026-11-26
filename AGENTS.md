@@ -58,3 +58,18 @@ npm run e2e            # Maestro flows in .maestro/ (simulator booted, dev serve
 - Never commit keys, `.env` files or anything in `samples/`.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
 - Only the Supabase publishable key belongs in the app. Never a secret key.
+
+## Maestro on iOS: things that cost time
+
+Maestro reads the accessibility tree, which does not know what is actually covered or clipped. Each of these looked like an app bug and was not:
+
+- **Keyboard covers a button:** Maestro still reports the button as visible and the tap lands on a keyboard key. Run `common/close-keyboard.yaml` after typing, before tapping anything lower on the page.
+- **Field hidden behind the top of the scroll area:** `scrollUntilVisible` with `direction: UP` returns at once and the tap misses. Use `common/scroll-to-top.yaml` to go up; use `scrollUntilVisible` only to go down.
+- **Tap during scroll momentum:** it stops the scroll instead of tapping. Put `waitForAnimationToEnd` after every `scrollUntilVisible`.
+- **Tappable card with a label:** its child texts are not in the tree. Assert on the card's `id` and state instead.
+- **iOS prompts:** "Open in Banter?" after `openLink` and "Save/Update Password?" after typing a password cover the screen. `common/accept-open-link.yaml` and `common/dismiss-password-prompt.yaml` handle them.
+- **`launchApp` with `clearState`:** reopens the Expo dev menu over the app. Use `common/ensure-signed-out.yaml` to get a clean start instead.
+- **Secure text fields** are blank in screenshots. That is iOS, not an empty field.
+- **Dev server:** start it without `CI=1`, or code changes are not picked up.
+
+When a flow fails, read the failure screenshot and the `screen-hierarchy` JSON under `.maestro/artifacts/<run>/` before changing app code.

@@ -1,5 +1,5 @@
 # Phase 1 acceptance test against the real Supabase project:
-# sign up, land in the app, restart the app and still be signed in, then sign out.
+# sign up, go through onboarding, restart the app and still be signed in, then sign out.
 #
 # Needs .env.local with the project's address and publishable key, "Confirm email" turned
 # off in Supabase, the development build on a booted simulator and the dev server running.
@@ -14,43 +14,13 @@ env:
 ---
 - evalScript: ${output.email = 'banter.e2e.' + Date.now() + '@example.com'}
 - runFlow: ../common/open-app.yaml
-# If a previous run left an account signed in, sign it out first.
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 15000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: "sign-out-button"
-    commands:
-      - tapOn:
-          id: "sign-out-button"
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 60000
+- runFlow: ../common/ensure-signed-out.yaml
 - assertNotVisible:
     id: "setup-problem"
 
-# Sign up.
-- tapOn:
-    id: "switch-button"
-- tapOn:
-    id: "email-input"
-- inputText: ${output.email}
-- tapOn:
-    id: "password-input"
-- inputText: ${PASSWORD}
-- tapOn: "Banter"
-- tapOn:
-    id: "submit-button"
-- runFlow: ../common/dismiss-password-prompt.yaml
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 20000
+# Sign up. A new account starts in onboarding; get through it the short way.
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
 - assertVisible:
     id: "account-email"
     text: ${output.email}
@@ -69,6 +39,11 @@ env:
 - takeScreenshot: live-still-signed-in-after-restart
 
 # Sign out: back to the sign-in screen, and the app is no longer reachable.
+- scrollUntilVisible:
+    element:
+      id: "sign-out-button"
+    direction: DOWN
+- waitForAnimationToEnd
 - tapOn:
     id: "sign-out-button"
 - extendedWaitUntil:
@@ -95,6 +70,11 @@ env:
     timeout: 20000
 
 # A wrong password is refused with a clear message.
+- scrollUntilVisible:
+    element:
+      id: "sign-out-button"
+    direction: DOWN
+- waitForAnimationToEnd
 - tapOn:
     id: "sign-out-button"
 - extendedWaitUntil:

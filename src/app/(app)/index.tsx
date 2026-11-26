@@ -1,17 +1,21 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth';
 import { ThemePicker } from '@/components/theme-picker';
 import { AppText, Button, Card, Screen } from '@/components/ui';
+import { usableKeys, useKeys, useProfile } from '@/data';
+import { useSignOut } from '@/hooks/use-sign-out';
 import { spacing } from '@/theme';
 
-/**
- * Home for signed-in users. A placeholder until onboarding (Phase 2) and the Generate
- * screen (Phase 4) exist.
- */
+/** Home for signed-in users. A placeholder until the Generate screen (Phase 4) exists. */
 export default function HomeScreen() {
-  const { session, signOut } = useAuth();
+  const router = useRouter();
+  const { session } = useAuth();
+  const { profile } = useProfile();
+  const { keys, status: keysStatus } = useKeys();
+  const signOut = useSignOut();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,13 +28,23 @@ export default function HomeScreen() {
     // On success the root layout sees the session is gone and shows the sign-in screen.
   };
 
+  const active = usableKeys(keys).length;
+  const keySummary =
+    keysStatus === 'loading'
+      ? 'Loading your keys.'
+      : keys.length === 0
+        ? 'No key yet. Add one to start generating lines.'
+        : `${keys.length} ${keys.length === 1 ? 'key' : 'keys'} saved, ${active} active.`;
+
   return (
     <Screen testID="home-screen">
       <View style={styles.header}>
         <AppText variant="display" accessibilityRole="header">
           Banter
         </AppText>
-        <AppText color="textMuted">You are signed in.</AppText>
+        <AppText testID="greeting" color="textMuted">
+          {profile?.display_name ? `Hi ${profile.display_name}.` : 'You are signed in.'}
+        </AppText>
       </View>
 
       <Card>
@@ -40,6 +54,29 @@ export default function HomeScreen() {
         <AppText testID="account-email" variant="bodyStrong" numberOfLines={1} ellipsizeMode="middle">
           {session?.user.email ?? 'Unknown email'}
         </AppText>
+        <Button
+          testID="edit-profile"
+          variant="ghost"
+          size="sm"
+          label="Edit about you"
+          style={styles.cardAction}
+          onPress={() => router.push('/profile')}
+        />
+      </Card>
+
+      <Card>
+        <AppText variant="caption" color="textMuted">
+          AI keys
+        </AppText>
+        <AppText testID="key-summary">{keySummary}</AppText>
+        <Button
+          testID="manage-keys"
+          variant="ghost"
+          size="sm"
+          label={keys.length === 0 ? 'Add a key' : 'Manage keys'}
+          style={styles.cardAction}
+          onPress={() => router.push(keys.length === 0 ? '/keys/add' : '/keys')}
+        />
       </Card>
 
       <View style={styles.section}>
@@ -68,4 +105,5 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   header: { gap: spacing.xs },
   section: { gap: spacing.md },
+  cardAction: { alignSelf: 'flex-start', paddingHorizontal: 0 },
 });

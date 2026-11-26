@@ -1,0 +1,9 @@
+# Brings a long page back to its top. (Maestro's scrollUntilVisible cannot tell when a
+# field is hidden behind the top edge of the scrolling area, so it is not used to go up.)
+appId: com.banterlines.app
+---
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- waitForAnimationToEnd

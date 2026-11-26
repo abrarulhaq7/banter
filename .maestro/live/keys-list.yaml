@@ -1,0 +1,158 @@
+# Keys screens against the real Supabase project: order, check again, turn off, delete,
+# and that all of it is still there after restarting the app.
+#
+# Two made-up keys are planted in the test account's rows first (the app itself refuses
+# to save a key the provider rejects). "Check again" sends one of them to OpenAI, which
+# rejects it; that rejection is part of what is checked.
+#
+#   npm run e2e:live
+appId: com.banterlines.app
+env:
+  PASSWORD: "e2e-test-password-1"
+---
+- evalScript: ${output.email = 'banter.e2e.list.' + Date.now() + '@example.com'}
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+
+- runScript:
+    file: ../scripts/seed-keys.js
+    env:
+      EMAIL: ${output.email}
+
+# Restart: the app loads the two keys from Supabase.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "key-summary"
+      text: "2 keys saved, 2 active."
+    timeout: 90000
+
+- tapOn:
+    id: "manage-keys"
+- assertVisible:
+    id: "keys-screen"
+- assertVisible:
+    id: "key-label-0"
+    text: "Seed A"
+- assertVisible:
+    id: "key-label-1"
+    text: "Seed B"
+- takeScreenshot: keys-list
+
+# Order: move the first key down.
+- tapOn:
+    id: "key-down-0"
+- assertVisible:
+    id: "key-label-0"
+    text: "Seed B"
+- assertVisible:
+    id: "key-label-1"
+    text: "Seed A"
+
+# Check again: OpenAI rejects the made-up key, and the key is marked as rejected.
+- tapOn:
+    id: "key-edit-0"
+- assertVisible:
+    id: "edit-key-screen"
+- takeScreenshot: key-edit
+- scrollUntilVisible:
+    element:
+      id: "edit-key-check"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "edit-key-check"
+- extendedWaitUntil:
+    visible:
+      id: "edit-key-error"
+    timeout: 30000
+- assertVisible:
+    id: "edit-key-error"
+    text: "OpenAI rejected this key.*"
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "key-status-0"
+    text: "Rejected"
+
+# Turn the other key off.
+- tapOn:
+    id: "key-edit-1"
+- scrollUntilVisible:
+    element:
+      id: "edit-key-toggle"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "edit-key-toggle"
+- extendedWaitUntil:
+    visible: "Turn this key on"
+    timeout: 15000
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "key-status-1"
+    text: "Off"
+- takeScreenshot: keys-list-after-changes
+
+# Restart: order and states were saved, not just shown.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "key-summary"
+      text: "2 keys saved, 0 active."
+    timeout: 90000
+- tapOn:
+    id: "manage-keys"
+- assertVisible:
+    id: "key-label-0"
+    text: "Seed B"
+- assertVisible:
+    id: "key-status-0"
+    text: "Rejected"
+- assertVisible:
+    id: "key-status-1"
+    text: "Off"
+
+# Delete the rejected key.
+- tapOn:
+    id: "key-edit-0"
+- scrollUntilVisible:
+    element:
+      id: "edit-key-delete"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "edit-key-delete"
+- assertVisible: "Delete this key\\?"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible:
+      id: "keys-screen"
+    timeout: 15000
+- assertVisible:
+    id: "key-label-0"
+    text: "Seed A"
+- assertNotVisible:
+    id: "key-label-1"
+
+# Leave the app signed out for the next flow.
+- tapOn:
+    id: "back-button"
+- scrollUntilVisible:
+    element:
+      id: "sign-out-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "sign-out-button"
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 10000
