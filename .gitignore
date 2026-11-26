@@ -60,3 +60,6 @@ keys.local.*
 
 # Banter: reference screenshots show another person and a third-party app. Keep them local.
 /reference/
+
+# Banter: generated file for pasting into the Supabase SQL editor
+/supabase/paste-into-sql-editor.sql

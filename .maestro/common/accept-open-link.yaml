@@ -1,0 +1,12 @@
+# iOS sometimes asks 'Open in "Banter"?' before following a link into the app. Accept it.
+appId: com.banterlines.app
+---
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"

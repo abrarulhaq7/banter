@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 0 built and tested on 2026-11-25, waiting for your approval.** Next step: Phase 1.
+Status: **Phase 0 approved and committed. Phase 1 is built and tested locally; it now needs your Supabase project to finish** (see "Phase 1 result so far").
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -176,6 +176,43 @@ From you: create a Supabase project and give me the project URL and the
 **publishable key** (starts with `sb_publishable_`; new projects no longer have an
 "anon" key). Turn off "Confirm email". Either log in to the Supabase CLI once so I can
 apply migrations, or paste the SQL I give you into the SQL editor.
+
+**Phase 1 result so far (2026-11-25):**
+
+Done and tested without a Supabase project:
+
+- Three migrations in `supabase/migrations/`: all ten tables, access rules, the private
+  `screenshots` bucket, and the first core rules, modes, tones and model list.
+- `npm run test:db` applies them to a throwaway local Postgres and runs 78 checks: user B
+  cannot read, change or delete anything of user A's (rows or files), a signed-out
+  visitor can reach nothing, default prompts cannot be edited from the app, and deletes
+  clean up correctly. Supabase's login and file storage are imitated in this test, so it
+  proves the rules, not the real project.
+- Sign in, sign up, sign out and "stay signed in" in the app. The session is kept in the
+  phone's secure storage. Signed-out users can open only the sign-in screens.
+- `npm run check` passes: type check, lint, 120 unit tests.
+- Maestro on the iPhone 17 simulator passes: sign-in and sign-up screens, their error
+  messages, and the design preview. Screenshots in `.maestro/artifacts/phase-1/`.
+
+Still to do, and each needs the real project:
+
+1. You: create the Supabase project and turn off "Confirm email".
+2. You: run `npm run db:bundle`, paste `supabase/paste-into-sql-editor.sql` into
+   Supabase > SQL Editor, and run it once.
+3. You: copy `.env.example` to `.env.local` and fill in the project URL and publishable key.
+4. Me: `npm run test:privacy` (two real test users, one must not reach the other's data).
+5. Me: `npm run e2e:live` (sign up on the simulator, restart, still signed in, sign out).
+
+Choices made in this phase that you may want to change:
+
+- **Age must be 18 or over** if it is filled in (the database refuses lower values).
+- **Passwords need 8 characters** to sign up.
+- **Sign out** ends the session on that phone only.
+- Each generation can record which earlier generation it adjusted ("New lines",
+  "Shorter", "Bolder"), ready for Phase 4.
+- The core rules tell the model to write no lines when the person looks under 18, has
+  asked the sender to stop, or the screenshot cannot be read.
+- The design preview from Phase 0 is now a development-only screen (`banter://foundation`).
 
 ### Phase 2 — Profile and API keys
 
@@ -399,8 +436,14 @@ agreements are recorded here.
   (`brew install openjdk@17`) and Maestro 2.12.1 are installed. Not installed: Supabase CLI.
   `JAVA_HOME`, `ANDROID_HOME` and `adb` are not set globally; run `source scripts/env.sh`
   in a terminal to set them for that terminal.
-- Commands: `npm run check` (type check, lint, unit tests), `npm run ios` (build and
-  install on the simulator), `npm start` (dev server), `npm run e2e` (Maestro).
+- Commands: `npm run check` (type check, lint, unit tests), `npm run test:db` (database
+  access rules on a local Postgres), `npm run ios` (build and install on the simulator),
+  `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
+  `npm run e2e:live` (both need the real Supabase project).
+- Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
+  `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in
+  git, because they show another person and another company's app.
+- Pushing works over SSH only (`git@github.com:abrarulhaq7/banter.git`). This Mac's personal-folder git setup signs in with an SSH key; an `https://` remote address fails because no GitHub password or token is saved.
 - The first iOS build downloads about 260 MB of React Native files into `ios/Pods`.
   On 2026-11-25 these downloads hung once and had to be restarted.
 - Test devices: iPhone 16 (free Apple ID, 7-day installs) and an Android 10 phone.

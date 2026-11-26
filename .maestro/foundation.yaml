@@ -1,4 +1,4 @@
-# Phase 0 check: the app starts, shows the building blocks, and switches between all three themes.
+# Design check: the preview screen shows the building blocks and switches between all three themes.
 #
 # Needs the development build installed on a booted simulator and the dev server running:
 #   npm run ios        (first time, builds and installs)
@@ -7,19 +7,14 @@
 # Screenshots are saved under .maestro/artifacts/.
 appId: com.banterlines.app
 ---
-- launchApp
-# A development build opens on the dev launcher. This link loads the app from the dev server.
-- openLink: "exp+banter://?__expo_url=http%3A%2F%2Flocalhost%3A8081&__expo_disable_fab=1&__expo_disable_onboarding=1"
+- runFlow: common/open-app.yaml
+# The design preview is a development-only screen, reachable by link without signing in.
+- openLink: "banter://foundation"
+- runFlow: common/accept-open-link.yaml
 - extendedWaitUntil:
     visible:
       id: "foundation-screen"
     timeout: 60000
-# The dev menu shows a one-time welcome sheet on first launch.
-- runFlow:
-    when:
-      visible: "Continue"
-    commands:
-      - tapOn: "Continue"
 
 - assertVisible: "Banter"
 - assertVisible:

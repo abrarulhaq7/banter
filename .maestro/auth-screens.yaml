@@ -1,0 +1,55 @@
+# Sign-in and sign-up screens: a signed-out user lands on sign-in, sees clear messages for
+# missing or bad input, and can move between the two screens. Does not need a Supabase
+# project (nothing is sent to the server).
+#
+# Needs the development build installed on a booted simulator and the dev server running.
+appId: com.banterlines.app
+---
+- runFlow: common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 60000
+- assertVisible: "Sign in to continue."
+- takeScreenshot: sign-in
+
+# Nothing typed: both fields explain what is missing.
+- tapOn:
+    id: "submit-button"
+- assertVisible: "Enter your email."
+- assertVisible: "Enter your password."
+
+# Something that is not an email.
+- tapOn:
+    id: "email-input"
+- inputText: "not-an-email"
+- tapOn: "Banter"
+- assertVisible: "This does not look like an email."
+- takeScreenshot: sign-in-errors
+
+# Over to sign-up.
+- tapOn:
+    id: "switch-button"
+- assertVisible:
+    id: "sign-up-screen"
+- assertVisible: "Create your account."
+- assertVisible: "At least 8 characters."
+
+# A password that is too short is refused before anything is sent.
+- tapOn:
+    id: "email-input"
+- inputText: "sam@example.com"
+- tapOn:
+    id: "password-input"
+- inputText: "short"
+- tapOn: "Banter"
+- tapOn:
+    id: "submit-button"
+- assertVisible: "Use at least 8 characters."
+- takeScreenshot: sign-up-short-password
+
+# And back.
+- tapOn:
+    id: "switch-button"
+- assertVisible:
+    id: "sign-in-screen"

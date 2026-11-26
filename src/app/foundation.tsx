@@ -6,8 +6,8 @@ import { AppText, Button, Card, Chip, Screen, TextField } from '@/components/ui'
 import { spacing, useTheme } from '@/theme';
 
 /**
- * Phase 0 screen: shows the theme and every building block so they can be checked
- * on a device. The Generate screen replaces this as the home screen in Phase 4.
+ * Design preview: shows the theme and every building block so they can be checked on a
+ * device. Only reachable in development builds (see the guard in _layout.tsx).
  */
 
 const MODES = ['Story reply', 'Opener', 'Reply', 'Analyse'] as const;
@@ -26,7 +26,7 @@ export default function FoundationScreen() {
         <AppText variant="display" accessibilityRole="header">
           Banter
         </AppText>
-        <AppText color="textMuted">Foundation preview. No features yet.</AppText>
+        <AppText color="textMuted">Design preview. Themes and building blocks.</AppText>
       </View>
 
       <Section title="Theme" detail={themeLabel}>

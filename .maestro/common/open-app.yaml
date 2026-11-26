@@ -1,0 +1,8 @@
+# Starts the development build and loads the app from the dev server.
+# Shared by the other flows: `- runFlow: common/open-app.yaml`
+appId: com.banterlines.app
+---
+- launchApp
+# A development build opens on the dev launcher. This link loads the app from the dev server.
+- openLink: "exp+banter://?__expo_url=http%3A%2F%2Flocalhost%3A8081&__expo_disable_fab=1&__expo_disable_onboarding=1"
+- runFlow: accept-open-link.yaml

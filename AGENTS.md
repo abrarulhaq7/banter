@@ -46,6 +46,7 @@ Read `PLAN.md` first. It holds the product plan, the phases, the verified risks 
 
 ```bash
 npm run check          # typecheck + lint + unit tests. Must pass before a phase is called done
+npm run test:db        # applies supabase/migrations to a throwaway local Postgres and checks the access rules
 npm run ios            # build and install the development build on the iOS simulator
 npm start              # dev server for the development build
 source scripts/env.sh  # Java 17 and Android SDK paths (needed for Maestro and Android builds)
@@ -55,3 +56,5 @@ npm run e2e            # Maestro flows in .maestro/ (simulator booted, dev serve
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
 - Build screens from `src/components/ui` (`Screen`, `AppText`, `Button`, `Chip`, `Card`, `TextField`) and the `spacing`, `radius` and `typography` tokens.
 - Never commit keys, `.env` files or anything in `samples/`.
+- Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
+- Only the Supabase publishable key belongs in the app. Never a secret key.
