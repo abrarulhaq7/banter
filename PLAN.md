@@ -384,6 +384,12 @@ Goal: the main flow works end to end on the simulator.
 2. Mode tabs, tone chips, context chips.
 3. Results: what was noticed, three line cards, tap to copy.
 4. New lines, Shorter, Bolder.
+   **Nothing is replaced** (asked for on 2026-11-25): trying another tone, or New lines,
+   Shorter or Bolder, adds a new set of lines above the earlier ones, each set labelled
+   with its tone. Earlier sets stay on screen for that screenshot.
+   **Keep:** every line has a one-tap Keep button. Kept lines are pinned in a "Kept"
+   strip at the top while other tones are tried, and are saved with the person's history
+   in Phase 5 (needs a `kept_at` column on `lines`, a small migration).
 5. Analyse result view.
 6. Clear messages for: no key, all keys at their limit, no internet, model refused,
    could not read the image.
