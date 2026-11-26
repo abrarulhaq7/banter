@@ -21,6 +21,7 @@ const linesOutput: ModelOutput = {
   username: 'some.one',
   screenType: 'story',
   noticed: 'ramen',
+  sentLineStatus: 'unknown',
   lines: [
     { text: 'One', hook: 'a' },
     { text: 'Two', hook: 'b' },
@@ -29,6 +30,7 @@ const linesOutput: ModelOutput = {
 
 const set = (id: string, overrides: Partial<ResultSet> = {}): ResultSet => ({
   id,
+  lineIds: [`${id}-line-1`, `${id}-line-2`],
   mode: 'story_reply',
   modeLabel: 'Story reply',
   toneLabel: 'Casual',
@@ -149,13 +151,55 @@ describe('sessionReducer', () => {
   });
 });
 
+describe('sessionReducer: who the screenshot is of', () => {
+  it('takes the username from the first answer that reads one, and keeps it', () => {
+    const other: ModelOutput = { ...linesOutput, username: 'someone.else' };
+    const state = play([
+      { type: 'screenshotReady', screenshot: screenshot('a') },
+      { type: 'generateSucceeded', set: set('set-1') },
+      { type: 'generateSucceeded', set: set('set-2', { output: other }) },
+    ]);
+    expect(state.username).toBe('some.one');
+  });
+
+  it('stays unknown when the answer has no username', () => {
+    const unread: ModelOutput = { ...linesOutput, username: null };
+    expect(play([{ type: 'generateSucceeded', set: set('set-1', { output: unread }) }]).username).toBeNull();
+  });
+
+  it('lets the user correct it, and the correction sticks', () => {
+    const state = play([
+      { type: 'generateSucceeded', set: set('set-1') },
+      { type: 'setUsername', username: 'the.right.one' },
+      { type: 'generateSucceeded', set: set('set-2') },
+    ]);
+    expect(state.username).toBe('the.right.one');
+  });
+
+  it('fills in the remembered context only when none is chosen', () => {
+    expect(play([{ type: 'rememberContext', context: 'know_her' }]).context).toBe('know_her');
+    const chosen = play([{ type: 'setContext', context: 'stranger' }]);
+    expect(play([{ type: 'rememberContext', context: 'know_her' }], chosen).context).toBe('stranger');
+  });
+
+  it('forgets the person and the context when a new screenshot is chosen', () => {
+    const state = play([
+      { type: 'generateSucceeded', set: set('set-1') },
+      { type: 'setContext', context: 'stranger' },
+      { type: 'screenshotReady', screenshot: screenshot('b') },
+    ]);
+    expect(state.username).toBeNull();
+    expect(state.context).toBeNull();
+  });
+});
+
 describe('adjustableLines', () => {
   it('gives the lines of a lines set', () => {
     expect(adjustableLines(set('s'))).toEqual(['One', 'Two']);
   });
 
   it('gives nothing for an analysis, a decline or no set', () => {
-    const declined: ModelOutput = { kind: 'declined', username: null, screenType: 'other', noticed: '', reason: 'x' };
+    const declined: ModelOutput = { kind: 'declined', username: null, screenType: 'other', noticed: '', sentLineStatus: 'unknown', reason: 'x' };
     expect(adjustableLines(set('s', { output: declined }))).toBeNull();
     expect(adjustableLines(undefined)).toBeNull();
   });

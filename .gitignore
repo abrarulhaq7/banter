@@ -67,3 +67,4 @@ keys.local.*
 
 # Banter: safety net for a misnamed samples folder. Real screenshots must never reach git.
 /sample/
+/supabase/paste-update.sql

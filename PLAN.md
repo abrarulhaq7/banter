@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 4 (Generate screen) is built and tested on the simulator with real Gemini answers (2026-11-25), waiting for your approval.** Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
+Status: **Phase 5 (People and history) is built and tested on the simulator against the real Supabase project with real Gemini answers (2026-11-25), waiting for your approval.** Phase 4 (Generate screen) is done. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -469,6 +469,63 @@ How I test: generate twice for the same username and confirm the second prompt
 contains the first interaction. A script checks the rows and the stored file, and
 repeats the two-user privacy check for history and screenshots.
 
+**Phase 5 result (2026-11-25):**
+
+- **Every generation is saved:** the person, the interaction, its lines and the
+  screenshot. One screenshot is stored once, however many tones are tried on it.
+- **Saving never blocks the lines.** Everything goes through a queue kept on the phone.
+  With no internet the lines still appear, the changes wait, and they are sent in order
+  the next time the app can reach Supabase. The People screen says how many are waiting.
+- **"Saved under @username"** sits above the lines. "Change" corrects it (or "Add
+  username" when the AI could not read one). What was already saved moves to the right
+  person, and the misread one is removed if nothing else is under it.
+- **Copy and Keep are saved**, so kept lines survive a restart in the history.
+- **"How you know her" is remembered per person** and chosen by itself the next time.
+- **Memory:** the last five interactions with the person go into the prompt, with which
+  line was copied and how it went.
+- **People screen** (top right of Generate): everyone, most recent first. Tapping one
+  opens the timeline: each set with its tone and mode, the screenshot, what was noticed,
+  and each line marked Copied, Not used or Kept. A copied line can be marked Replied or
+  No reply; tapping the mark again clears it.
+- **Automatic result:** the AI now reports whether a chat screenshot shows her answer to
+  the last line that was sent (`sent_line_status`, prompt version 5). If it does, that
+  line is marked Replied or No reply without being asked.
+- **Database:** one small migration (`20261125000400_history.sql`): a `kept_at` column on
+  `lines`, an index, and the prompt version becomes a plain record instead of a link, so
+  saving no longer depends on which prompt copy Supabase holds.
+- **Checks:** `npm run check` passes (419 unit tests). `npm run test:db` passes
+  (82 checks). The three offline Maestro flows pass with the new header.
+- **Live run:** the migration is on the real project (you pasted it on 2026-11-25).
+  `.maestro/live/history.yaml` passes: it generates twice with real Gemini, corrects the
+  username, copies one line and keeps another. A script then reads Supabase and confirms
+  one person, two interactions under that person sharing one stored screenshot, six
+  lines, one copied and one kept. It opens People and the timeline, marks the copied line
+  Replied, and confirms that in Supabase too. Everything it saved is deleted at the end.
+  Screenshots in `.maestro/artifacts/phase-5/`.
+- **Privacy:** `npm run test:privacy` passes on the real project (52 checks; history
+  rows and screenshots included).
+- **A bug the tests caught:** the person screen could show no "How you know her" choice
+  when it opened before the people list had loaded. Fixed.
+
+Known limits:
+
+- **Memory is proven by unit tests, not by the live run.** The tests confirm the second
+  prompt contains the first interaction. The live run cannot see the prompt. In it, one
+  of the three Flirty lines reused the hook (the 48 degrees) of the Casual line that had
+  been copied, although the prompt tells the AI not to. Worth watching when you judge
+  the lines.
+- **The other live flows were not rerun** after this phase, to save the Gemini free
+  limit. The history flow uses the same Generate screen steps.
+
+- **The first set for a new screenshot has no memory.** The username is only known once
+  the AI has read the screenshot, so memory starts with the second set (another tone,
+  New lines, Shorter, Bolder) and every later screenshot of a person whose username was
+  typed or read before.
+- **The automatic result is untested on real chats.** There are no chat screenshots in
+  `samples/` yet. It is covered by unit tests with stand-in answers.
+- **A person cannot be deleted or renamed from the People screen yet**, and there are no
+  notes. Say if you want these in this phase.
+
 ### Phase 6 — Personal prompts
 
 Goal: each user shapes the tones, and you can change defaults at any time.
@@ -542,6 +599,7 @@ Goal: friends install the APK and use it with their own keys.
 | Phase 1 | Supabase project URL and publishable key (`sb_publishable_…`). "Confirm email" off. CLI login or SQL paste |
 | Phase 2 | Enter one real key in the app |
 | Phase 3 | 10 to 15 sample screenshots. One test key per provider in a local file |
+| Phase 5 | Paste `supabase/paste-update.sql` into the Supabase SQL editor (done 2026-11-25). Two or three chat screenshots in `samples/` |
 | Phase 8 | iPhone and Android phone connected and set up for installs |
 
 ## 10. Risks and open points
@@ -628,7 +686,7 @@ agreements are recorded here.
   the engine; needs `keys.local.json`), `npm run db:prompts` (write the SQL that copies
   the default prompts into Supabase), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
-  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates four test
+  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates five test
   accounts per run, and its Generate flow uses the Gemini key from `keys.local.json`).
 - Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
   `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in

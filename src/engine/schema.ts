@@ -1,5 +1,5 @@
 import { EngineError } from './errors';
-import type { Interest, Line, ModeId, ModelOutput, ScreenType } from './types';
+import type { Interest, Line, ModeId, ModelOutput, ScreenType, SentLineStatus } from './types';
 
 /**
  * The fixed answer structure, and the checking that turns a model's text into it.
@@ -17,7 +17,10 @@ const SHARED_PROPERTIES = {
   screen_type: { type: 'string', enum: ['story', 'profile', 'chat', 'other'] },
   noticed: { type: 'string' },
   refusal: { type: 'string' },
+  sent_line_status: { type: 'string', enum: ['replied', 'no_reply', 'unknown'] },
 } as const;
+
+const SHARED_REQUIRED = ['username', 'screen_type', 'noticed', 'refusal', 'sent_line_status'];
 
 const LINES_SCHEMA: AnswerSchema = {
   name: 'banter_lines',
@@ -35,7 +38,7 @@ const LINES_SCHEMA: AnswerSchema = {
         },
       },
     },
-    required: ['username', 'screen_type', 'noticed', 'refusal', 'lines'],
+    required: [...SHARED_REQUIRED, 'lines'],
     additionalProperties: false,
   },
 };
@@ -51,16 +54,7 @@ const ANALYSIS_SCHEMA: AnswerSchema = {
       advice: { type: 'string' },
       suggested_reply: { type: 'string' },
     },
-    required: [
-      'username',
-      'screen_type',
-      'noticed',
-      'refusal',
-      'interest',
-      'signals',
-      'advice',
-      'suggested_reply',
-    ],
+    required: [...SHARED_REQUIRED, 'interest', 'signals', 'advice', 'suggested_reply'],
     additionalProperties: false,
   },
 };
@@ -74,6 +68,7 @@ const MAX_SIGNALS = 5;
 
 const SCREEN_TYPES: readonly ScreenType[] = ['story', 'profile', 'chat', 'other'];
 const INTERESTS: readonly Interest[] = ['high', 'medium', 'low', 'unclear'];
+const SENT_LINE_STATUSES: readonly SentLineStatus[] = ['replied', 'no_reply', 'unknown'];
 
 function unreadable(detail: string): EngineError {
   return new EngineError('unreadable', { detail });
@@ -135,6 +130,7 @@ export function parseModelOutput(mode: ModeId, raw: string): ModelOutput {
     username: cleanUsername(data.username),
     screenType: oneOf(data.screen_type, SCREEN_TYPES, 'other'),
     noticed: text(data.noticed),
+    sentLineStatus: oneOf(data.sent_line_status, SENT_LINE_STATUSES, 'unknown'),
   };
 
   const refusal = text(data.refusal, 500);

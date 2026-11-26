@@ -4,7 +4,15 @@ import { GenerateScreen } from '@/components/generate/generate-screen';
 import { EngineError, type GenerateOptions, type GenerationResult, type ModelOutput } from '@/engine';
 import type { GenerateDeps } from '@/generate/use-generate';
 import type { ScreenshotResult } from '@/screenshot/types';
-import { createFakeKeysRepo, makeKey, makeProfile, createFakeProfileRepo, renderWithData } from '@/test-utils';
+import {
+  TEST_USER_ID,
+  createFakeHistoryRepo,
+  createFakeKeysRepo,
+  createFakeProfileRepo,
+  makeKey,
+  makeProfile,
+  renderWithData,
+} from '@/test-utils';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -26,6 +34,7 @@ const lines = (prefix: string): ModelOutput => ({
   username: 'some.one',
   screenType: 'story',
   noticed: 'A bowl of pho.',
+  sentLineStatus: 'unknown',
   lines: [
     { text: `${prefix} one`, hook: 'the broth' },
     { text: `${prefix} two`, hook: 'table 24' },
@@ -44,15 +53,22 @@ type Setup = {
   outputs?: (ModelOutput | EngineError)[];
   keys?: ReturnType<typeof makeKey>[];
   latest?: ScreenshotResult;
+  history?: ReturnType<typeof createFakeHistoryRepo>;
 };
 
-async function setup({ outputs = [lines('Casual')], keys = [makeKey()], latest = SCREENSHOT }: Setup = {}) {
+async function setup({
+  outputs = [lines('Casual')],
+  keys = [makeKey()],
+  latest = SCREENSHOT,
+  history = createFakeHistoryRepo(),
+}: Setup = {}) {
   const calls: GenerateOptions[] = [];
   const keysRepo = createFakeKeysRepo(keys);
   const deps: GenerateDeps = {
     getLatestScreenshot: jest.fn(async () => latest),
     pickFromGallery: jest.fn(async () => SCREENSHOT),
     copy: jest.fn(async () => true),
+    now: () => new Date('2026-11-25T12:00:00Z'),
     runEngine: jest.fn(async (options: GenerateOptions) => {
       calls.push(options);
       const next = outputs[Math.min(calls.length - 1, outputs.length - 1)];
@@ -62,12 +78,13 @@ async function setup({ outputs = [lines('Casual')], keys = [makeKey()], latest =
   };
   await renderWithData(<GenerateScreen deps={deps} />, {
     keysRepo: keysRepo.repo,
+    historyRepo: history.repo,
     profileRepo: createFakeProfileRepo(makeProfile({ display_name: 'Sam', texting_style: 'short, dry' })).repo,
   });
   // Wait for the keys to load, so the screen knows whether there is one.
   await waitFor(() => expect(keysRepo.repo.list).toHaveBeenCalled());
   await act(async () => {});
-  return { deps, calls, keysRepo, user: userEvent.setup() };
+  return { deps, calls, keysRepo, history, user: userEvent.setup() };
 }
 
 const press = (user: ReturnType<typeof userEvent.setup>, name: string) =>
@@ -231,6 +248,7 @@ describe('GenerateScreen: Analyse and declines', () => {
       username: 'some.one',
       screenType: 'chat',
       noticed: 'Short replies.',
+      sentLineStatus: 'unknown',
       interest: 'low',
       signals: ['One-word replies', 'No questions back'],
       advice: 'Give it a rest for now.',
@@ -259,6 +277,7 @@ describe('GenerateScreen: Analyse and declines', () => {
       username: null,
       screenType: 'other',
       noticed: '',
+      sentLineStatus: 'unknown',
       reason: 'This is not an Instagram screenshot.',
     };
     const { user } = await setup({ outputs: [declined] });
@@ -373,5 +392,223 @@ describe('GenerateScreen: problems', () => {
     expect(keysRepo.rows()[0].limited_at).toEqual(expect.any(String));
     // With its only key resting, the screen now says there is no usable key.
     expect(await screen.findByTestId('no-key-notice')).toBeOnTheScreen();
+  });
+});
+
+describe('GenerateScreen: history', () => {
+  it('saves the generation: the person, the screenshot, the interaction and its lines', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+
+    await waitFor(() => expect(history.lines).toHaveLength(3));
+    expect(history.people.map((person) => person.username)).toEqual(['some.one']);
+    expect(history.interactions[0]).toMatchObject({
+      person_id: 'person-1',
+      mode_id: 'story_reply',
+      tone_id: 'casual',
+      tone_label: 'Casual',
+      screen_type: 'story',
+      noticed: 'A bowl of pho.',
+      provider: 'gemini',
+      model: 'gemini-3.5-flash-lite',
+      api_key_id: 'key-1',
+      api_key_label: 'Main',
+      prompt_version: 4,
+      duration_ms: 2000,
+      parent_id: null,
+    });
+    expect(history.lines.map((line) => [line.position, line.text, line.hook])).toEqual([
+      [1, 'Casual one', 'the broth'],
+      [2, 'Casual two', 'table 24'],
+      [3, 'Casual three', 'the herbs'],
+    ]);
+    // Stored in the user's own folder, and that is where the interaction points.
+    const [path] = [...history.files.keys()];
+    expect(path).toMatch(new RegExp(`^${TEST_USER_ID}/[0-9a-f-]{36}\\.jpg$`));
+    expect(history.interactions[0].screenshot_path).toBe(path);
+    expect(screen.getByTestId('person-username')).toHaveTextContent('@some.one');
+  });
+
+  it('puts the first interaction into the second prompt, so lines are not repeated', async () => {
+    const { calls, history, user } = await setup({ outputs: [lines('Casual'), lines('Flirty')] });
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    // The first prompt had nothing to remember.
+    expect(calls[0].prompt.memory).toEqual([]);
+
+    await user.press(screen.getByRole('button', { name: 'Casual two' }));
+    await waitFor(() => expect(history.lines.find((line) => line.text === 'Casual two')?.copied_at).not.toBeNull());
+
+    await press(user, 'Flirty');
+    await press(user, 'Get lines in this tone');
+    await screen.findByText('Flirty one');
+
+    expect(calls[1].prompt.memory).toEqual([
+      {
+        at: '2026-11-25T12:00:00.000Z',
+        modeLabel: 'Story reply',
+        toneLabel: 'Casual',
+        lines: [
+          { text: 'Casual one', copied: false, result: null, awaitingReply: false },
+          { text: 'Casual two', copied: true, result: null, awaitingReply: true },
+          { text: 'Casual three', copied: false, result: null, awaitingReply: false },
+        ],
+      },
+    ]);
+    // Both sets share one stored screenshot.
+    expect(history.repo.uploadScreenshot).toHaveBeenCalledTimes(1);
+    expect(new Set(history.interactions.map((row) => row.screenshot_path)).size).toBe(1);
+  });
+
+  it('records which set an adjustment came from', async () => {
+    const { history, user } = await setup({ outputs: [lines('Casual'), lines('Short')] });
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    await press(user, 'Shorter');
+    await screen.findByText('Short one');
+
+    await waitFor(() => expect(history.interactions).toHaveLength(2));
+    const [first, second] = history.interactions;
+    expect(second).toMatchObject({ parent_id: first.id, adjustment: 'shorter' });
+  });
+
+  it('saves Keep, and saves its removal', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    const saved = () => history.lines.find((line) => line.text === 'Casual one');
+
+    await user.press(screen.getByTestId('keep-0-0'));
+    await waitFor(() => expect(saved()?.kept_at).toBe('2026-11-25T12:00:00.000Z'));
+
+    await user.press(screen.getByTestId('keep-kept-0'));
+    await waitFor(() => expect(saved()?.kept_at).toBeNull());
+  });
+
+  it('lets the user correct the username, and moves what was saved to that person', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    await waitFor(() => expect(history.interactions).toHaveLength(1));
+
+    await press(user, 'Change');
+    await user.clear(screen.getByLabelText('Her Instagram username'));
+    await user.type(screen.getByLabelText('Her Instagram username'), '@The.Right_One');
+    await press(user, 'Save');
+
+    expect(screen.getByTestId('person-username')).toHaveTextContent('@the.right_one');
+    await waitFor(() => {
+      const right = history.people.find((person) => person.username === 'the.right_one');
+      expect(right).toBeDefined();
+      expect(history.interactions[0].person_id).toBe(right?.id);
+    });
+    // The misread username does not stay behind as an empty person.
+    await waitFor(() => expect(history.people.map((person) => person.username)).toEqual(['the.right_one']));
+  });
+
+  it('refuses a username Instagram would not allow', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+
+    await press(user, 'Change');
+    await user.clear(screen.getByLabelText('Her Instagram username'));
+    await user.type(screen.getByLabelText('Her Instagram username'), 'two words');
+    await press(user, 'Save');
+
+    expect(screen.getByText(/Use only letters, numbers, dots and underscores/)).toBeOnTheScreen();
+    expect(history.repo.assignPerson).not.toHaveBeenCalled();
+  });
+
+  it('offers to add a username when the AI could not read one', async () => {
+    const unread = { ...lines('Casual'), username: null };
+    const { history, user } = await setup({ outputs: [unread] });
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+
+    expect(screen.getByTestId('person-username')).toHaveTextContent('No username read');
+    await waitFor(() => expect(history.interactions).toHaveLength(1));
+    expect(history.interactions[0].person_id).toBeNull();
+
+    await press(user, 'Add username');
+    await user.type(screen.getByLabelText('Her Instagram username'), 'found.her');
+    await press(user, 'Save');
+
+    await waitFor(() => expect(history.interactions[0].person_id).not.toBeNull());
+  });
+
+  it('marks the last line as replied when a later chat screenshot shows her answer', async () => {
+    const replied = { ...lines('Next'), sentLineStatus: 'replied' as const };
+    const { history, user } = await setup({ outputs: [lines('Casual'), replied] });
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    await user.press(screen.getByRole('button', { name: 'Casual one' }));
+    const sent = () => history.lines.find((line) => line.text === 'Casual one');
+    await waitFor(() => expect(sent()?.copied_at).not.toBeNull());
+
+    await press(user, 'Reply');
+    await press(user, 'Get lines in this tone');
+    await screen.findByText('Next one');
+
+    await waitFor(() => expect(sent()?.result).toBe('replied'));
+    expect(history.lines.find((line) => line.text === 'Casual two')?.result).toBeNull();
+  });
+
+  it('does not set a result when the screenshot does not show the line', async () => {
+    const { history, user } = await setup({ outputs: [lines('Casual'), lines('Next')] });
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    await user.press(screen.getByRole('button', { name: 'Casual one' }));
+    await press(user, 'Get lines in this tone');
+    await screen.findByText('Next one');
+    await waitFor(() => expect(history.interactions).toHaveLength(2));
+
+    expect(history.lines.every((line) => line.result === null)).toBe(true);
+  });
+
+  it('remembers how the user knows someone and chooses it next time', async () => {
+    const history = createFakeHistoryRepo();
+    await history.repo.upsertPerson('some.one', 'know_her', '2026-11-20T10:00:00Z');
+    const { user } = await setup({ history });
+    await waitFor(() => expect(history.repo.listPeople).toHaveBeenCalled());
+    await press(user, 'Use latest screenshot');
+    expect(screen.getByRole('button', { name: 'Know her' })).not.toBeSelected();
+
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+
+    expect(screen.getByRole('button', { name: 'Know her' })).toBeSelected();
+  });
+
+  it('saves a context chosen after the person is known', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+
+    await press(user, 'Mutual follow');
+
+    await waitFor(() => expect(history.people[0]?.context).toBe('mutual_follow'));
+  });
+
+  it('shows the lines even when history cannot be saved right now', async () => {
+    const { history, user } = await setup();
+    await press(user, 'Use latest screenshot');
+    history.failNext();
+    await press(user, 'Get lines');
+
+    expect(await screen.findByText('Casual one')).toBeOnTheScreen();
+    expect(screen.queryByTestId('generate-error')).toBeNull();
+    expect(history.interactions).toEqual([]);
   });
 });

@@ -29,4 +29,5 @@ export type {
   PromptInput,
   ScreenType,
   SenderProfile,
+  SentLineStatus,
 } from './types';

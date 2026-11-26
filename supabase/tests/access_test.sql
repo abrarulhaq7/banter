@@ -94,6 +94,15 @@ select tests.refused($$insert into public.profiles (id) values (gen_random_uuid(
   'A: cannot create profile rows directly');
 select tests.refused($$delete from public.profiles$$, 'A: cannot delete profile rows directly');
 
+-- History extras (Phase 5).
+select tests.ok(tests.changed($$update public.lines set kept_at = now() where position = 2$$) = 1,
+  'A: can keep a line');
+select tests.ok((select count(*) from public.lines where kept_at is not null) = 1,
+  'A: the kept line is saved as kept');
+select tests.ok(
+  tests.changed($$update public.interactions set prompt_version = 999$$) = 1,
+  'interactions: a prompt version newer than the database''s copy can be recorded');
+
 -- Constraints.
 select tests.refused($$update public.profiles set age = 17$$, 'profile: age under 18 is rejected');
 select tests.refused($$update public.profiles set theme = 'light'$$, 'profile: unknown theme is rejected');

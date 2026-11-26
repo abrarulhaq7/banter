@@ -11,7 +11,21 @@ import {
   type ProfileRepo,
   type UserCache,
 } from '@/data';
-import type { ApiKeyRow, ModelRow, ProfileRow, ProviderId } from '@/lib/database.types';
+import {
+  HistoryProvider,
+  type HistoryRepo,
+  type InteractionWithLines,
+  type QueuedEntry,
+} from '@/history';
+import type {
+  ApiKeyRow,
+  InteractionInsert,
+  LineRow,
+  ModelRow,
+  PersonRow,
+  ProfileRow,
+  ProviderId,
+} from '@/lib/database.types';
 import { ThemeProvider, type ThemeName } from '@/theme';
 
 type ThemeOptions = {
@@ -235,27 +249,159 @@ export function createFakeProfileRepo(initial: ProfileRow = makeProfile()) {
   };
 }
 
+/** Stands in for the history tables and the screenshots bucket. */
+export function createFakeHistoryRepo() {
+  const people: PersonRow[] = [];
+  const interactions: (InteractionInsert & { created_at: string })[] = [];
+  const lines: LineRow[] = [];
+  const files = new Map<string, string>();
+  let pendingFailure: unknown = null;
+  let nextPerson = 1;
+  const maybeFail = () => {
+    if (pendingFailure) {
+      const error = pendingFailure;
+      pendingFailure = null;
+      throw error;
+    }
+  };
+  const withLines = (row: InteractionInsert & { created_at: string }): InteractionWithLines =>
+    ({
+      user_id: TEST_USER_ID,
+      user_prompt_id: null,
+      ...row,
+      lines: lines.filter((line) => line.interaction_id === row.id).sort((a, b) => a.position - b.position),
+    }) as InteractionWithLines;
+
+  const repo: HistoryRepo = {
+    upsertPerson: jest.fn(async (username, context, at) => {
+      maybeFail();
+      let person = people.find((item) => item.username === username);
+      if (!person) {
+        person = {
+          id: `person-${nextPerson++}`,
+          user_id: TEST_USER_ID,
+          username,
+          context: null,
+          notes: null,
+          last_interaction_at: null,
+          created_at: at,
+          updated_at: at,
+        };
+        people.push(person);
+      }
+      person.last_interaction_at = at;
+      if (context) person.context = context;
+      return person.id;
+    }),
+    saveInteraction: jest.fn(async (row) => {
+      maybeFail();
+      const existing = interactions.findIndex((item) => item.id === row.id);
+      const saved = { ...row, created_at: row.created_at ?? '2026-11-25T12:00:00Z' };
+      if (existing >= 0) interactions[existing] = saved;
+      else interactions.push(saved);
+    }),
+    saveLines: jest.fn(async (rows) => {
+      maybeFail();
+      for (const row of rows) {
+        if (lines.some((line) => line.id === row.id)) continue;
+        lines.push({
+          user_id: TEST_USER_ID,
+          copied_at: null,
+          kept_at: null,
+          result: null,
+          result_at: null,
+          created_at: '2026-11-25T12:00:00Z',
+          ...row,
+        });
+      }
+    }),
+    screenshotExists: jest.fn(async (path) => files.has(path)),
+    uploadScreenshot: jest.fn(async (path, localUri) => {
+      maybeFail();
+      files.set(path, localUri);
+    }),
+    patchLine: jest.fn(async (lineId, patch) => {
+      maybeFail();
+      const line = lines.find((item) => item.id === lineId);
+      if (line) Object.assign(line, patch);
+    }),
+    assignPerson: jest.fn(async (interactionIds, personId) => {
+      maybeFail();
+      for (const row of interactions) if (interactionIds.includes(row.id)) row.person_id = personId;
+    }),
+    setPersonContext: jest.fn(async (personId, context) => {
+      maybeFail();
+      const person = people.find((item) => item.id === personId);
+      if (person) person.context = context;
+    }),
+    removePersonIfEmpty: jest.fn(async (username) => {
+      maybeFail();
+      const at = people.findIndex((item) => item.username === username);
+      if (at < 0 || people[at].notes) return;
+      if (interactions.some((row) => row.person_id === people[at].id)) return;
+      people.splice(at, 1);
+    }),
+    listPeople: jest.fn(async () => {
+      maybeFail();
+      return [...people].sort((a, b) => (b.last_interaction_at ?? '').localeCompare(a.last_interaction_at ?? ''));
+    }),
+    listInteractions: jest.fn(async (personId, limit) => {
+      maybeFail();
+      return interactions
+        .filter((row) => row.person_id === personId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, limit)
+        .map(withLines);
+    }),
+    screenshotUrl: jest.fn(async (path) => (files.has(path) ? `https://signed.example/${path}` : null)),
+  };
+
+  return {
+    repo,
+    people,
+    interactions,
+    lines,
+    files,
+    failNext: (error: unknown = new TypeError('Network request failed')) => {
+      pendingFailure = error;
+    },
+  };
+}
+
+export const TEST_USER_ID = '11111111-1111-4111-8111-111111111111';
+
 type DataOptions = {
   keysRepo?: KeysRepo;
   keysCache?: UserCache<CachedKeys>;
   profileRepo?: ProfileRepo;
   profileCache?: UserCache<ProfileRow>;
+  historyRepo?: HistoryRepo;
+  outboxCache?: UserCache<QueuedEntry[]>;
+  peopleCache?: UserCache<PersonRow[]>;
 };
 
-/** Renders inside the theme, profile and keys providers, all backed by fakes. */
+/** Renders inside the theme, auth, profile, keys and history providers, all backed by fakes. */
 export function renderWithData(element: ReactElement, options: DataOptions = {}) {
-  const userId = '11111111-1111-4111-8111-111111111111';
+  const userId = TEST_USER_ID;
   return renderWithTheme(
-    <ProfileProvider
-      userId={userId}
-      repo={options.profileRepo ?? createFakeProfileRepo().repo}
-      cache={options.profileCache ?? createMemoryCache<ProfileRow>().cache}>
-      <KeysProvider
+    <AuthProvider client={createFakeAuthClient(fakeSession()).client}>
+      <ProfileProvider
         userId={userId}
-        repo={options.keysRepo ?? createFakeKeysRepo().repo}
-        cache={options.keysCache ?? createMemoryCache<CachedKeys>().cache}>
-        {element}
-      </KeysProvider>
-    </ProfileProvider>,
+        repo={options.profileRepo ?? createFakeProfileRepo().repo}
+        cache={options.profileCache ?? createMemoryCache<ProfileRow>().cache}>
+        <KeysProvider
+          userId={userId}
+          repo={options.keysRepo ?? createFakeKeysRepo().repo}
+          cache={options.keysCache ?? createMemoryCache<CachedKeys>().cache}>
+          <HistoryProvider
+            userId={userId}
+            repo={options.historyRepo ?? createFakeHistoryRepo().repo}
+            outboxCache={options.outboxCache ?? createMemoryCache<QueuedEntry[]>().cache}
+            peopleCache={options.peopleCache ?? createMemoryCache<PersonRow[]>().cache}>
+            {element}
+          </HistoryProvider>
+        </KeysProvider>
+      </ProfileProvider>
+    </AuthProvider>,
   );
 }

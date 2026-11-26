@@ -51,7 +51,9 @@ function memoryText(memory: MemoryItem[]): string {
           ? 'sent, she replied'
           : line.result === 'no_reply'
             ? 'sent, no reply'
-            : 'sent';
+            : line.awaitingReply
+              ? 'sent, waiting for a reply'
+              : 'sent';
       return `- "${line.text}" (${outcome})`;
     });
     return [heading, ...lines].join('\n');

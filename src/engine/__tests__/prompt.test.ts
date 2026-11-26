@@ -95,6 +95,25 @@ describe('buildPrompt', () => {
     expect(user).toContain('do not chase');
   });
 
+  it('marks the one sent line the model should look for in a chat', () => {
+    const { user } = buildPrompt({
+      ...base,
+      memory: [
+        {
+          at: '2026-11-20T10:00:00Z',
+          modeLabel: 'Story reply',
+          lines: [
+            { text: 'Latest sent', copied: true, awaitingReply: true },
+            { text: 'Older sent', copied: true },
+          ],
+        },
+      ],
+    });
+
+    expect(user).toContain('- "Latest sent" (sent, waiting for a reply)');
+    expect(user).toContain('- "Older sent" (sent)');
+  });
+
   it('leaves tone and adjustments out of Analyse', () => {
     const { user } = buildPrompt({
       ...base,

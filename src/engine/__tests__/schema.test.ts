@@ -6,6 +6,7 @@ const lines = (overrides: Record<string, unknown> = {}) =>
     screen_type: 'story',
     noticed: 'A ramen bowl by the window.',
     refusal: '',
+    sent_line_status: 'unknown',
     lines: [
       { text: 'Where is that ramen from?', hook: 'ramen bowl' },
       { text: 'That window seat looks like the best table.', hook: 'window seat' },
@@ -20,6 +21,7 @@ const analysis = (overrides: Record<string, unknown> = {}) =>
     screen_type: 'chat',
     noticed: 'Short replies.',
     refusal: '',
+    sent_line_status: 'unknown',
     interest: 'low',
     signals: ['One-word replies', 'No questions back'],
     advice: 'Leave it for now.',
@@ -43,6 +45,7 @@ describe('parseModelOutput: lines', () => {
       username: 'some.one',
       screenType: 'story',
       noticed: 'A ramen bowl by the window.',
+      sentLineStatus: 'unknown',
       lines: [
         { text: 'Where is that ramen from?', hook: 'ramen bowl' },
         { text: 'That window seat looks like the best table.', hook: 'window seat' },
@@ -119,6 +122,7 @@ describe('parseModelOutput: declined', () => {
       username: 'some.one',
       screenType: 'story',
       noticed: 'A ramen bowl by the window.',
+      sentLineStatus: 'unknown',
       reason: 'She looks like she may be under 18.',
     });
   });
@@ -135,6 +139,7 @@ describe('parseModelOutput: analysis', () => {
       username: 'some.one',
       screenType: 'chat',
       noticed: 'Short replies.',
+      sentLineStatus: 'unknown',
       interest: 'low',
       signals: ['One-word replies', 'No questions back'],
       advice: 'Leave it for now.',
@@ -158,6 +163,18 @@ describe('parseModelOutput: analysis', () => {
 
   it('needs advice', () => {
     expect(unreadable(() => parseModelOutput('analyse', analysis({ advice: ' ' })))).toBe('unreadable');
+  });
+});
+
+describe('parseModelOutput: did she reply', () => {
+  it.each(['replied', 'no_reply', 'unknown'] as const)('reads "%s"', (status) => {
+    expect(parseModelOutput('reply', lines({ sent_line_status: status })).sentLineStatus).toBe(status);
+    expect(parseModelOutput('analyse', analysis({ sent_line_status: status })).sentLineStatus).toBe(status);
+  });
+
+  it('treats a missing or odd value as "unknown", so a result is never set by mistake', () => {
+    expect(parseModelOutput('reply', lines({ sent_line_status: 'maybe' })).sentLineStatus).toBe('unknown');
+    expect(parseModelOutput('reply', lines({ sent_line_status: undefined })).sentLineStatus).toBe('unknown');
   });
 });
 

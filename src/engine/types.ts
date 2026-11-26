@@ -5,6 +5,8 @@ export type ContextId = 'stranger' | 'mutual_follow' | 'know_her' | 'already_tal
 export type ScreenType = 'story' | 'profile' | 'chat' | 'other';
 export type Interest = 'high' | 'medium' | 'low' | 'unclear';
 export type Adjustment = 'new_lines' | 'shorter' | 'bolder';
+/** What a chat screenshot shows about the last line the sender used. */
+export type SentLineStatus = 'replied' | 'no_reply' | 'unknown';
 
 /** A screenshot ready to send: already resized, as base64 without any "data:" prefix. */
 export type ImageInput = {
@@ -35,7 +37,13 @@ export type MemoryItem = {
   at: string;
   modeLabel: string;
   toneLabel?: string | null;
-  lines: { text: string; copied: boolean; result?: 'replied' | 'no_reply' | null }[];
+  lines: {
+    text: string;
+    copied: boolean;
+    result?: 'replied' | 'no_reply' | null;
+    /** True for the one line the model is asked to look for in a chat screenshot. */
+    awaitingReply?: boolean;
+  }[];
 };
 
 /** Everything that goes into one prompt (PLAN.md section 6). */
@@ -72,6 +80,11 @@ type OutputBase = {
   username: string | null;
   screenType: ScreenType;
   noticed: string;
+  /**
+   * Whether the chat in the screenshot shows a reply to the last line the sender used
+   * with this person. 'unknown' unless the screenshot is a chat that shows that line.
+   */
+  sentLineStatus: SentLineStatus;
 };
 
 export type LinesOutput = OutputBase & { kind: 'lines'; lines: Line[] };

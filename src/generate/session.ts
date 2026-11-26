@@ -19,7 +19,13 @@ import type { PreparedScreenshot } from '@/screenshot/types';
 
 /** One generation: the answer, and what it was asked with. */
 export type ResultSet = {
+  /** Also the id of the saved interaction. */
   id: string;
+  /**
+   * Ids of the saved lines, in order. For an analysis this is the suggested reply, if
+   * there is one. Empty for a decline.
+   */
+  lineIds: string[];
   mode: ModeId;
   modeLabel: string;
   /** Null for Analyse. */
@@ -31,7 +37,7 @@ export type ResultSet = {
 };
 
 export type KeptLine = {
-  /** `<set id>:<position>`, so the same line cannot be kept twice. */
+  /** The saved line's id, so the same line cannot be kept twice. */
   id: string;
   text: string;
   /** Where it came from, for example "Flirty · Story reply". */
@@ -45,6 +51,11 @@ export type SessionError = {
 
 export type SessionState = {
   screenshot: PreparedScreenshot | null;
+  /**
+   * Who this screenshot is of: read by the AI from the first answer, or typed by the user.
+   * Null until then. Everything generated for this screenshot is saved under this person.
+   */
+  username: string | null;
   mode: ModeId;
   tone: ToneId;
   context: ContextId | null;
@@ -64,6 +75,9 @@ export type SessionAction =
   | { type: 'setMode'; mode: ModeId }
   | { type: 'setTone'; tone: ToneId }
   | { type: 'setContext'; context: ContextId | null }
+  /** Fills in the context remembered for this person, without the toggle behaviour. */
+  | { type: 'rememberContext'; context: ContextId }
+  | { type: 'setUsername'; username: string }
   | { type: 'generateStarted' }
   | { type: 'generateSucceeded'; set: ResultSet }
   | { type: 'generateFailed'; error: SessionError }
@@ -73,6 +87,7 @@ export type SessionAction =
 
 export const initialSession: SessionState = {
   screenshot: null,
+  username: null,
   mode: 'story_reply',
   tone: 'casual',
   context: null,
@@ -93,6 +108,8 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return {
         ...state,
         screenshot: action.screenshot,
+        username: null,
+        context: null,
         sets: [],
         kept: [],
         copiedLineId: null,
@@ -118,8 +135,19 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
 
     case 'generateStarted':
       return { ...state, phase: 'generating', error: null };
+    case 'rememberContext':
+      return { ...state, context: state.context ?? action.context };
+    case 'setUsername':
+      return { ...state, username: action.username };
+
     case 'generateSucceeded':
-      return { ...state, phase: 'idle', sets: [action.set, ...state.sets] };
+      return {
+        ...state,
+        phase: 'idle',
+        sets: [action.set, ...state.sets],
+        // The first answer that reads a username decides who this screenshot is of.
+        username: state.username ?? action.set.output.username,
+      };
     case 'generateFailed':
       // Earlier sets and kept lines are untouched by a failure.
       return { ...state, phase: 'idle', error: action.error };

@@ -32,8 +32,8 @@ export function ResultSetView({ set, index, copiedLineId, keptIds, onCopy, onTog
   const label = setLabel(set);
   const heading = [label, set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null].filter(Boolean).join(' · ');
 
-  const line = (position: string, text: string, caption?: string) => {
-    const id = `${set.id}:${position}`;
+  /** `position` names the line in test ids; `id` is the saved line's id. */
+  const line = (position: string, id: string, text: string, caption?: string) => {
     return (
       <LineCard
         key={id}
@@ -77,7 +77,9 @@ export function ResultSetView({ set, index, copiedLineId, keptIds, onCopy, onTog
       ) : null}
 
       {output.kind === 'lines'
-        ? output.lines.map((item, position) => line(String(position), item.text, item.hook || undefined))
+        ? output.lines.map((item, position) =>
+            line(String(position), set.lineIds[position], item.text, item.hook || undefined),
+          )
         : null}
 
       {output.kind === 'analysis' ? (
@@ -93,7 +95,7 @@ export function ResultSetView({ set, index, copiedLineId, keptIds, onCopy, onTog
             ))}
             <AppText>{output.advice}</AppText>
           </Card>
-          {output.suggestedReply ? line('reply', output.suggestedReply, 'Suggested reply') : null}
+          {output.suggestedReply ? line('reply', set.lineIds[0], output.suggestedReply, 'Suggested reply') : null}
         </>
       ) : null}
     </View>

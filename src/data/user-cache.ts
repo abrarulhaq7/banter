@@ -10,7 +10,7 @@ export type UserCache<T> = {
   clear: () => Promise<void>;
 };
 
-export type CacheName = 'keys' | 'profile';
+export type CacheName = 'keys' | 'profile' | 'outbox' | 'people';
 
 export function createUserCache<T>(
   name: CacheName,
@@ -47,8 +47,11 @@ export function createUserCache<T>(
 
 /** Removes everything cached for a user. Called on sign-out. */
 export async function clearUserCaches(userId: string, storage?: SessionStorage): Promise<void> {
+  // The outbox is deliberately left: history that has not reached the server yet is
+  // sent the next time this user signs in on this phone.
   await Promise.all([
     createUserCache('keys', userId, storage).clear(),
     createUserCache('profile', userId, storage).clear(),
+    createUserCache('people', userId, storage).clear(),
   ]);
 }

@@ -1,12 +1,14 @@
 import * as Clipboard from 'expo-clipboard';
 import { useReducer, useRef } from 'react';
 
+import { useAuth } from '@/auth';
 import { useKeys, useProfile } from '@/data';
 import {
   DEFAULT_CORE,
   DEFAULT_MODES,
   DEFAULT_TONES,
   EngineError,
+  cleanUsername,
   generate as runEngine,
   isEngineError,
   type Adjustment,
@@ -14,10 +16,13 @@ import {
   type GenerateOptions,
   type GenerationResult,
   type ModeId,
+  type ModelOutput,
   type SenderProfile,
   type ToneId,
 } from '@/engine';
-import type { ProfileRow } from '@/lib/database.types';
+import { useHistory, type GenerationEntry } from '@/history';
+import type { LineInsert, ProfileRow } from '@/lib/database.types';
+import { uuid } from '@/lib/uuid';
 import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
 import type { ScreenshotResult } from '@/screenshot/types';
 
@@ -37,6 +42,7 @@ export type GenerateDeps = {
   pickFromGallery: () => Promise<ScreenshotResult>;
   runEngine: (options: GenerateOptions) => Promise<GenerationResult>;
   copy: (text: string) => Promise<unknown>;
+  now: () => Date;
 };
 
 const realDeps: GenerateDeps = {
@@ -44,7 +50,10 @@ const realDeps: GenerateDeps = {
   pickFromGallery,
   runEngine,
   copy: (text) => Clipboard.setStringAsync(text),
+  now: () => new Date(),
 };
+
+const TONE_IDS = Object.keys(DEFAULT_TONES) as ToneId[];
 
 function senderProfile(profile: ProfileRow | null): SenderProfile | null {
   if (!profile) return null;
@@ -58,6 +67,22 @@ function senderProfile(profile: ProfileRow | null): SenderProfile | null {
   };
 }
 
+/** The texts that become saved lines: the three lines, or an analysis's suggested reply. */
+function savedLineTexts(output: ModelOutput): { text: string; hook: string | null }[] {
+  if (output.kind === 'lines') return output.lines.map((line) => ({ text: line.text, hook: line.hook || null }));
+  if (output.kind === 'analysis' && output.suggestedReply) return [{ text: output.suggestedReply, hook: null }];
+  return [];
+}
+
+/** What is kept of an answer besides its lines. */
+function savedAnalysis(output: ModelOutput): Record<string, unknown> | null {
+  if (output.kind === 'analysis') {
+    return { interest: output.interest, signals: output.signals, advice: output.advice };
+  }
+  if (output.kind === 'declined') return { declined: output.reason };
+  return null;
+}
+
 export type GenerateController = SessionState & {
   /** False when the user has no key that can be tried right now. */
   hasUsableKey: boolean;
@@ -66,6 +91,8 @@ export type GenerateController = SessionState & {
   setMode: (mode: ModeId) => void;
   setTone: (tone: ToneId) => void;
   setContext: (context: ContextId) => void;
+  /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
+  setUsername: (username: string) => string | null;
   generate: () => Promise<void>;
   adjust: (kind: Adjustment) => Promise<void>;
   copyLine: (lineId: string, text: string) => Promise<void>;
@@ -75,37 +102,53 @@ export type GenerateController = SessionState & {
 
 export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateController {
   const deps = { ...realDeps, ...overrides };
+  const { session } = useAuth();
   const { keys, models, updateKey, status: keysStatus } = useKeys();
   const { profile } = useProfile();
+  const history = useHistory();
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
-  const nextSetNumber = useRef(1);
+  /** Where this screenshot is stored. One file serves every set made from it. */
+  const screenshotPath = useRef<string | null>(null);
 
-  const candidates = keyCandidates(keys, models);
+  const userId = session?.user.id ?? null;
+  const candidates = keyCandidates(keys, models, deps.now().getTime());
 
   const loadScreenshot = async (source: () => Promise<ScreenshotResult>) => {
     if (state.phase !== 'idle') return;
     dispatch({ type: 'screenshotLoading' });
     const result = await source();
-    if (result.ok) dispatch({ type: 'screenshotReady', screenshot: result.screenshot });
-    else dispatch({ type: 'screenshotFailed', message: result.reason === 'cancelled' ? null : result.message });
+    if (result.ok) {
+      screenshotPath.current = userId ? `${userId}/${uuid()}.jpg` : null;
+      dispatch({ type: 'screenshotReady', screenshot: result.screenshot });
+    } else {
+      dispatch({ type: 'screenshotFailed', message: result.reason === 'cancelled' ? null : result.message });
+    }
   };
 
   const run = async (adjustment: { kind: Adjustment; previousLines: string[] } | null, from?: ResultSet) => {
     if (state.phase !== 'idle' || !state.screenshot) return;
+    const screenshot = state.screenshot;
 
     // An adjustment keeps the mode and tone of the set it adjusts.
     const mode = from?.mode ?? state.mode;
-    const toneLabel = from ? from.toneLabel : mode === 'analyse' ? null : DEFAULT_TONES[state.tone].label;
-    const tone =
+    const toneId =
       mode === 'analyse'
         ? null
-        : (Object.values(DEFAULT_TONES).find((item) => item.label === toneLabel) ?? DEFAULT_TONES[state.tone]);
+        : from
+          ? (TONE_IDS.find((id) => DEFAULT_TONES[id].label === from.toneLabel) ?? state.tone)
+          : state.tone;
+    const tone = toneId ? DEFAULT_TONES[toneId] : null;
 
     dispatch({ type: 'generateStarted' });
     try {
+      // Once the person is known, what was said to them before goes into the prompt.
+      const memory = state.username
+        ? await history.memoryFor(state.username)
+        : { items: [], awaitingReplyLineId: null };
+
       const result = await deps.runEngine({
         keys: candidates,
-        image: state.screenshot.image,
+        image: screenshot.image,
         prompt: {
           core: DEFAULT_CORE,
           mode,
@@ -113,6 +156,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           tone,
           context: state.context,
           profile: senderProfile(profile),
+          memory: memory.items,
           adjustment,
         },
         // Save what was learned about a key, so the Keys screen shows it and it is skipped.
@@ -120,7 +164,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           await updateKey(keyId, {
             status,
             last_error: message,
-            limited_at: status === 'limited' ? new Date().toISOString() : null,
+            limited_at: status === 'limited' ? deps.now().toISOString() : null,
           });
         },
       });
@@ -130,15 +174,73 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
         void updateKey(result.usedKey.id, { status: 'active', last_error: null, limited_at: null });
       }
 
+      const { output } = result;
+      const at = deps.now().toISOString();
+      const interactionId = uuid();
+      const lines: LineInsert[] = savedLineTexts(output).map((line, index) => ({
+        id: uuid(),
+        interaction_id: interactionId,
+        position: index + 1,
+        text: line.text,
+        hook: line.hook,
+      }));
+      const username = state.username ?? output.username;
+
+      const entry: GenerationEntry = {
+        kind: 'generation',
+        username,
+        context: state.context,
+        interaction: {
+          id: interactionId,
+          parent_id: from?.id ?? null,
+          adjustment: adjustment?.kind ?? null,
+          mode_id: mode,
+          tone_id: toneId,
+          tone_label: tone?.label ?? null,
+          context: state.context,
+          screenshot_path: screenshotPath.current,
+          screen_type: output.screenType,
+          noticed: output.noticed || null,
+          analysis: savedAnalysis(output),
+          provider: result.usedKey.provider,
+          model: result.usedKey.model,
+          api_key_id: result.usedKey.id,
+          api_key_label: result.usedKey.label,
+          prompt_version: result.promptVersion,
+          duration_ms: result.durationMs,
+          created_at: at,
+        },
+        lines,
+        screenshot: screenshotPath.current
+          ? { path: screenshotPath.current, localUri: screenshot.previewUri }
+          : null,
+      };
+      // Saving happens in the background: the lines show at once, with or without internet.
+      void history.save(entry);
+
+      // A chat screenshot can show how the last line went. Record it.
+      if (output.sentLineStatus !== 'unknown' && memory.awaitingReplyLineId) {
+        void history.save({
+          kind: 'linePatch',
+          lineId: memory.awaitingReplyLineId,
+          patch: { result: output.sentLineStatus, result_at: at },
+        });
+      }
+
+      // The first time the person is known, use the context remembered for them.
+      const remembered = username ? history.personByUsername(username)?.context : null;
+      if (remembered) dispatch({ type: 'rememberContext', context: remembered });
+
       dispatch({
         type: 'generateSucceeded',
         set: {
-          id: `set-${nextSetNumber.current++}`,
+          id: interactionId,
+          lineIds: lines.map((line) => line.id),
           mode,
           modeLabel: DEFAULT_MODES[mode].label,
           toneLabel: tone?.label ?? null,
           adjustment: adjustment?.kind ?? null,
-          output: result.output,
+          output,
           usedKey: result.usedKey,
           durationMs: result.durationMs,
         },
@@ -157,18 +259,61 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     pickScreenshot: () => loadScreenshot(deps.pickFromGallery),
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
     setTone: (tone) => dispatch({ type: 'setTone', tone }),
-    setContext: (context) => dispatch({ type: 'setContext', context }),
+
+    setContext: (context) => {
+      dispatch({ type: 'setContext', context });
+      // Remembered for the person, so it is already chosen next time.
+      if (state.username && state.context !== context) {
+        void history.save({ kind: 'personContext', username: state.username, context });
+      }
+    },
+
+    setUsername: (raw) => {
+      const username = cleanUsername(raw);
+      if (!username) return 'Use only letters, numbers, dots and underscores, as on Instagram.';
+      if (username === state.username) return null;
+      dispatch({ type: 'setUsername', username });
+      // Everything already made for this screenshot moves to the corrected person.
+      if (state.sets.length > 0) {
+        void history.save({
+          kind: 'assignPerson',
+          interactionIds: state.sets.map((set) => set.id),
+          username,
+          context: state.context,
+          previousUsername: state.username,
+        });
+      }
+      return null;
+    },
+
     generate: () => run(null),
     adjust: async (kind) => {
       const newest = state.sets[0];
       const previousLines = adjustableLines(newest);
       if (previousLines) await run({ kind, previousLines }, newest);
     },
+
     copyLine: async (lineId, text) => {
       await deps.copy(text);
       dispatch({ type: 'copied', lineId });
+      // A line copied from the Kept strip is the same saved line.
+      void history.save({
+        kind: 'linePatch',
+        lineId: lineId.replace(/^kept:/, ''),
+        patch: { copied_at: deps.now().toISOString() },
+      });
     },
-    toggleKeep: (line) => dispatch({ type: 'toggleKeep', line }),
+
+    toggleKeep: (line) => {
+      const isKept = state.kept.some((kept) => kept.id === line.id);
+      dispatch({ type: 'toggleKeep', line });
+      void history.save({
+        kind: 'linePatch',
+        lineId: line.id,
+        patch: { kept_at: isKept ? null : deps.now().toISOString() },
+      });
+    },
+
     dismissError: () => dispatch({ type: 'dismissError' }),
   };
 }

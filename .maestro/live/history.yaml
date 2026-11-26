@@ -1,0 +1,231 @@
+# Phase 5 acceptance test: what is saved after generating, and the People screens.
+#
+# Generates twice for one screenshot with real answers from Gemini, then reads the test
+# account straight from Supabase to confirm the person, both interactions, their lines,
+# the copied and kept marks and the one stored screenshot. Then opens People, the
+# person's timeline, and marks the copied line as "Replied".
+#
+# Needs supabase/migrations up to 20261125000400_history.sql applied to the project.
+# Everything saved is deleted again at the end.
+#
+#   npm run e2e:live -- .maestro/live/history.yaml
+appId: com.banterlines.app
+env:
+  PERSON: "banter.e2e.person"
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "hist"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible:
+      id: "no-key-notice"
+    timeout: 30000
+
+# --- Nobody yet --------------------------------------------------------------------------
+- tapOn:
+    id: "open-people"
+- extendedWaitUntil:
+    visible:
+      id: "no-people"
+    timeout: 30000
+- takeScreenshot: history-nobody-yet
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 15000
+
+# --- First set: Casual -------------------------------------------------------------------
+- tapOn:
+    id: "use-latest"
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "generate-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Casual · Story reply"
+
+# The row above the lines says who they are saved under, as the AI read it.
+- assertVisible:
+    id: "person-row"
+- takeScreenshot: history-saved-under
+
+# Correct the username. What was saved moves to that person.
+- tapOn:
+    id: "person-change"
+- tapOn:
+    id: "person-input"
+- eraseText: 40
+- inputText: ${PERSON}
+- runFlow: ../common/close-keyboard.yaml
+- tapOn:
+    id: "person-save"
+- assertVisible:
+    id: "person-username"
+    text: "@${PERSON}"
+
+# Copy the first line, keep the second.
+- scrollUntilVisible:
+    element:
+      id: "line-0-0"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "line-0-0"
+- assertVisible:
+    id: "line-status-0-0"
+    text: "Copied"
+- scrollUntilVisible:
+    element:
+      id: "keep-0-1"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "keep-0-1"
+
+# --- Second set: Flirty, same screenshot -------------------------------------------------
+- runFlow: ../common/scroll-to-top.yaml
+- scrollUntilVisible:
+    element:
+      id: "tone-flirty"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "tone-flirty"
+- scrollUntilVisible:
+    element:
+      id: "generate-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Flirty · Story reply"
+
+# --- People ------------------------------------------------------------------------------
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "open-people"
+- extendedWaitUntil:
+    visible:
+      id: "person-card-0"
+    timeout: 30000
+# Nothing is left waiting on the phone.
+- extendedWaitUntil:
+    notVisible:
+      id: "history-waiting"
+    timeout: 30000
+- takeScreenshot: history-people
+
+# What Supabase holds now.
+- runScript:
+    file: ../scripts/check-history.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      USERNAME: ${PERSON}
+      EXPECT_RESULT: "none"
+
+# --- One person's timeline ---------------------------------------------------------------
+- tapOn:
+    id: "person-card-0"
+- extendedWaitUntil:
+    visible:
+      id: "timeline-heading-0"
+      text: "Flirty · Story reply"
+    timeout: 30000
+- takeScreenshot: history-timeline-newest
+# The screenshot is shown once, with the older set made from it.
+- scrollUntilVisible:
+    element:
+      id: "timeline-screenshot-1"
+    direction: DOWN
+    timeout: 30000
+- waitForAnimationToEnd
+- assertVisible:
+    id: "timeline-heading-1"
+    text: "Casual · Story reply"
+- takeScreenshot: history-timeline-screenshot
+
+# Mark how the copied line went.
+- scrollUntilVisible:
+    element:
+      id: "replied-1-0"
+    direction: DOWN
+- waitForAnimationToEnd
+- assertVisible:
+    id: "timeline-line-state-1-0"
+    text: "Copied"
+- tapOn:
+    id: "replied-1-0"
+- assertVisible:
+    id: "replied-1-0"
+    selected: true
+- takeScreenshot: history-marked-replied
+- runScript:
+    file: ../scripts/check-history.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      USERNAME: ${PERSON}
+      EXPECT_RESULT: "replied"
+
+# --- Clean up ----------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/remove-history.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+- runScript:
+    file: ../scripts/remove-keys.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "people-screen"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 15000
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml

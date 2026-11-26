@@ -9,6 +9,7 @@ import { useGenerate, type GenerateDeps } from '@/generate/use-generate';
 import { radius, spacing, useTheme } from '@/theme';
 
 import { LineCard } from './line-card';
+import { PersonRow } from './person-row';
 import { ResultSetView } from './result-set-view';
 
 const MODES = Object.keys(DEFAULT_MODES) as ModeId[];
@@ -70,13 +71,24 @@ export function GenerateScreen({ deps }: GenerateScreenProps) {
         <AppText variant="display" accessibilityRole="header">
           Banter
         </AppText>
-        <Button
-          testID="open-settings"
-          variant="ghost"
-          size="sm"
-          label="Settings"
-          onPress={() => router.push('/settings')}
-        />
+        <View style={styles.titleLinks}>
+          <Button
+            testID="open-people"
+            variant="ghost"
+            size="sm"
+            label="People"
+            style={styles.titleLink}
+            onPress={() => router.push('/people')}
+          />
+          <Button
+            testID="open-settings"
+            variant="ghost"
+            size="sm"
+            label="Settings"
+            style={styles.titleLink}
+            onPress={() => router.push('/settings')}
+          />
+        </View>
       </View>
 
       {!session.hasUsableKey ? (
@@ -225,6 +237,10 @@ export function GenerateScreen({ deps }: GenerateScreenProps) {
         </Card>
       ) : null}
 
+      {session.sets.length > 0 ? (
+        <PersonRow username={session.username} onChange={session.setUsername} />
+      ) : null}
+
       {session.kept.length > 0 ? (
         <View testID="kept-strip" style={styles.group}>
           <AppText variant="heading" accessibilityRole="header">
@@ -294,6 +310,8 @@ export function GenerateScreen({ deps }: GenerateScreenProps) {
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleLinks: { flexDirection: 'row', gap: spacing.md },
+  titleLink: { paddingHorizontal: 0 },
   group: { gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   buttonRow: { flexDirection: 'row', gap: spacing.sm },

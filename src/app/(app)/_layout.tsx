@@ -6,6 +6,7 @@ import { useAuth } from '@/auth';
 import { CrashScreen } from '@/components/crash-screen';
 import { AppText, Button, Screen, ScreenHeader } from '@/components/ui';
 import { KeysProvider, ProfileProvider, useProfile } from '@/data';
+import { HistoryProvider } from '@/history';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { useTheme } from '@/theme';
 
@@ -22,7 +23,9 @@ export default function AppLayout() {
   return (
     <ProfileProvider key={userId} userId={userId}>
       <KeysProvider userId={userId}>
-        <AppNavigator />
+        <HistoryProvider userId={userId}>
+          <AppNavigator />
+        </HistoryProvider>
       </KeysProvider>
     </ProfileProvider>
   );
@@ -57,6 +60,8 @@ function AppNavigator() {
         <Stack.Screen name="keys/index" />
         <Stack.Screen name="keys/add" />
         <Stack.Screen name="keys/[id]" />
+        <Stack.Screen name="people/index" />
+        <Stack.Screen name="people/[id]" />
       </Stack.Protected>
 
       <Stack.Protected guard={!onboarded}>
