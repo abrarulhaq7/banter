@@ -1,0 +1,62 @@
+# Phase 0 check: the app starts, shows the building blocks, and switches between all three themes.
+#
+# Needs the development build installed on a booted simulator and the dev server running:
+#   npm run ios        (first time, builds and installs)
+#   npm start          (dev server)
+#   npm run e2e
+# Screenshots are saved under .maestro/artifacts/.
+appId: com.banterlines.app
+---
+- launchApp
+# A development build opens on the dev launcher. This link loads the app from the dev server.
+- openLink: "exp+banter://?__expo_url=http%3A%2F%2Flocalhost%3A8081&__expo_disable_fab=1&__expo_disable_onboarding=1"
+- extendedWaitUntil:
+    visible:
+      id: "foundation-screen"
+    timeout: 60000
+# The dev menu shows a one-time welcome sheet on first launch.
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+
+- assertVisible: "Banter"
+- assertVisible:
+    id: "section-detail-Theme"
+    text: "Midnight Plum"
+- takeScreenshot: theme-midnight-plum
+
+- tapOn:
+    id: "theme-ember"
+- assertVisible:
+    id: "section-detail-Theme"
+    text: "Ember"
+- takeScreenshot: theme-ember
+
+- tapOn:
+    id: "theme-deepSea"
+- assertVisible:
+    id: "section-detail-Theme"
+    text: "Deep Sea"
+- takeScreenshot: theme-deep-sea
+
+# Chips: picking one selects it.
+- tapOn:
+    id: "tone-Flirty"
+- assertVisible:
+    id: "tone-Flirty"
+    selected: true
+
+# Line card: tap to copy.
+- tapOn:
+    id: "sample-line"
+- assertVisible:
+    id: "sample-line"
+    selected: true
+
+- scrollUntilVisible:
+    element:
+      id: "button-primary"
+    direction: DOWN
+- takeScreenshot: building-blocks
