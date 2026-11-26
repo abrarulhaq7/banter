@@ -111,6 +111,11 @@ describe('checkKey: a wrong key', () => {
     });
   });
 
+  it('recognises Gemini\'s wrong-key answer when it comes wrapped in a list', async () => {
+    const result = await checkKey('gemini', 'k', { fetch: fakeFetch(400, [GEMINI_BAD_KEY]).fetchImpl });
+    expect(result).toMatchObject({ ok: false, reason: 'invalid' });
+  });
+
   it('treats "not allowed" (403) as a rejected key', async () => {
     const result = await checkKey('gemini', 'k', {
       fetch: fakeFetch(403, { error: { status: 'PERMISSION_DENIED' } }).fetchImpl,

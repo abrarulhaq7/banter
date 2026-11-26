@@ -73,7 +73,9 @@ function readModelIds(provider: ProviderId, body: unknown): string[] | null {
 
 /** Gemini reports a bad key as 400 with this reason, not as 401. */
 function isGeminiBadKey(body: unknown): boolean {
-  const error = (body as { error?: { status?: unknown; details?: unknown; message?: unknown } })?.error;
+  // Some Gemini endpoints wrap the error in a list: `[{ "error": ... }]`.
+  const first: unknown = Array.isArray(body) ? body[0] : body;
+  const error = (first as { error?: { status?: unknown; details?: unknown; message?: unknown } } | null)?.error;
   if (!error) return false;
   const details = Array.isArray(error.details) ? error.details : [];
   return (

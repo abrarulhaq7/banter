@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 2 built and tested on 2026-11-25. One check is left for you: add one real key by hand** (see "Phase 2 result"). Next step: Phase 3.
+Status: **Phase 3 engine works with real screenshots on Gemini (2026-11-25). Waiting for your judgement of the lines, and for profile and chat screenshots** (see "Phase 3 result so far").
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -257,15 +257,13 @@ From you: type one real key into the app on the simulator. I do not need to see 
   the profile and keys surviving an app restart, and reorder, check again, turn off and
   delete on the keys screens. Screenshots in `.maestro/artifacts/phase-2/`.
 
-Not tested yet, and it needs you:
+Real key check (done by you on 2026-11-25):
 
-- **A real, working key has never been added.** Every key so far was made up, to prove
-  rejection. The accepted path is covered only by unit tests with pretend provider
-  answers. Adding one real key by hand also proves the model names in the `models` table
-  are right for your account: the app refuses to save if the key cannot use the model.
-
-How to do it: run `npm start`, open Banter on the simulator, sign in, tap "Add a key",
-paste a real key with Cmd+V and tap "Check and save".
+- A real Gemini key was added in the app and saved as "Active" on Gemini 3.5 Flash-Lite.
+  Pressing "Check this key again" afterwards returned "Gemini accepted this key."
+- This confirms `gemini-3.5-flash-lite` is a correct model name. The other names in the
+  `models` table (`gemini-4-hydrogen`, `gpt-6-luna` and the three Claude models) have not
+  been confirmed with a real key yet. The app checks each one when a key is added with it.
 
 Choices made in this phase that you may want to change:
 
@@ -297,6 +295,78 @@ mapping. Then the test tool on your sample screenshots for every mode and tone, 
 I show you the output so you can judge the lines.
 From you: 10 to 15 real screenshots (stories, profiles, chats) in a `samples/` folder
 that stays out of git, and one test key per provider in a local file that stays out of git.
+
+**Phase 3 result so far (2026-11-25):**
+
+Built, in `src/engine/`:
+
+- **Prompt builder:** assembles the layers of section 6. The fixed rules and the answer
+  format go in the system prompt; everything a user can edit goes in the message with
+  the screenshot, so an edit cannot change the rules or the format (there is a test).
+- **Three adapters:** Claude (Messages API), OpenAI (Responses API) and Gemini
+  (Interactions API). Each sends the screenshot and asks for the same fixed structure.
+- **No copies kept by the provider:** OpenAI and Gemini store each request by default.
+  Both adapters turn that off (`store: false`), because screenshots show other people.
+- **Answer checking:** finds the answer even inside a code block, drops extra, blank and
+  repeated lines, cleans the username, and replaces bad values with safe ones.
+- **Key switching:** a key at its limit or rejected is reported and the next is tried.
+  A refusal or no internet stops at once. An unreadable answer is asked for once more.
+- **Test tool:** `npm run lines -- samples/` runs screenshots through any provider, mode
+  and tone and prints the lines. `--help` lists the options.
+- **Prompt sync:** the default prompts now live in `src/engine/default-prompts.ts`.
+  `npm run db:prompts` writes `supabase/paste-prompts.sql` to copy them into Supabase.
+
+Checked:
+
+- `npm run check` passes: type check, lint, 297 unit tests (95 for the engine).
+- `npm run test:db` passes: 79 checks, including that the prompt sync loads.
+- Each provider's real generation address was called with a made-up key; all three
+  answer "wrong key". That found one bug, now fixed: Gemini wraps its error in a list
+  on this address, and a wrong key was being reported as a bad request.
+
+First real runs (2026-11-25, Gemini 3.5 Flash-Lite, your 16 story screenshots):
+
+- **It works.** The first real request was accepted and parsed with no change to the
+  adapter. About 70 requests were made in total; typical answer time 2 to 4 seconds
+  (median 2.4, slowest 10.5).
+- **Usernames:** read on all 16. I checked them against the screenshots by eye and they
+  match, including one where a sign partly covers the name.
+- **Gemini was sometimes too busy.** 5 of the first 20 requests failed with "high demand,
+  try again later". The engine now asks again twice (after 1.5 and 4 seconds); the next
+  47 requests had no failure. This is the provider, and it may come back.
+- **Prompt went through three rounds** (versions 2, 3 and 4), each run on all 16:
+  - Version 2: specific hooks, but some comments on her looks ("that colour suits you"),
+    invented facts ("that new store downtown") and interview questions ("where is it from?").
+  - Version 3: fixed those, but overcorrected into flat statements with nothing to reply
+    to ("Heavy shadows today."), and invented a fact about the sender.
+  - Version 4 (current): at least one question and at most two per set, no flat verdicts,
+    no claims about the sender's own life.
+- **Still imperfect in version 4:** an occasional invented detail ("for a Tuesday", "in
+  this cold"), an occasional weak line ("What song is playing?"), and Confident reads
+  much like Casual.
+- Full output is in `samples/out/` (not in git).
+
+Not done yet:
+
+- **Your judgement of the lines.** This is the point of the phase.
+- **Opener, Reply and Analyse are untested.** All 16 samples are stories. These modes
+  need profile and chat screenshots.
+- **OpenAI and Claude have never run for real.** Only a Gemini key is in
+  `keys.local.json`. Their request formats follow the documentation and pass the
+  wrong-key check, nothing more.
+- **Resizing in the app** is wired in Phase 4 together with the screenshot picker (both
+  need the same native rebuild). The size rule (1280 px longest side) and the test tool's
+  resizing are done.
+- **Supabase still has prompt version 1.** After tuning, run `npm run db:prompts` and
+  paste the file once. It must be done before Phase 5 saves any history.
+
+Choices made in this phase that you may want to change:
+
+- **A refusal is not retried with another key or model.** Anthropic offers an automatic
+  fallback to another Claude model when one declines; it is not switched on, so a
+  refusal is shown as "the AI declined" and nothing extra is billed.
+- The model's reasoning effort is left at each provider's default. Speed against quality
+  is tuned once real runs can be timed.
 
 ### Phase 4 — Generate screen
 
@@ -487,7 +557,9 @@ agreements are recorded here.
   `JAVA_HOME`, `ANDROID_HOME` and `adb` are not set globally; run `source scripts/env.sh`
   in a terminal to set them for that terminal.
 - Commands: `npm run check` (type check, lint, unit tests), `npm run test:db` (database
-  access rules on a local Postgres), `npm run ios` (build and install on the simulator),
+  access rules on a local Postgres), `npm run lines -- samples/` (run screenshots through
+  the engine; needs `keys.local.json`), `npm run db:prompts` (write the SQL that copies
+  the default prompts into Supabase), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
   `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates three test
   accounts per run).

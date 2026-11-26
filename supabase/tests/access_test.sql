@@ -15,6 +15,10 @@ select tests.ok((select count(*) from public.tones) = 5, 'seed: five tones');
 select tests.ok((select count(*) from public.prompt_core where is_active) = 1,
   'seed: exactly one active version of the core rules');
 select tests.ok(
+  (select version from public.prompt_core where is_active) = (select max(version) from public.prompt_core)
+  and (select count(*) from public.prompt_core) >= 2,
+  'prompts: syncing from the app''s code adds a new version, makes it the active one and keeps the old one');
+select tests.ok(
   (select count(*) from public.models where is_default) = 3
   and (select count(distinct provider) from public.models where is_default) = 3,
   'seed: one default model for each of the three providers');

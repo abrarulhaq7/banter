@@ -63,3 +63,7 @@ keys.local.*
 
 # Banter: generated file for pasting into the Supabase SQL editor
 /supabase/paste-into-sql-editor.sql
+/supabase/paste-prompts.sql
+
+# Banter: safety net for a misnamed samples folder. Real screenshots must never reach git.
+/sample/

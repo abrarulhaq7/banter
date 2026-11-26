@@ -1,0 +1,107 @@
+import type { ProviderId } from '@/lib/database.types';
+
+export type ModeId = 'story_reply' | 'opener' | 'reply' | 'analyse';
+export type ContextId = 'stranger' | 'mutual_follow' | 'know_her' | 'already_talking';
+export type ScreenType = 'story' | 'profile' | 'chat' | 'other';
+export type Interest = 'high' | 'medium' | 'low' | 'unclear';
+export type Adjustment = 'new_lines' | 'shorter' | 'bolder';
+
+/** A screenshot ready to send: already resized, as base64 without any "data:" prefix. */
+export type ImageInput = {
+  base64: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+};
+
+/** Fixed rules and output format. Same for every user; only the owner edits them. */
+export type PromptCore = {
+  version: number;
+  rules: string;
+  outputFormat: string;
+};
+
+/** What the sender has told Banter about himself. Every field is optional. */
+export type SenderProfile = {
+  name?: string | null;
+  age?: number | null;
+  city?: string | null;
+  work?: string | null;
+  interests?: string | null;
+  textingStyle?: string | null;
+};
+
+/** One earlier interaction with the same person, newest first in the list. */
+export type MemoryItem = {
+  /** ISO date and time. */
+  at: string;
+  modeLabel: string;
+  toneLabel?: string | null;
+  lines: { text: string; copied: boolean; result?: 'replied' | 'no_reply' | null }[];
+};
+
+/** Everything that goes into one prompt (PLAN.md section 6). */
+export type PromptInput = {
+  core: PromptCore;
+  mode: ModeId;
+  /** The mode's instruction: the default, or the user's own version. */
+  modeInstruction: string;
+  /** Not used for Analyse. */
+  tone?: { label: string; definition: string } | null;
+  context?: ContextId | null;
+  profile?: SenderProfile | null;
+  /** Up to the last five interactions with this person. */
+  memory?: MemoryItem[];
+  /** For "New lines", "Shorter" and "Bolder": the lines being adjusted. */
+  adjustment?: { kind: Adjustment; previousLines: string[] } | null;
+};
+
+export type BuiltPrompt = {
+  /** Sent as the system prompt. Stable across requests. */
+  system: string;
+  /** Sent with the screenshot. Changes per request. */
+  user: string;
+};
+
+export type Line = {
+  text: string;
+  /** The detail in the screenshot the line hooks to. */
+  hook: string;
+};
+
+type OutputBase = {
+  /** Instagram username read from the screenshot, or null when it could not be read. */
+  username: string | null;
+  screenType: ScreenType;
+  noticed: string;
+};
+
+export type LinesOutput = OutputBase & { kind: 'lines'; lines: Line[] };
+
+export type AnalysisOutput = OutputBase & {
+  kind: 'analysis';
+  interest: Interest;
+  signals: string[];
+  advice: string;
+  /** Null when the advice is to leave it. */
+  suggestedReply: string | null;
+};
+
+/** The model followed one of the stop conditions in the core rules and wrote no lines. */
+export type DeclinedOutput = OutputBase & { kind: 'declined'; reason: string };
+
+export type ModelOutput = LinesOutput | AnalysisOutput | DeclinedOutput;
+
+/** One of the user's keys, ready to try. */
+export type KeyCandidate = {
+  id: string;
+  label: string;
+  provider: ProviderId;
+  key: string;
+  model: string;
+};
+
+export type GenerationResult = {
+  output: ModelOutput;
+  usedKey: Pick<KeyCandidate, 'id' | 'label' | 'provider' | 'model'>;
+  promptVersion: number;
+  durationMs: number;
+};

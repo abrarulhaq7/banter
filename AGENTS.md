@@ -51,6 +51,8 @@ npm run ios            # build and install the development build on the iOS simu
 npm start              # dev server for the development build
 source scripts/env.sh  # Java 17 and Android SDK paths (needed for Maestro and Android builds)
 npm run e2e            # Maestro flows in .maestro/ (simulator booted, dev server running)
+npm run lines -- samples/   # run sample screenshots through the generation engine (needs keys.local.json)
+npm run db:prompts     # write supabase/paste-prompts.sql from src/engine/default-prompts.ts
 ```
 
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
@@ -58,6 +60,9 @@ npm run e2e            # Maestro flows in .maestro/ (simulator booted, dev serve
 - Never commit keys, `.env` files or anything in `samples/`.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
 - Only the Supabase publishable key belongs in the app. Never a secret key.
+- `src/engine/` must stay free of React Native imports: the command-line tool runs it in Node.
+- Default prompts live in `src/engine/default-prompts.ts`. After changing them, raise `DEFAULT_CORE.version` if the core changed and run `npm run db:prompts`.
+- Provider requests must keep `store: false` (OpenAI, Gemini). Never send temperature or other sampling settings to Claude.
 
 ## Maestro on iOS: things that cost time
 

@@ -48,6 +48,11 @@ bash "$ROOT/scripts/bundle-migrations.sh"
 echo "Applying $(ls "$ROOT"/supabase/migrations/*.sql | wc -l | tr -d ' ') migrations"
 run "$ROOT/supabase/paste-into-sql-editor.sql"
 
+# The prompts kept in the app's code must also load into the database, more than once.
+(cd "$ROOT" && npx tsx scripts/prompts-sql.mts)
+run "$ROOT/supabase/paste-prompts.sql"
+run "$ROOT/supabase/paste-prompts.sql"
+
 echo "Running access tests"
 OUTPUT="$(run "$ROOT/supabase/tests/access_test.sql" 2>&1)" || {
   echo "$OUTPUT" | grep -E "ok - |FAILED|ERROR" || echo "$OUTPUT"
