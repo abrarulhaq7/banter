@@ -14,7 +14,9 @@ export const geminiAdapter: Adapter = async (request) => {
       system_instruction: request.system,
       input: [
         { type: 'text', text: request.user },
-        { type: 'image', data: request.image.base64, mime_type: request.image.mediaType },
+        ...(request.image
+          ? [{ type: 'image', data: request.image.base64, mime_type: request.image.mediaType }]
+          : []),
       ],
       response_format: {
         type: 'text',

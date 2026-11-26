@@ -35,6 +35,8 @@ export type HistoryRepo = {
   listPeople: () => Promise<PersonRow[]>;
   /** Newest first. */
   listInteractions: (personId: string, limit: number) => Promise<InteractionWithLines[]>;
+  /** The user's latest interactions with anyone, newest first. */
+  listRecent: (limit: number) => Promise<InteractionWithLines[]>;
   /** A link to a stored screenshot that works for a short time. */
   screenshotUrl: (path: string) => Promise<string | null>;
 };
@@ -54,7 +56,13 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
 
     async saveInteraction(row) {
       const { error } = await client.from('interactions').upsert(row, { onConflict: 'id' });
-      if (error) throw error;
+      if (!error) return;
+      // The user's own tone was deleted before this reached the server (it waited on the
+      // phone without internet). The lines are still worth keeping: save them without the link.
+      const toneGone = error.code === '23503' && row.user_prompt_id && /user_prompt/.test(`${error.message} ${error.details}`);
+      if (!toneGone) throw error;
+      const retried = await client.from('interactions').upsert({ ...row, user_prompt_id: null }, { onConflict: 'id' });
+      if (retried.error) throw retried.error;
     },
 
     async saveLines(rows) {
@@ -126,6 +134,19 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
         .from('interactions')
         .select('*, lines(*)')
         .eq('person_id', personId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data as unknown as InteractionWithLines[]).map((row) => ({
+        ...row,
+        lines: [...row.lines].sort((a, b) => a.position - b.position),
+      }));
+    },
+
+    async listRecent(limit) {
+      const { data, error } = await client
+        .from('interactions')
+        .select('*, lines(*)')
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) throw error;

@@ -13,8 +13,10 @@ import {
   createFakeHistoryRepo,
   createFakeKeysRepo,
   createFakeProfileRepo,
+  createFakePromptsRepo,
   makeKey,
   makeProfile,
+  makeUserPrompt,
   renderWithData,
 } from '@/test-utils';
 
@@ -73,6 +75,7 @@ type Setup = {
   keys?: ReturnType<typeof makeKey>[];
   latest?: ScreenshotResult;
   history?: ReturnType<typeof createFakeHistoryRepo>;
+  prompts?: ReturnType<typeof createFakePromptsRepo>;
 };
 
 async function setup({
@@ -80,6 +83,7 @@ async function setup({
   keys = [makeKey()],
   latest = SCREENSHOT,
   history = createFakeHistoryRepo(),
+  prompts = createFakePromptsRepo(),
 }: Setup = {}) {
   const calls: GenerateOptions[] = [];
   const keysRepo = createFakeKeysRepo(keys);
@@ -104,6 +108,7 @@ async function setup({
     {
       keysRepo: keysRepo.repo,
       historyRepo: history.repo,
+      promptsRepo: prompts.repo,
       profileRepo: createFakeProfileRepo(makeProfile({ display_name: 'Sam', texting_style: 'short, dry' })).repo,
     },
   );
@@ -770,5 +775,77 @@ describe('Generate: history', () => {
     expect(await screen.findByText('Casual one')).toBeOnTheScreen();
     expect(screen.queryByTestId('generate-error')).toBeNull();
     expect(history.interactions).toEqual([]);
+  });
+});
+
+describe('Generate: the user\'s own tones', () => {
+  const FLIRTY = makeUserPrompt({ id: 'prompt-flirty', tone_id: 'flirty', content: 'Dry and teasing. Lowercase. Never sexual.' });
+  const NERDY = makeUserPrompt({ id: 'prompt-nerdy', label: 'Nerdy', content: 'One small science reference.' });
+
+  it('sends the user\'s own version of a tone, and records which version wrote the lines', async () => {
+    const { calls, history, user } = await setup({
+      outputs: [lines('Flirty')],
+      prompts: createFakePromptsRepo([FLIRTY]),
+    });
+    await press(user, 'From gallery');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Flirty');
+    await press(user, 'Get lines');
+    await screen.findByText('Flirty one');
+
+    expect(calls[0].prompt.tone).toEqual({ label: 'Flirty', definition: 'Dry and teasing. Lowercase. Never sexual.' });
+    await waitFor(() => expect(history.interactions).toHaveLength(1));
+    expect(history.interactions[0]).toMatchObject({
+      tone_id: 'flirty',
+      user_prompt_id: 'prompt-flirty',
+      tone_label: 'Flirty',
+    });
+  });
+
+  it('offers a tone the user made, next to Banter\'s, and writes in it', async () => {
+    const { calls, history, user } = await setup({
+      outputs: [lines('Nerdy')],
+      prompts: createFakePromptsRepo([NERDY]),
+    });
+    await press(user, 'From gallery');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Nerdy');
+    expect(screen.getByRole('button', { name: 'Nerdy' })).toBeSelected();
+    await press(user, 'Get lines');
+    await screen.findByText('Nerdy one');
+
+    expect(calls[0].prompt.tone).toEqual({ label: 'Nerdy', definition: 'One small science reference.' });
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Nerdy · Story reply');
+    await waitFor(() => expect(history.interactions).toHaveLength(1));
+    // A tone of the user's own is not one of Banter's: only the link to their row is kept.
+    expect(history.interactions[0]).toMatchObject({
+      tone_id: null,
+      user_prompt_id: 'prompt-nerdy',
+      tone_label: 'Nerdy',
+    });
+  });
+
+  it('offers the user\'s tone in the Tone sheet on Results, and Shorter stays in that tone', async () => {
+    const { calls, user } = await setup({
+      outputs: [lines('Casual'), lines('Nerdy'), lines('Short')],
+      prompts: createFakePromptsRepo([NERDY]),
+    });
+    await firstLines(user);
+    await anotherTone(user, 'Nerdy');
+    await screen.findByText('Nerdy one');
+
+    await press(user, 'Shorter');
+    await screen.findByText('Short one');
+
+    expect(calls[2].prompt.tone).toEqual({ label: 'Nerdy', definition: 'One small science reference.' });
+    expect(calls[2].prompt.adjustment?.kind).toBe('shorter');
+  });
+
+  it('uses the default tones and the app\'s own rules when Supabase has nothing newer', async () => {
+    const { calls, user } = await setup();
+    await firstLines(user);
+
+    expect(calls[0].prompt.core.version).toBeGreaterThanOrEqual(5);
+    expect(calls[0].prompt.tone?.definition).toMatch(/Relaxed and low-pressure/);
   });
 });

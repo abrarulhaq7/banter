@@ -17,8 +17,9 @@ import {
   TextField,
   useToast,
 } from '@/components/ui';
-import { DEFAULT_TONES, type Adjustment, type ToneId } from '@/engine';
+import type { Adjustment } from '@/engine';
 import { useGenerateSession } from '@/generate/generate-provider';
+import { usePrompts } from '@/prompts';
 import { adjustableLines, setChipLabel, type KeptLine } from '@/generate/session';
 import { haptics } from '@/lib/haptics';
 import { radius, spacing, useTheme } from '@/theme';
@@ -26,7 +27,6 @@ import { radius, spacing, useTheme } from '@/theme';
 import { LineCard } from './line-card';
 import { ResultSetView } from './result-set-view';
 
-const TONES = (Object.keys(DEFAULT_TONES) as ToneId[]).map((tone) => ({ value: tone, label: DEFAULT_TONES[tone].label }));
 
 /**
  * The lines for the current screenshot, one set at a time. Earlier sets are never
@@ -37,6 +37,8 @@ export function ResultsScreen() {
   const { colors } = useTheme();
   const toast = useToast();
   const session = useGenerateSession();
+  const prompts = usePrompts();
+  const tones = prompts.tones.map((tone) => ({ value: tone.key, label: tone.label }));
 
   // The set being looked at. A choice only holds until a newer set arrives; then the
   // newest is shown again.
@@ -55,7 +57,7 @@ export function ResultsScreen() {
 
   const report = (arrived: boolean) => (arrived ? haptics.success() : haptics.error());
   const adjust = async (kind: Adjustment) => report(await session.adjust(kind, shown?.id));
-  const anotherTone = async (tone: ToneId) => {
+  const anotherTone = async (tone: string) => {
     setSheet(null);
     report(await session.generate(tone));
   };
@@ -253,7 +255,7 @@ export function ResultsScreen() {
         title="Another tone"
         subtitle="Writes a new set for this screenshot. The sets you have stay."
         onClose={() => setSheet(null)}>
-        <OptionList testIDPrefix="tone" options={TONES} value={null} onSelect={anotherTone} />
+        <OptionList testIDPrefix="tone" options={tones} value={null} onSelect={anotherTone} />
       </Sheet>
 
       <Sheet

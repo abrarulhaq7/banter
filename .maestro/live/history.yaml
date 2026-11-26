@@ -97,8 +97,10 @@ onFlowComplete:
 - eraseText: 40
 - inputText: ${PERSON}
 - takeScreenshot: history-username-sheet
-- tapOn:
-    id: "person-save"
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "person-save"
 - assertVisible:
     id: "person-username"
     text: "@${PERSON}"

@@ -4,9 +4,6 @@ import { useReducer, useRef } from 'react';
 import { useAuth } from '@/auth';
 import { useKeys, useProfile } from '@/data';
 import {
-  DEFAULT_CORE,
-  DEFAULT_MODES,
-  DEFAULT_TONES,
   EngineError,
   cleanUsername,
   generate as runEngine,
@@ -18,11 +15,11 @@ import {
   type ModeId,
   type ModelOutput,
   type SenderProfile,
-  type ToneId,
 } from '@/engine';
 import { useHistory, type GenerationEntry } from '@/history';
 import type { LineInsert, ProfileRow } from '@/lib/database.types';
 import { uuid } from '@/lib/uuid';
+import { toneFor, usePrompts } from '@/prompts';
 import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
 import type { ScreenshotResult } from '@/screenshot/types';
 
@@ -52,8 +49,6 @@ const realDeps: GenerateDeps = {
   copy: (text) => Clipboard.setStringAsync(text),
   now: () => new Date(),
 };
-
-const TONE_IDS = Object.keys(DEFAULT_TONES) as ToneId[];
 
 function senderProfile(profile: ProfileRow | null): SenderProfile | null {
   if (!profile) return null;
@@ -89,7 +84,8 @@ export type GenerateController = SessionState & {
   useLatestScreenshot: () => Promise<void>;
   pickScreenshot: () => Promise<void>;
   setMode: (mode: ModeId) => void;
-  setTone: (tone: ToneId) => void;
+  /** Takes a tone's key (see `Tone.key`). */
+  setTone: (tone: string) => void;
   setContext: (context: ContextId) => void;
   /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
   setUsername: (username: string) => string | null;
@@ -97,7 +93,7 @@ export type GenerateController = SessionState & {
    * Asks for lines with the chosen mode and tone, or with `tone` when one is given (it
    * becomes the chosen tone). Resolves to true when a new set arrived.
    */
-  generate: (tone?: ToneId) => Promise<boolean>;
+  generate: (tone?: string) => Promise<boolean>;
   /** New lines, shorter or bolder, from the set with this id (the newest when left out). */
   adjust: (kind: Adjustment, setId?: string) => Promise<boolean>;
   /** Repeats the last request, after it failed. */
@@ -113,11 +109,12 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
   const { keys, models, updateKey, status: keysStatus } = useKeys();
   const { profile } = useProfile();
   const history = useHistory();
+  const prompts = usePrompts();
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
   /** Where this screenshot is stored. One file serves every set made from it. */
   const screenshotPath = useRef<string | null>(null);
   /** What was asked for last, so "Try again" repeats exactly that. */
-  const lastRequest = useRef<{ adjustment: Adjustment | null; fromId: string | null; tone: ToneId | null }>({
+  const lastRequest = useRef<{ adjustment: Adjustment | null; fromId: string | null; tone: string | null }>({
     adjustment: null,
     fromId: null,
     tone: null,
@@ -141,7 +138,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
   const run = async (
     adjustment: { kind: Adjustment; previousLines: string[] } | null,
     from?: ResultSet,
-    chosenTone?: ToneId,
+    chosenTone?: string,
   ): Promise<boolean> => {
     if (state.phase !== 'idle' || !state.screenshot) return false;
     const screenshot = state.screenshot;
@@ -150,13 +147,9 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
 
     // An adjustment keeps the mode and tone of the set it adjusts.
     const mode = from?.mode ?? state.mode;
-    const toneId =
-      mode === 'analyse'
-        ? null
-        : from
-          ? (TONE_IDS.find((id) => DEFAULT_TONES[id].label === from.toneLabel) ?? state.tone)
-          : (chosenTone ?? state.tone);
-    const tone = toneId ? DEFAULT_TONES[toneId] : null;
+    // The tone is read now, so an edit made a moment ago in My tones is what gets sent.
+    const tone =
+      mode === 'analyse' ? null : toneFor(prompts.tones, from ? from.toneKey : (chosenTone ?? state.tone));
 
     dispatch({ type: 'generateStarted' });
     try {
@@ -169,10 +162,10 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
         keys: candidates,
         image: screenshot.image,
         prompt: {
-          core: DEFAULT_CORE,
+          core: prompts.core,
           mode,
-          modeInstruction: DEFAULT_MODES[mode].instruction,
-          tone,
+          modeInstruction: prompts.modes[mode].instruction,
+          tone: tone ? { label: tone.label, definition: tone.definition } : null,
           context: state.context,
           profile: senderProfile(profile),
           memory: memory.items,
@@ -214,7 +207,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           parent_id: from?.id ?? null,
           adjustment: adjustment?.kind ?? null,
           mode_id: mode,
-          tone_id: toneId,
+          tone_id: tone?.toneId ?? null,
+          user_prompt_id: tone?.userPromptId ?? null,
           tone_label: tone?.label ?? null,
           context: state.context,
           screenshot_path: screenshotPath.current,
@@ -256,7 +250,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           id: interactionId,
           lineIds: lines.map((line) => line.id),
           mode,
-          modeLabel: DEFAULT_MODES[mode].label,
+          modeLabel: prompts.modes[mode].label,
+          toneKey: tone?.key ?? null,
           toneLabel: tone?.label ?? null,
           adjustment: adjustment?.kind ?? null,
           output,
@@ -281,6 +276,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
 
   return {
     ...state,
+    // A chosen tone that has since been deleted falls back to the first one.
+    tone: toneFor(prompts.tones, state.tone).key,
     hasUsableKey: keysStatus === 'loading' || candidates.length > 0,
     useLatestScreenshot: () => loadScreenshot(deps.getLatestScreenshot),
     pickScreenshot: () => loadScreenshot(deps.pickFromGallery),

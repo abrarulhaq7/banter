@@ -141,8 +141,10 @@ appId: com.banterlines.app
     id: "edit-key-label"
 - inputText: "2"
 - takeScreenshot: key-name-sheet
-- tapOn:
-    id: "edit-key-save"
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "edit-key-save"
 - extendedWaitUntil:
     visible:
       id: "edit-key-title"

@@ -23,7 +23,10 @@ const LOOK: Record<ToastTone, { color: ColorRole; icon: IconName }> = {
 /** How long a toast stays. Long enough to read three words, short enough not to be in the way. */
 export const TOAST_MS = 1800;
 
-/** Shows short confirmations ("Copied") near the bottom of the screen, above everything. */
+/**
+ * Shows short confirmations ("Copied") at the top of the screen, above everything. The top,
+ * because the bottom is where the pinned buttons are, and a toast must not cover those.
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -50,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext value={value}>
       {children}
       {toast ? (
-        <View pointerEvents="none" style={[styles.layer, { bottom: insets.bottom + spacing.xxxl + spacing.xxl }]}>
+        <View pointerEvents="none" style={[styles.layer, { top: insets.top + spacing.sm }]}>
           <View
             testID="toast"
             accessibilityLiveRegion="polite"

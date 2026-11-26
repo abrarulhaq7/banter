@@ -15,14 +15,14 @@ import {
   SegmentedControl,
   Sheet,
 } from '@/components/ui';
-import { DEFAULT_MODES, DEFAULT_TONES, type ContextId, type ModeId, type ToneId } from '@/engine';
+import { DEFAULT_MODES, type ContextId, type ModeId } from '@/engine';
 import { useGenerateSession } from '@/generate/generate-provider';
 import { CONTEXT_LABELS } from '@/history/labels';
 import { haptics } from '@/lib/haptics';
+import { usePrompts } from '@/prompts';
 import { radius, spacing, useTheme } from '@/theme';
 
-const MODES = (Object.keys(DEFAULT_MODES) as ModeId[]).map((mode) => ({ value: mode, label: DEFAULT_MODES[mode].label }));
-const TONES = Object.keys(DEFAULT_TONES) as ToneId[];
+const MODE_IDS = Object.keys(DEFAULT_MODES) as ModeId[];
 const CONTEXTS = (Object.keys(CONTEXT_LABELS) as ContextId[]).map((id) => ({ value: id, label: CONTEXT_LABELS[id] }));
 
 /**
@@ -33,6 +33,8 @@ export function GenerateScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const session = useGenerateSession();
+  const prompts = usePrompts();
+  const modes = MODE_IDS.map((mode) => ({ value: mode, label: prompts.modes[mode].label }));
   const [contextOpen, setContextOpen] = useState(false);
 
   const busy = session.phase !== 'idle';
@@ -138,7 +140,7 @@ export function GenerateScreen() {
 
       <SegmentedControl
         testIDPrefix="mode"
-        options={MODES}
+        options={modes}
         value={session.mode}
         onChange={session.setMode}
         disabled={busy}
@@ -146,13 +148,13 @@ export function GenerateScreen() {
 
       {!isAnalyse ? (
         <ChipRow testID="tone-row">
-          {TONES.map((tone) => (
+          {prompts.tones.map((tone) => (
             <Chip
-              key={tone}
-              testID={`tone-${tone}`}
-              label={DEFAULT_TONES[tone].label}
-              selected={tone === session.tone}
-              onPress={() => session.setTone(tone)}
+              key={tone.key}
+              testID={`tone-${tone.key}`}
+              label={tone.label}
+              selected={tone.key === session.tone}
+              onPress={() => session.setTone(tone.key)}
               disabled={busy}
             />
           ))}

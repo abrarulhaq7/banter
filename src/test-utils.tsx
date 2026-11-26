@@ -25,7 +25,9 @@ import type {
   PersonRow,
   ProfileRow,
   ProviderId,
+  UserPromptRow,
 } from '@/lib/database.types';
+import { PromptsProvider, type CachedPrompts, type PromptsRepo, type RemoteDefaults } from '@/prompts';
 import { ThemeProvider, type ThemeName } from '@/theme';
 
 type ThemeOptions = {
@@ -353,6 +355,13 @@ export function createFakeHistoryRepo() {
         .slice(0, limit)
         .map(withLines);
     }),
+    listRecent: jest.fn(async (limit) => {
+      maybeFail();
+      return [...interactions]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, limit)
+        .map(withLines);
+    }),
     screenshotUrl: jest.fn(async (path) => (files.has(path) ? `https://signed.example/${path}` : null)),
   };
 
@@ -370,6 +379,90 @@ export function createFakeHistoryRepo() {
 
 export const TEST_USER_ID = '11111111-1111-4111-8111-111111111111';
 
+// --- Phase 6: prompts ----------------------------------------------------------------------
+
+/**
+ * Stands in for the prompt tables. With no `defaults`, Supabase has nothing usable and
+ * the app's own copy of the prompts is used, as on a first start without internet.
+ */
+export function createFakePromptsRepo(
+  initial: UserPromptRow[] = [],
+  defaults: RemoteDefaults = { core: null, modes: [], tones: [] },
+) {
+  let rows = [...initial];
+  let pendingFailure: unknown = null;
+  let nextId = 1;
+  const maybeFail = () => {
+    if (pendingFailure) {
+      const error = pendingFailure;
+      pendingFailure = null;
+      throw error;
+    }
+  };
+  const make = (fields: Partial<UserPromptRow>): UserPromptRow => ({
+    id: `prompt-${nextId++}`,
+    user_id: TEST_USER_ID,
+    tone_id: null,
+    mode_id: null,
+    label: null,
+    content: '',
+    created_at: `2026-11-26T10:00:${String(nextId).padStart(2, '0')}Z`,
+    updated_at: '2026-11-26T10:00:00Z',
+    ...fields,
+  });
+
+  const repo: PromptsRepo = {
+    loadDefaults: jest.fn(async () => {
+      maybeFail();
+      return defaults;
+    }),
+    listUserPrompts: jest.fn(async () => [...rows]),
+    addToneVersion: jest.fn(async (toneId, content) => {
+      maybeFail();
+      const row = make({ tone_id: toneId, content });
+      rows.push(row);
+      return row;
+    }),
+    addCustomTone: jest.fn(async (label, content) => {
+      maybeFail();
+      const row = make({ label, content });
+      rows.push(row);
+      return row;
+    }),
+    update: jest.fn(async (id, patch) => {
+      maybeFail();
+      rows = rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
+      return rows.find((row) => row.id === id)!;
+    }),
+    remove: jest.fn(async (id) => {
+      maybeFail();
+      rows = rows.filter((row) => row.id !== id);
+    }),
+  };
+
+  return {
+    repo,
+    rows: () => rows,
+    failNext: (error: unknown = new TypeError('Network request failed')) => {
+      pendingFailure = error;
+    },
+  };
+}
+
+export function makeUserPrompt(overrides: Partial<UserPromptRow> = {}): UserPromptRow {
+  return {
+    id: 'prompt-a',
+    user_id: TEST_USER_ID,
+    tone_id: null,
+    mode_id: null,
+    label: null,
+    content: 'Short and dry.',
+    created_at: '2026-11-26T09:00:00Z',
+    updated_at: '2026-11-26T09:00:00Z',
+    ...overrides,
+  };
+}
+
 type DataOptions = {
   keysRepo?: KeysRepo;
   keysCache?: UserCache<CachedKeys>;
@@ -378,9 +471,11 @@ type DataOptions = {
   historyRepo?: HistoryRepo;
   outboxCache?: UserCache<QueuedEntry[]>;
   peopleCache?: UserCache<PersonRow[]>;
+  promptsRepo?: PromptsRepo;
+  promptsCache?: UserCache<CachedPrompts>;
 };
 
-/** Renders inside the theme, auth, profile, keys and history providers, all backed by fakes. */
+/** Renders inside the theme, auth, profile, keys, history and prompts providers, all backed by fakes. */
 export function renderWithData(element: ReactElement, options: DataOptions = {}) {
   const userId = TEST_USER_ID;
   return renderWithTheme(
@@ -398,7 +493,12 @@ export function renderWithData(element: ReactElement, options: DataOptions = {})
             repo={options.historyRepo ?? createFakeHistoryRepo().repo}
             outboxCache={options.outboxCache ?? createMemoryCache<QueuedEntry[]>().cache}
             peopleCache={options.peopleCache ?? createMemoryCache<PersonRow[]>().cache}>
-            {element}
+            <PromptsProvider
+              userId={userId}
+              repo={options.promptsRepo ?? createFakePromptsRepo().repo}
+              cache={options.promptsCache ?? createMemoryCache<CachedPrompts>().cache}>
+              {element}
+            </PromptsProvider>
           </HistoryProvider>
         </KeysProvider>
       </ProfileProvider>

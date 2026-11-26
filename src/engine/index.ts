@@ -6,7 +6,20 @@ export {
   type ToneId,
 } from './default-prompts';
 export { EngineError, isEngineError, type EngineErrorKind } from './errors';
-export { generate, type GenerateOptions, type KeyProblem } from './generate';
+export { askWithKeys, generate, type AskOptions, type Asked, type GenerateOptions, type KeyProblem } from './generate';
+export {
+  SUGGESTED_DEFINITION_MAX,
+  buildPersonalisePrompt,
+  evidenceCount,
+  parsePersonaliseOutput,
+  suggestTones,
+  type PersonaliseInput,
+  type PersonaliseOptions,
+  type PersonaliseOutput,
+  type ToneForReview,
+  type ToneSuggestion,
+  type UsedSet,
+} from './personalise';
 export { MAX_IMAGE_SIDE, fitWithin } from './image-size';
 export { buildPrompt } from './prompt';
 export { MAX_LINES, cleanUsername, parseModelOutput, schemaFor, type AnswerSchema } from './schema';

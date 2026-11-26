@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 5.5 (App feel) is done and pushed (2026-11-26): tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
+Status: **Phase 6 (Personal prompts) is done and pushed (2026-11-26): the My tones tab, your own versions of tones, tones you make yourself, "Personalise for me", and default prompts read from Supabase. One step is yours: paste `supabase/paste-prompts.sql` into Supabase (see Phase 6 result).** Phase 5.5 (App feel) is done and pushed (2026-11-26): tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -63,7 +63,7 @@ are cold) and one suggested reply.
 Up to Phase 5 the app had one long Generate screen holding everything. From Phase 5.5
 the screens are these (the rules behind the split are in Phase 5.5):
 
-Bottom tab bar: **Generate · People · My tones (from Phase 6) · Settings**
+Bottom tab bar: **Generate · People · My tones · Settings**
 
 1. Sign in / Sign up
 2. Onboarding, three short steps: about you, how you sound, your first API key
@@ -72,7 +72,11 @@ Bottom tab bar: **Generate · People · My tones (from Phase 6) · Settings**
 5. People (tab): list of everyone you have used Banter with
 6. Person: who she is, and one row per screenshot you used Banter on
 7. Screenshot detail: the lines written for one screenshot, which were used, how it went
-8. My tones (tab, Phase 6): edit what each tone means, add your own, reset
+8. My tones (tab): one row per tone; a row opens the tone. "Add a tone" is pinned
+   - One tone: its definition (and its name, for a tone you made), Save pinned; Reset or
+     Delete asks first
+   - Personalise for me: what the AI will read, then its suggestions as rows; a row opens
+     a sheet to compare and accept or skip
 9. Settings (tab): a short list that opens About you, AI keys, Theme, Data, Sign out
 10. About you: one row per fact; a row opens a sheet to change it
 11. AI keys: one row per key, in the order they are tried; a row opens its key
@@ -719,6 +723,85 @@ Goal: each user shapes the tones, and you can change defaults at any time.
 How I test: edit Flirty in the app and confirm the next prompt uses the new text. Change
 a default in Supabase and confirm the app picks it up without a rebuild.
 
+**Phase 6 result (2026-11-26):** built, tested on the simulator, approved and pushed. `npm run check` passes (593 unit tests). The three offline
+Maestro flows pass, and all six live flows pass in one run against the real Supabase
+project with real Gemini answers. Screenshots in
+`.maestro/artifacts/phase-6/`. No database change was needed: the `user_prompts` table
+from Phase 1 already holds edited and own tones.
+
+Built:
+
+- **My tones tab:** Banter's five tones, then the ones you made, each as one row showing
+  what it says. An edited tone is marked "Edited", your own "Yours".
+- **One tone:** one text box and a pinned Save. One of Banter's tones can be reset (the
+  dialog shows the text that comes back). A tone you made also has a name and can be
+  deleted. Names must be unique; a definition is at most 600 characters.
+- **Your tones are used everywhere tones are chosen:** the chips on Generate and the Tone
+  sheet on Results. Shorter and Bolder stay in the tone of the set they adjust. An edit
+  takes effect on the very next request.
+- **History records which version wrote the lines** (`interactions.user_prompt_id`). Lines
+  written with a tone you later delete are kept.
+- **Personalise for me:** first shows what will be read (how many lines you copied, how
+  many got a reply, whether "How you text" is filled in). The AI then returns a short
+  summary and suggestions, one row per tone, each with its reason. A row opens a sheet
+  with "Now" against "Suggested"; nothing changes until you tap "Use this".
+- **What Personalise sends:** your tones, your age, work, interests and "How you text",
+  and up to 40 recent sets of lines with what you did with each. No screenshot, no
+  usernames, not your name or city. It goes to your own AI provider with your own key,
+  like a generation.
+- **Limits on what the AI may suggest:** style only (length, wording, punctuation, emoji,
+  directness). It may not remove a safeguard a tone already has ("never sexual"), put
+  facts or example lines into a definition, or tell the writer to push after silence. One
+  or two lines do not count as a pattern. Suggesting nothing is allowed.
+- **Defaults from Supabase:** on start the app reads the active core rules, the modes and
+  the tones, keeps a copy on the phone, and falls back to the copy built into the app.
+  The first time My tones is opened after a start, they are read again.
+- **Toasts moved to the top of the screen.** At the bottom they covered the pinned button.
+
+Decided during the phase, with the reason:
+
+- **Supabase's defaults are used only when they are at least as new as the app's own**
+  (by the core rules' version number), and complete. Supabase holds version 1 today and
+  the app version 5 (confirmed live on 2026-11-26), so without this rule the app would go
+  back to the first prompts. Once Supabase is at the app's version or above, a change
+  made there to any tone, mode or rule is picked up on the next start, with no new build.
+- **Only tones can be personalised, not modes.** The table allows a personal version of a
+  mode; the app does not offer it. A mode says what the screenshot is and what to return,
+  and a user edit there can break the answer.
+- **Own tones are saved straight to Supabase, not through the offline queue.** Like keys:
+  editing a tone without internet shows "No connection" and keeps the text on screen.
+
+What you need to do:
+
+- **Paste `supabase/paste-prompts.sql` into Supabase > SQL Editor and press Run.** It
+  brings Supabase's prompts to version 5 (safe to run twice). Until then the app keeps
+  using its own copy, and "change a default in Supabase" has no effect. After it, to test:
+  change the Casual definition in the `tones` table, reopen the app, open My tones.
+  This is the one part of the phase I could not test end to end, because only you can
+  write to those tables. The reading and the choosing between the two copies are tested.
+
+Not done in this phase:
+
+- **Automatic Replied / No reply from a chat screenshot** (found in Phase 5.5) is still
+  open. The fix changes the core rules and the answer format for all three providers, and
+  cannot be checked without chat screenshots. It waits for those.
+- **Personalise was run live with thin evidence only** (one copied line and a filled-in
+  "How you text"). How good its suggestions are with weeks of real use is not known.
+- **One rare path is written but not tested:** lines made offline with a tone of your
+  own, which you then delete before the phone is online again. They should be saved
+  without the link to the tone.
+- **No small-phone or Android check**, as in Phase 5.5.
+
+Found while testing, and what was done:
+
+- **The live flow proved the edit reaches the AI.** Flirty was changed to end every line
+  with one odd word; all three lines Gemini wrote ended with it.
+- **Two Maestro traps, both in the flows and not in the app** (now in AGENTS.md): a tap
+  on a multi-line field puts the cursor mid-text, so "erase" leaves half of it; and the
+  simulator's keyboard can slide up just after typing, so a tap on a sheet's button lands
+  on the space bar. `common/tap-after-typing.yaml` handles the second in every flow that
+  saves from a sheet.
+
 ### Phase 7 — Settings and polish
 
 Goal: the app feels finished for daily personal use.
@@ -872,7 +955,7 @@ agreements are recorded here.
   the engine; needs `keys.local.json`), `npm run db:prompts` (write the SQL that copies
   the default prompts into Supabase), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
-  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates five test
+  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates six test
   accounts per run, and its Generate flow uses the Gemini key from `keys.local.json`).
 - Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
   `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in

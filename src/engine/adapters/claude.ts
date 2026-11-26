@@ -21,10 +21,14 @@ export const claudeAdapter: Adapter = async (request) => {
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: request.image.mediaType, data: request.image.base64 },
-            },
+            ...(request.image
+              ? [
+                  {
+                    type: 'image',
+                    source: { type: 'base64', media_type: request.image.mediaType, data: request.image.base64 },
+                  },
+                ]
+              : []),
             { type: 'text', text: request.user },
           ],
         },

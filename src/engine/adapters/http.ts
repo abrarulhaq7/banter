@@ -10,14 +10,15 @@ export type AdapterRequest = {
   model: string;
   system: string;
   user: string;
-  image: ImageInput;
+  /** Left out for a request that is text only (tone suggestions). */
+  image?: ImageInput;
   schema: AnswerSchema;
   /** Tests pass a fake. */
   fetch?: typeof fetch;
   timeoutMs?: number;
 };
 
-/** Sends the screenshot and prompt, and returns the model's answer as text. */
+/** Sends the prompt, with the screenshot when there is one, and returns the model's answer as text. */
 export type Adapter = (request: AdapterRequest) => Promise<string>;
 
 export const DEFAULT_TIMEOUT_MS = 90000;

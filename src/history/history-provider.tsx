@@ -27,6 +27,8 @@ type HistoryContextValue = {
    */
   memoryFor: (username: string, sameScreenshot?: ReadonlySet<string>) => Promise<Memory>;
   listInteractions: (personId: string) => Promise<InteractionWithLines[]>;
+  /** The latest interactions with anyone, newest first: what "Personalise for me" reads. */
+  recentInteractions: () => Promise<InteractionWithLines[]>;
   screenshotUrl: (path: string) => Promise<string | null>;
 };
 
@@ -35,6 +37,8 @@ const HistoryContext = createContext<HistoryContextValue | null>(null);
 const NO_MEMORY: Memory = { items: [], awaitingReplyLineId: null };
 /** How many interactions the person timeline loads. */
 const TIMELINE_SIZE = 50;
+/** How many interactions "Personalise for me" looks at. */
+const RECENT_SIZE = 60;
 
 type HistoryProviderProps = {
   children: ReactNode;
@@ -137,6 +141,7 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
     },
 
     listInteractions: (personId) => source.repo.listInteractions(personId, TIMELINE_SIZE),
+    recentInteractions: () => source.repo.listRecent(RECENT_SIZE),
     screenshotUrl: (path) => source.repo.screenshotUrl(path),
   };
 

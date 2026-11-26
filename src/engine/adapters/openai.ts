@@ -17,10 +17,14 @@ export const openaiAdapter: Adapter = async (request) => {
           role: 'user',
           content: [
             { type: 'input_text', text: request.user },
-            {
-              type: 'input_image',
-              image_url: `data:${request.image.mediaType};base64,${request.image.base64}`,
-            },
+            ...(request.image
+              ? [
+                  {
+                    type: 'input_image',
+                    image_url: `data:${request.image.mediaType};base64,${request.image.base64}`,
+                  },
+                ]
+              : []),
           ],
         },
       ],

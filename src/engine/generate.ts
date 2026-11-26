@@ -1,8 +1,8 @@
 import { ADAPTERS, type Adapter } from './adapters';
 import { EngineError, isEngineError } from './errors';
 import { buildPrompt } from './prompt';
-import { parseModelOutput, schemaFor } from './schema';
-import type { GenerationResult, ImageInput, KeyCandidate, ModelOutput, PromptInput } from './types';
+import { parseModelOutput, schemaFor, type AnswerSchema } from './schema';
+import type { GenerationResult, ImageInput, KeyCandidate, PromptInput } from './types';
 
 import type { ProviderId } from '@/lib/database.types';
 
@@ -51,42 +51,53 @@ async function askWhenLessBusy<T>(
   throw lastError;
 }
 
+/** The options every request to a provider shares, whatever is being asked. */
+export type AskOptions = Pick<
+  GenerateOptions,
+  'keys' | 'onKeyProblem' | 'adapters' | 'fetch' | 'timeoutMs' | 'now' | 'busyRetryDelaysMs' | 'sleep'
+>;
+
+export type Asked<T> = {
+  output: T;
+  usedKey: GenerationResult['usedKey'];
+  durationMs: number;
+};
+
 /**
- * Screenshot in, checked answer out.
+ * Sends one request and returns the checked answer.
  *
  * Keys are tried in order. A key that hits its limit or is rejected is reported and the
  * next one is tried. An answer that cannot be read is asked for once more, and a provider
- * that is briefly busy is asked again twice. A refusal or a lost connection ends the attempt: another key would
- * not change either.
+ * that is briefly busy is asked again twice. A refusal or a lost connection ends the
+ * attempt: another key would not change either.
  */
-export async function generate(options: GenerateOptions): Promise<GenerationResult> {
-  const { keys, prompt, image, onKeyProblem, now = Date.now } = options;
+export async function askWithKeys<T>(
+  options: AskOptions,
+  request: { system: string; user: string; image?: ImageInput; schema: AnswerSchema },
+  parse: (text: string) => T,
+): Promise<Asked<T>> {
+  const { keys, onKeyProblem, now = Date.now } = options;
   const { busyRetryDelaysMs = [1500, 4000], sleep = defaultSleep } = options;
   if (keys.length === 0) throw new EngineError('no_keys');
 
   const started = now();
-  const built = buildPrompt(prompt);
-  const schema = schemaFor(prompt.mode);
   let lastError: EngineError | null = null;
 
   for (const key of keys) {
     const adapter = options.adapters?.[key.provider] ?? ADAPTERS[key.provider];
-    const ask = async (): Promise<ModelOutput> => {
+    const ask = async (): Promise<T> => {
       const text = await adapter({
         key: key.key,
         model: key.model,
-        system: built.system,
-        user: built.user,
-        image,
-        schema,
+        ...request,
         fetch: options.fetch,
         timeoutMs: options.timeoutMs,
       });
-      return parseModelOutput(prompt.mode, text);
+      return parse(text);
     };
 
     try {
-      let output: ModelOutput;
+      let output: T;
       try {
         output = await ask();
       } catch (error) {
@@ -104,7 +115,6 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
       return {
         output,
         usedKey: { id: key.id, label: key.label, provider: key.provider, model: key.model },
-        promptVersion: prompt.core.version,
         durationMs: now() - started,
       };
     } catch (error) {
@@ -141,4 +151,16 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     });
   }
   throw lastError ?? new EngineError('no_keys');
+}
+
+/** Screenshot in, checked answer out. */
+export async function generate(options: GenerateOptions): Promise<GenerationResult> {
+  const { prompt, image } = options;
+  const built = buildPrompt(prompt);
+  const asked = await askWithKeys(
+    options,
+    { system: built.system, user: built.user, image, schema: schemaFor(prompt.mode) },
+    (text) => parseModelOutput(prompt.mode, text),
+  );
+  return { ...asked, promptVersion: prompt.core.version };
 }

@@ -50,6 +50,51 @@ export type ModelRow = {
   updated_at: string;
 };
 
+/** The fixed rules every prompt starts with. One row is active. Only the owner edits it. */
+export type PromptCoreRow = {
+  version: number;
+  rules: string;
+  output_format: string;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ModeRow = {
+  id: string;
+  label: string;
+  instruction: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ToneRow = {
+  id: string;
+  label: string;
+  definition: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * A user's own version of a default tone (tone_id set), or a tone they made themselves
+ * (tone_id and mode_id both null, label set).
+ */
+export type UserPromptRow = {
+  id: string;
+  user_id: string;
+  tone_id: string | null;
+  mode_id: string | null;
+  label: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ContextId = 'stranger' | 'mutual_follow' | 'know_her' | 'already_talking';
 export type LineResult = 'replied' | 'no_reply';
 
@@ -105,6 +150,8 @@ export type LineRow = {
 
 /** What the app sends when it saves a generation. user_id is filled in by the database. */
 export type InteractionInsert = Omit<InteractionRow, 'user_id' | 'user_prompt_id' | 'created_at'> & {
+  /** The user's own version of the tone, or their custom tone, when one was used. */
+  user_prompt_id?: string | null;
   created_at?: string;
 };
 export type LineInsert = Pick<LineRow, 'id' | 'interaction_id' | 'position' | 'text' | 'hook'> &
@@ -138,6 +185,14 @@ export type Database = {
         >
       >;
       models: Table<ModelRow, never, never>;
+      prompt_core: Table<PromptCoreRow, never, never>;
+      modes: Table<ModeRow, never, never>;
+      tones: Table<ToneRow, never, never>;
+      user_prompts: Table<
+        UserPromptRow,
+        Pick<UserPromptRow, 'content'> & Partial<Pick<UserPromptRow, 'tone_id' | 'label'>>,
+        Partial<Pick<UserPromptRow, 'label' | 'content'>>
+      >;
       people: Table<
         PersonRow,
         Pick<PersonRow, 'username'> & Partial<Pick<PersonRow, 'id' | 'context' | 'last_interaction_at'>>,

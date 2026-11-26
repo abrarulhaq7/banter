@@ -5,7 +5,6 @@ import type {
   GenerationResult,
   ModeId,
   ModelOutput,
-  ToneId,
 } from '@/engine';
 import type { PreparedScreenshot } from '@/screenshot/types';
 
@@ -28,6 +27,8 @@ export type ResultSet = {
   lineIds: string[];
   mode: ModeId;
   modeLabel: string;
+  /** The tone it was written in (see `Tone.key`), so an adjustment uses the same one. Null for Analyse. */
+  toneKey: string | null;
   /** Null for Analyse. */
   toneLabel: string | null;
   adjustment: Adjustment | null;
@@ -57,7 +58,8 @@ export type SessionState = {
    */
   username: string | null;
   mode: ModeId;
-  tone: ToneId;
+  /** The chosen tone's key: one of Banter's tones or one the user made. */
+  tone: string;
   context: ContextId | null;
   /** Newest first. */
   sets: ResultSet[];
@@ -73,7 +75,7 @@ export type SessionAction =
   | { type: 'screenshotReady'; screenshot: PreparedScreenshot }
   | { type: 'screenshotFailed'; message: string | null }
   | { type: 'setMode'; mode: ModeId }
-  | { type: 'setTone'; tone: ToneId }
+  | { type: 'setTone'; tone: string }
   | { type: 'setContext'; context: ContextId | null }
   /** Fills in the context remembered for this person, without the toggle behaviour. */
   | { type: 'rememberContext'; context: ContextId }

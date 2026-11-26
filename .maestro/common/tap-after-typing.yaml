@@ -1,0 +1,21 @@
+# Taps the button with id ID after text was typed in a sheet.
+#
+# The simulator's keyboard sometimes slides up a moment after the typing, and the sheet
+# moves up with it. Maestro may have read the button's place just before that, and the tap
+# then lands on the keyboard. So: wait for things to stop moving, tap, and if the button is
+# still there, tap it once more where it is now. (Text that picked up a stray space from a
+# missed tap is trimmed by the app when it saves.)
+appId: com.banterlines.app
+---
+- waitForAnimationToEnd
+- tapOn:
+    id: ${ID}
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible:
+        id: ${ID}
+    commands:
+      - tapOn:
+          id: ${ID}
+      - waitForAnimationToEnd

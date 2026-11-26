@@ -1,0 +1,283 @@
+# Phase 6 acceptance test against the real Supabase project, with real answers from Gemini:
+# edit a tone and see the next lines follow it, add a tone of your own, reset, and let the
+# AI suggest changes.
+#
+# The edited Flirty tells the AI to end every line with one odd word. Seeing that word in
+# all three lines is the proof that the edit reached the prompt.
+#
+#   npm run e2e:live -- .maestro/live/tones.yaml
+appId: com.banterlines.app
+# Runs however the flow ends, so a failed run never leaves the real key, saved history or
+# test tones in its account.
+onFlowComplete:
+  - runScript:
+      file: ../scripts/remove-history.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-prompts.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-keys.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "tones"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+
+# Restart, so the key is loaded.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+
+# --- My tones: Banter's five ---------------------------------------------------------------
+- tapOn:
+    id: "tab-tones"
+- assertVisible:
+    id: "tones-screen"
+# A row reads "name, what it says".
+- assertVisible:
+    id: "tone-row-casual"
+    text: "Casual, Relaxed and low-pressure.*"
+- assertVisible:
+    id: "tone-row-flirty"
+    text: "Flirty, Shows interest.*"
+- assertVisible:
+    id: "add-tone"
+- takeScreenshot: tones-list
+
+# --- Edit Flirty ---------------------------------------------------------------------------
+- tapOn:
+    id: "tone-row-flirty"
+- assertVisible:
+    id: "tone-screen"
+- assertVisible:
+    id: "tone-title"
+    text: "Flirty"
+- assertNotVisible:
+    id: "tone-reset"
+- takeScreenshot: tone-default
+# Replace all of it: select everything, then type over the selection. (A plain tap puts
+# the cursor somewhere in the middle, so erasing from there would leave half the old text.)
+- tapOn:
+    id: "tone-definition"
+- longPressOn:
+    id: "tone-definition"
+- tapOn: "Select All"
+- inputText: "Playful and warm, never sexual. Every line must end with the word pineapple."
+- assertVisible:
+    id: "tone-definition"
+    text: "Playful and warm, never sexual. Every line must end with the word pineapple."
+- runFlow: ../common/close-keyboard.yaml
+- takeScreenshot: tone-edited
+- tapOn:
+    id: "tone-save"
+- extendedWaitUntil:
+    visible:
+      id: "tone-row-flirty"
+      text: "Flirty, Edited, Playful and warm.*pineapple.*"
+    timeout: 15000
+
+# --- A tone of your own --------------------------------------------------------------------
+- tapOn:
+    id: "add-tone"
+- assertVisible:
+    id: "tone-name"
+# A name is needed.
+- tapOn:
+    id: "tone-definition"
+- inputText: "Deadpan and very short. No exclamation marks."
+- runFlow: ../common/close-keyboard.yaml
+- tapOn:
+    id: "tone-save"
+- assertVisible: "Give the tone a name."
+- tapOn:
+    id: "tone-name"
+- inputText: "Dry"
+- runFlow: ../common/close-keyboard.yaml
+- takeScreenshot: tone-new
+- tapOn:
+    id: "tone-save"
+- extendedWaitUntil:
+    visible: "Dry, Yours, Deadpan and very short.*"
+    timeout: 15000
+- takeScreenshot: tones-list-edited
+- runScript:
+    file: ../scripts/check-tones.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "edited-and-custom"
+
+# --- Generate: the edit is what the AI gets ------------------------------------------------
+- tapOn:
+    id: "tab-generate"
+- tapOn:
+    id: "use-latest"
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- tapOn:
+    id: "tone-flirty"
+- takeScreenshot: tones-generate-chips
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Flirty · Story reply"
+- assertVisible:
+    id: "line-0-0"
+    text: "(?is).*pineapple.*"
+- assertVisible:
+    id: "line-0-1"
+    text: "(?is).*pineapple.*"
+- assertVisible:
+    id: "line-0-2"
+    text: "(?is).*pineapple.*"
+- takeScreenshot: tones-lines-follow-the-edit
+# Copy one, so Personalise has something to read.
+- tapOn:
+    id: "line-0-0"
+- assertVisible:
+    id: "line-status-0-0"
+    text: "Copied"
+- runScript:
+    file: ../scripts/check-tones.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "generated"
+- tapOn:
+    id: "back-button"
+
+# --- Say how you text, so Personalise has more than one line to go on ----------------------
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "edit-profile"
+- tapOn:
+    id: "profile-row-textingStyle"
+- tapOn:
+    id: "profile-texting-style"
+- inputText: "very short, all lowercase, dry, no emoji, no exclamation marks"
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "profile-save"
+- extendedWaitUntil:
+    visible:
+      id: "profile-row-textingStyle"
+      text: ".*very short, all lowercase.*"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+
+# --- Personalise for me --------------------------------------------------------------------
+- tapOn:
+    id: "tab-tones"
+- tapOn:
+    id: "personalise-row"
+- assertVisible:
+    id: "personalise-screen"
+- extendedWaitUntil:
+    visible:
+      id: "personalise-evidence-text"
+      text: "1 line you copied.*is filled in."
+    timeout: 30000
+- takeScreenshot: personalise-before
+- tapOn:
+    id: "personalise-run"
+# The answer differs from run to run: suggestions, or none. Either way the screen moves on.
+- extendedWaitUntil:
+    visible:
+      id: "personalise-done"
+    timeout: 90000
+- takeScreenshot: personalise-after
+# When there is a suggestion, open the first one, compare, and accept it.
+- runFlow:
+    when:
+      visible:
+        id: "suggestion-.*"
+    commands:
+      - tapOn:
+          id: "suggestion-.*"
+          index: 0
+      - assertVisible:
+          id: "suggestion-current"
+      - assertVisible:
+          id: "suggestion-proposed"
+      - takeScreenshot: personalise-suggestion
+      - tapOn:
+          id: "suggestion-accept"
+      - extendedWaitUntil:
+          visible:
+            id: "suggestion-.*"
+            text: ".*Accepted.*"
+          timeout: 15000
+      - takeScreenshot: personalise-accepted
+- tapOn:
+    id: "personalise-done"
+- assertVisible:
+    id: "tones-screen"
+
+# --- Reset Flirty: the app asks first ------------------------------------------------------
+- tapOn:
+    id: "tone-row-flirty"
+- tapOn:
+    id: "tone-reset"
+- assertVisible: "Go back to Banter's version\\?"
+- takeScreenshot: tone-reset-dialog
+- tapOn:
+    id: "dialog-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "tone-row-flirty"
+      text: "Flirty, Shows interest.*"
+    timeout: 15000
+- runScript:
+    file: ../scripts/check-tones.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "reset"
+
+# --- Restart: the own tone is still there --------------------------------------------------
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+- tapOn:
+    id: "tab-tones"
+- extendedWaitUntil:
+    visible: "Dry, Yours, Deadpan and very short.*"
+    timeout: 30000
+
+# Leave the app signed out for the next flow.
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml

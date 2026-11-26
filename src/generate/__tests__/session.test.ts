@@ -33,6 +33,7 @@ const set = (id: string, overrides: Partial<ResultSet> = {}): ResultSet => ({
   lineIds: [`${id}-line-1`, `${id}-line-2`],
   mode: 'story_reply',
   modeLabel: 'Story reply',
+  toneKey: 'casual',
   toneLabel: 'Casual',
   adjustment: null,
   output: linesOutput,

@@ -79,6 +79,8 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 - Only the Supabase publishable key belongs in the app. Never a secret key.
 - `src/engine/` must stay free of React Native imports: the command-line tool runs it in Node.
 - Default prompts live in `src/engine/default-prompts.ts`. After changing them, raise `DEFAULT_CORE.version` if the core changed and run `npm run db:prompts`.
+- Tones, modes and core rules come from `usePrompts()` (`src/prompts/`): Supabase's defaults when they are at least as new as the app's, else the app's copy, with the user's own tones on top. Screens and `use-generate` must not read `DEFAULT_TONES`, `DEFAULT_MODES` or `DEFAULT_CORE` directly. A tone is identified by `Tone.key` (the default tone's id, or the row id of a tone the user made).
+- "Personalise for me" (`src/engine/personalise.ts`) sends text only: no screenshot, no usernames, not the user's name or city. Keep it that way.
 - Provider requests must keep `store: false` (OpenAI, Gemini). Never send temperature or other sampling settings to Claude.
 
 ## Maestro on iOS: things that cost time
@@ -97,6 +99,8 @@ Maestro reads the accessibility tree, which does not know what is actually cover
 - **Which server a flow uses:** `common/open-app.yaml` reads `METRO_PORT` (default 8081).
 - **`ListRow` is a tappable card with a label**, so the pitfall above applies: its subtitle's `testID` is not in the tree. The row's label is "title, value, subtitle"; assert on the row's `id` with `text: ".*what you expect.*"`.
 - **A `ListRow` with `actions`** (the key rows with up and down arrows): the row's `id` is on its tappable part, and each action button keeps its own `id` beside it.
+- **A button in a sheet, after typing:** the simulator's keyboard can slide up a moment after the typing, and the sheet moves with it. Maestro then taps where the button was and hits the space bar (seen 2026-11-26: a trailing space in the field, the sheet still open). Use `common/tap-after-typing.yaml` with `ID`, which waits, taps, and taps again if the button is still there.
+- **Replacing the text in a multi-line field:** a tap puts the cursor mid-text, so `eraseText` leaves the rest. `longPressOn` the field, tap "Select All", then `inputText`.
 - **Sheets and dialogs** are React Native `Modal`s. Their content is in the tree while open; close a sheet with `sheet-close`.
 - **Flows that seed a real key** (`live/generate.yaml`, `live/history.yaml`) remove the key and the saved history in `onFlowComplete`, which runs even when the flow fails. Keep it that way: a failed run must not leave a real key in a test account.
 

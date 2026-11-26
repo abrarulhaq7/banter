@@ -10,7 +10,7 @@ export type UserCache<T> = {
   clear: () => Promise<void>;
 };
 
-export type CacheName = 'keys' | 'profile' | 'outbox' | 'people';
+export type CacheName = 'keys' | 'profile' | 'outbox' | 'people' | 'prompts';
 
 export function createUserCache<T>(
   name: CacheName,
@@ -53,5 +53,6 @@ export async function clearUserCaches(userId: string, storage?: SessionStorage):
     createUserCache('keys', userId, storage).clear(),
     createUserCache('profile', userId, storage).clear(),
     createUserCache('people', userId, storage).clear(),
+    createUserCache('prompts', userId, storage).clear(),
   ]);
 }

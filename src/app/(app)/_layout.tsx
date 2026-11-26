@@ -8,6 +8,7 @@ import { AppText, Button, Screen, ScreenHeader } from '@/components/ui';
 import { KeysProvider, ProfileProvider, useProfile } from '@/data';
 import { GenerateProvider } from '@/generate/generate-provider';
 import { HistoryProvider } from '@/history';
+import { PromptsProvider } from '@/prompts';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { useTheme } from '@/theme';
 
@@ -25,10 +26,12 @@ export default function AppLayout() {
     <ProfileProvider key={userId} userId={userId}>
       <KeysProvider userId={userId}>
         <HistoryProvider userId={userId}>
-          {/* Above the navigator, so the Generate tab and the Results screen share it. */}
-          <GenerateProvider>
-            <AppNavigator />
-          </GenerateProvider>
+          <PromptsProvider userId={userId}>
+            {/* Above the navigator, so the Generate tab and the Results screen share it. */}
+            <GenerateProvider>
+              <AppNavigator />
+            </GenerateProvider>
+          </PromptsProvider>
         </HistoryProvider>
       </KeysProvider>
     </ProfileProvider>
@@ -63,6 +66,9 @@ function AppNavigator() {
         <Stack.Screen name="results" />
         <Stack.Screen name="people/[id]/index" />
         <Stack.Screen name="people/[id]/[shot]" />
+        <Stack.Screen name="tones/[key]" />
+        <Stack.Screen name="tones/new" />
+        <Stack.Screen name="tones/personalise" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="theme" />
         <Stack.Screen name="keys/index" />

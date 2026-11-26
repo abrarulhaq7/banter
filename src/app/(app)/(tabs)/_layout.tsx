@@ -30,6 +30,10 @@ export default function TabsLayout() {
         options={{ title: 'People', tabBarButtonTestID: 'tab-people', tabBarIcon: icon('people') }}
       />
       <Tabs.Screen
+        name="tones"
+        options={{ title: 'My tones', tabBarButtonTestID: 'tab-tones', tabBarIcon: icon('tone') }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{ title: 'Settings', tabBarButtonTestID: 'tab-settings', tabBarIcon: icon('settings') }}
       />

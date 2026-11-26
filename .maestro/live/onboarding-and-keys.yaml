@@ -145,8 +145,10 @@ appId: com.banterlines.app
     id: "profile-name"
 - inputText: "my"
 - takeScreenshot: profile-name-sheet
-- tapOn:
-    id: "profile-save"
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "profile-save"
 - extendedWaitUntil:
     visible:
       id: "profile-row-name"
