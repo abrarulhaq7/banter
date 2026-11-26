@@ -227,7 +227,7 @@ for (const file of files) {
         console.log(`  FAILED (${error.kind}): ${error.message}`);
         if (error.detail) console.log(`  detail: ${error.detail}`);
         // These will not get better on the next image.
-        if (['wrong_key', 'no_internet', 'limit'].includes(error.kind)) process.exit(1);
+        if (['wrong_key', 'no_internet', 'limit', 'no_credit'].includes(error.kind)) process.exit(1);
       } else {
         throw error;
       }

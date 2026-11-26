@@ -3,10 +3,14 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { useAuth } from '@/auth';
+import { CrashScreen } from '@/components/crash-screen';
 import { AppText, Button, Screen, ScreenHeader } from '@/components/ui';
 import { KeysProvider, ProfileProvider, useProfile } from '@/data';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { useTheme } from '@/theme';
+
+/** A crash in a signed-in screen is caught here, without signing the user out. */
+export { CrashScreen as ErrorBoundary };
 
 /** Screens for signed-in users. The guard in the root layout keeps everyone else out. */
 export default function AppLayout() {

@@ -162,9 +162,28 @@ describe('adapters: problems are mapped to the same plain cases', () => {
     expect(await kindOf(ADAPTERS[provider](request({ fetch: fetchImpl })))).toBe('limit');
   });
 
-  it('no credit (402) counts as a limit', async () => {
+  it('Claude: no credit (402)', async () => {
     const { fetchImpl } = fakeFetch(402, { type: 'error', error: { type: 'billing_error' } });
-    expect(await kindOf(ADAPTERS.claude(request({ fetch: fetchImpl })))).toBe('limit');
+    expect(await kindOf(ADAPTERS.claude(request({ fetch: fetchImpl })))).toBe('no_credit');
+  });
+
+  it('OpenAI: no credit comes as 429 (its exact answer on 2026-11-25)', async () => {
+    const { fetchImpl } = fakeFetch(429, {
+      error: {
+        message:
+          'You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.',
+        type: 'insufficient_quota',
+        code: 'credit_balance_exhausted',
+      },
+    });
+    expect(await kindOf(ADAPTERS.openai(request({ fetch: fetchImpl })))).toBe('no_credit');
+  });
+
+  it('an ordinary rate limit is not mistaken for no credit', async () => {
+    const { fetchImpl } = fakeFetch(429, {
+      error: { message: 'Rate limit reached for requests', type: 'requests', code: 'rate_limit_exceeded' },
+    });
+    expect(await kindOf(ADAPTERS.openai(request({ fetch: fetchImpl })))).toBe('limit');
   });
 
   it.each(providers)('%s: provider trouble (5xx)', async (provider) => {

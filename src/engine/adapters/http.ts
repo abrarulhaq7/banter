@@ -86,6 +86,12 @@ function isGeminiBadKey(body: unknown): boolean {
   );
 }
 
+function isOutOfCredit(body: unknown): boolean {
+  const error = errorOf(body);
+  const text = [error?.type, error?.code, error?.message].filter((part) => typeof part === 'string').join(' ');
+  return /insufficient_quota|credit_balance|no credits? remaining|billing/i.test(text);
+}
+
 /** Throws the right EngineError for a response that is not a success. */
 export function throwForStatus(provider: ProviderId, { status, body }: Posted): void {
   if (status >= 200 && status < 300) return;
@@ -94,8 +100,12 @@ export function throwForStatus(provider: ProviderId, { status, body }: Posted): 
   if (status === 401 || status === 403 || (provider === 'gemini' && status === 400 && isGeminiBadKey(body))) {
     throw new EngineError('wrong_key', { detail });
   }
-  // 402: no credit. 429: rate limit, or a spending cap.
-  if (status === 402 || status === 429) throw new EngineError('limit', { detail });
+  // 402 always means no credit. OpenAI reports no credit as 429 with its own code.
+  if (status === 402 || (status === 429 && isOutOfCredit(body))) {
+    throw new EngineError('no_credit', { detail });
+  }
+  // Any other 429: a rate limit or a spending cap.
+  if (status === 429) throw new EngineError('limit', { detail });
   if (status >= 500) throw new EngineError('provider_down', { detail });
   throw new EngineError('bad_request', { detail });
 }

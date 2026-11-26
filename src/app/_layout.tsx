@@ -9,11 +9,15 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/auth';
+import { CrashScreen } from '@/components/crash-screen';
 import { ThemeProvider, useTheme } from '@/theme';
 
 // Keep the splash screen up until the saved session has been read, so a signed-in user
 // never sees the sign-in screen flash by.
 void SplashScreen.preventAutoHideAsync();
+
+/** Expo Router shows this in place of any screen that crashes while rendering. */
+export { CrashScreen as ErrorBoundary };
 
 export default function RootLayout() {
   return (
@@ -73,6 +77,7 @@ function RootNavigator() {
         {/* Design preview: development builds only, never in a build given to users. */}
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="foundation" />
+          <Stack.Screen name="crash-test" />
         </Stack.Protected>
       </Stack>
     </NavigationThemeProvider>

@@ -112,9 +112,26 @@ describe('generate', () => {
 
     await expect(run([key('a'), key('b')], adapter, (problem) => problems.push(problem))).rejects.toMatchObject({
       kind: 'limit',
-      message: 'All your keys have reached their limit.',
+      message: 'None of your keys can be used right now. They are at their limit or out of credit.',
     });
     expect(problems.map((problem) => problem.keyId)).toEqual(['a', 'b']);
+  });
+
+  it('says a single key is out of credit, and marks it so it is skipped next time', async () => {
+    const { adapter } = scripted(new EngineError('no_credit'));
+    const problems: KeyProblem[] = [];
+
+    await expect(run([key('a')], adapter, (problem) => problems.push(problem))).rejects.toMatchObject({
+      kind: 'no_credit',
+      message: 'This key has no credit left. Add credit with the provider, then try again.',
+    });
+    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', status: 'limited' })]);
+  });
+
+  it('moves on from a key with no credit to one that works', async () => {
+    const { adapter } = scripted(new EngineError('no_credit'), GOOD);
+    const result = await run([key('a'), key('b')], adapter);
+    expect(result.usedKey.id).toBe('b');
   });
 
   it('words the limit message for a single key', async () => {
@@ -201,6 +218,19 @@ describe('generate', () => {
   it('reports the provider problem when no key could get through', async () => {
     const { adapter } = scripted(new EngineError('provider_down'));
     await expect(run([key('a')], adapter)).rejects.toMatchObject({ kind: 'provider_down' });
+  });
+
+  it('turns an unexpected crash inside an adapter into a plain error, never a raw exception', async () => {
+    const adapter: Adapter = async () => {
+      throw new TypeError("Cannot read properties of undefined (reading 'content')");
+    };
+
+    await expect(run([key('a')], adapter)).rejects.toMatchObject({
+      name: 'EngineError',
+      kind: 'unreadable',
+      message: 'The AI gave an answer Banter could not read. Try again.',
+      detail: expect.stringContaining('Cannot read properties'),
+    });
   });
 
   it('asks for a key when there is none', async () => {

@@ -113,7 +113,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
         : new EngineError('unreadable', { detail: error instanceof Error ? error.message : String(error) });
       lastError = engineError;
 
-      if (engineError.kind === 'limit') {
+      if (engineError.kind === 'limit' || engineError.kind === 'no_credit') {
         await onKeyProblem?.({ keyId: key.id, status: 'limited', message: engineError.message });
         continue;
       }
@@ -128,9 +128,15 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     }
   }
 
-  if (lastError?.kind === 'limit') {
+  if (lastError?.kind === 'limit' || lastError?.kind === 'no_credit') {
+    // With one key, say exactly what is wrong with it. With several, they may differ.
+    if (keys.length === 1) {
+      throw lastError.kind === 'limit'
+        ? new EngineError('limit', { message: 'Your key has reached its limit.', detail: lastError.detail })
+        : lastError;
+    }
     throw new EngineError('limit', {
-      message: keys.length === 1 ? 'Your key has reached its limit.' : 'All your keys have reached their limit.',
+      message: 'None of your keys can be used right now. They are at their limit or out of credit.',
       detail: lastError.detail,
     });
   }

@@ -1,0 +1,37 @@
+# A screen that crashes must show the "Something went wrong" screen, not take the app down.
+# Uses the development-only route that always fails.
+#
+# Needs the development build installed on a booted simulator and the dev server running.
+appId: com.banterlines.app
+---
+- runFlow: common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen|home-screen|onboarding-about-screen"
+    timeout: 90000
+- openLink: "banter://crash-test"
+- runFlow: common/accept-open-link.yaml
+# In a development build React Native also shows its own red error sheet. Close it.
+- runFlow:
+    when:
+      visible: "Dismiss"
+    commands:
+      - tapOn: "Dismiss"
+- extendedWaitUntil:
+    visible:
+      id: "crash-screen"
+    timeout: 20000
+- assertVisible: "Something went wrong"
+- assertVisible: "This screen ran into a problem. Your account, keys and history are safe."
+- takeScreenshot: crash-screen
+
+# "Try again" restarts the app's screens: the user is back on a normal screen, still
+# signed in if they were, without having to close and reopen the app.
+- tapOn:
+    id: "crash-retry"
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen|home-screen|onboarding-about-screen"
+    timeout: 30000
+- assertNotVisible:
+    id: "crash-screen"

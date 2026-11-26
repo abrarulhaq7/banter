@@ -351,9 +351,17 @@ Not done yet:
 - **Your judgement of the lines.** This is the point of the phase.
 - **Opener, Reply and Analyse are untested.** All 16 samples are stories. These modes
   need profile and chat screenshots.
-- **OpenAI and Claude have never run for real.** Only a Gemini key is in
-  `keys.local.json`. Their request formats follow the documentation and pass the
-  wrong-key check, nothing more.
+- **OpenAI and Claude have never produced lines.** Claude has no key yet. The OpenAI key
+  added on 2026-11-25 is accepted but its account has no credit, so OpenAI answers "no
+  credits remaining". That did confirm the address, the sign-in and the error handling:
+  the engine now reports "no credit" separately from "rate limit". The request format
+  itself is still unproven until a key with credit is used.
+- **Failure handling:** every provider problem becomes one of nine plain cases with a
+  plain message (wrong key, limit, no credit, no internet, refused, unreadable, provider
+  down, request not accepted, no key), and the engine never throws anything else. A
+  screen that crashes shows "Something went wrong" with a "Try again" button instead of
+  taking the app down (checked on the simulator with a screen that fails on purpose).
+  The Generate screen that shows these messages is Phase 4.
 - **Resizing in the app** is wired in Phase 4 together with the screenshot picker (both
   need the same native rebuild). The size rule (1280 px longest side) and the test tool's
   resizing are done.
