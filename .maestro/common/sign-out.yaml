@@ -1,0 +1,15 @@
+# From any screen that shows a Sign out button (Settings, or the first onboarding screen).
+appId: com.banterlines.app
+---
+- scrollUntilVisible:
+    element:
+      id: "sign-out-button"
+    direction: DOWN
+    timeout: 20000
+- waitForAnimationToEnd
+- tapOn:
+    id: "sign-out-button"
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 15000

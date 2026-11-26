@@ -7,7 +7,7 @@ appId: com.banterlines.app
 - runFlow: common/open-app.yaml
 - extendedWaitUntil:
     visible:
-      id: "sign-in-screen|home-screen|onboarding-about-screen"
+      id: "sign-in-screen|generate-screen|onboarding-about-screen"
     timeout: 90000
 - openLink: "banter://crash-test"
 - runFlow: common/accept-open-link.yaml
@@ -31,7 +31,7 @@ appId: com.banterlines.app
     id: "crash-retry"
 - extendedWaitUntil:
     visible:
-      id: "sign-in-screen|home-screen|onboarding-about-screen"
+      id: "sign-in-screen|generate-screen|onboarding-about-screen"
     timeout: 30000
 - assertNotVisible:
     id: "crash-screen"

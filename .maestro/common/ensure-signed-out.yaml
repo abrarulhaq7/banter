@@ -4,7 +4,7 @@ appId: com.banterlines.app
 # Wait for the app to finish loading: any of its first screens will do.
 - extendedWaitUntil:
     visible:
-      id: "sign-in-screen|home-screen|onboarding-about-screen|onboarding-key-screen"
+      id: "sign-in-screen|generate-screen|onboarding-about-screen|onboarding-key-screen"
     timeout: 90000
 - runFlow:
     when:
@@ -13,19 +13,19 @@ appId: com.banterlines.app
     commands:
       - tapOn:
           id: "back-button"
+# Signed in and past onboarding: sign-out lives in Settings.
+- runFlow:
+    when:
+      visible:
+        id: "generate-screen"
+    commands:
+      - runFlow: go-to-settings.yaml
 - runFlow:
     when:
       notVisible:
         id: "sign-in-screen"
     commands:
-      - scrollUntilVisible:
-          element:
-            id: "sign-out-button"
-          direction: DOWN
-          timeout: 20000
-      - waitForAnimationToEnd
-      - tapOn:
-          id: "sign-out-button"
+      - runFlow: sign-out.yaml
 - extendedWaitUntil:
     visible:
       id: "sign-in-screen"

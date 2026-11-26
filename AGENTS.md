@@ -58,6 +58,7 @@ npm run db:prompts     # write supabase/paste-prompts.sql from src/engine/defaul
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
 - Build screens from `src/components/ui` (`Screen`, `AppText`, `Button`, `Chip`, `Card`, `TextField`) and the `spacing`, `radius` and `typography` tokens.
 - Never commit keys, `.env` files or anything in `samples/`.
+- Made-up keys in tests and flows must look fake (`fake-gemini-key-for-tests`), never like a real key. GitHub flags key-shaped strings even when they are invented; `scripts/__tests__/no-key-shaped-strings.test.js` fails the check if one appears.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
 - Only the Supabase publishable key belongs in the app. Never a secret key.
 - `src/engine/` must stay free of React Native imports: the command-line tool runs it in Node.

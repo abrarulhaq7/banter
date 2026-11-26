@@ -1,0 +1,177 @@
+# Phase 4 acceptance test: the Generate screen end to end, with real answers from Gemini.
+#
+# Uses the newest photo in the simulator (put there by scripts/sim-photos.sh, which
+# npm run e2e:live runs first) and the Gemini key from keys.local.json. The key is saved
+# into this run's throwaway account and deleted from it again at the end.
+#
+# The flow checks that things appear and work. It does not check what the lines say:
+# that changes on every run.
+#
+#   npm run e2e:live -- .maestro/live/generate.yaml
+appId: com.banterlines.app
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "gen"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+
+# No key yet: the screen says so, and there is nothing to generate with.
+- assertVisible:
+    id: "no-key-notice"
+
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+
+# Restart: the key is loaded and the notice is gone.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible:
+      id: "no-key-notice"
+    timeout: 30000
+- takeScreenshot: generate-empty
+
+# --- Screenshot --------------------------------------------------------------------------
+- tapOn:
+    id: "use-latest"
+# The first time, iOS asks for photo access (already granted by the setup script, but a
+# fresh simulator may still ask).
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- takeScreenshot: generate-screenshot-chosen
+
+# --- Story reply, Casual -----------------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: "generate-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Casual · Story reply"
+- assertVisible:
+    id: "line-0-0"
+- takeScreenshot: generate-lines-casual
+
+# Tap a line to copy it.
+- tapOn:
+    id: "line-0-0"
+- assertVisible:
+    id: "line-status-0-0"
+    text: "Copied"
+
+# Keep the second line.
+- scrollUntilVisible:
+    element:
+      id: "keep-0-1"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "keep-0-1"
+- runFlow: ../common/scroll-to-top.yaml
+
+# --- Another tone: the earlier lines stay ------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: "tone-flirty"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "tone-flirty"
+- scrollUntilVisible:
+    element:
+      id: "generate-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Flirty · Story reply"
+# The kept line is pinned above the results.
+- assertVisible:
+    id: "kept-strip"
+- takeScreenshot: generate-kept-and-flirty
+# The Casual set is still there, below the Flirty one.
+- scrollUntilVisible:
+    element:
+      id: "result-heading-1"
+    direction: DOWN
+- assertVisible:
+    id: "result-heading-1"
+    text: "Casual · Story reply"
+
+# --- Shorter -----------------------------------------------------------------------------
+- runFlow: ../common/scroll-to-top.yaml
+- scrollUntilVisible:
+    element:
+      id: "adjust-shorter"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "adjust-shorter"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Flirty · Story reply · Shorter"
+- takeScreenshot: generate-shorter
+
+# --- Analyse -----------------------------------------------------------------------------
+- runFlow: ../common/scroll-to-top.yaml
+- scrollUntilVisible:
+    element:
+      id: "mode-analyse"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "mode-analyse"
+# Analyse has no tone.
+- assertNotVisible:
+    id: "tone-flirty"
+- scrollUntilVisible:
+    element:
+      id: "generate-button"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Analyse"
+# The sample is a story, not a chat, so the AI may analyse it or decline. Either is a
+# correct result here.
+- assertVisible:
+    id: "result-analysis-0|result-declined-0"
+- takeScreenshot: generate-analyse
+
+# --- Clean up: take the real key out of the test account ---------------------------------
+- runScript:
+    file: ../scripts/remove-keys.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml

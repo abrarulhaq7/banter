@@ -1,0 +1,43 @@
+# Waits for a generation to finish and its set to be the newest on screen.
+# HEADING is the expected heading of the new set, for example "Flirty · Story reply".
+# The AI provider is sometimes busy; the app then shows an error with "Try again".
+# That is pressed up to twice before giving up.
+appId: com.banterlines.app
+---
+- extendedWaitUntil:
+    visible:
+      id: "result-heading-0"
+      text: ${HEADING}
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "generate-error-action"
+        text: "Try again"
+    commands:
+      - tapOn:
+          id: "generate-error-action"
+      - extendedWaitUntil:
+          visible:
+            id: "result-heading-0"
+            text: ${HEADING}
+          timeout: 60000
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "generate-error-action"
+        text: "Try again"
+    commands:
+      - tapOn:
+          id: "generate-error-action"
+      - extendedWaitUntil:
+          visible:
+            id: "result-heading-0"
+            text: ${HEADING}
+          timeout: 60000
+          optional: true
+- assertVisible:
+    id: "result-heading-0"
+    text: ${HEADING}

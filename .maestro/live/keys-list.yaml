@@ -7,10 +7,11 @@
 #
 #   npm run e2e:live
 appId: com.banterlines.app
-env:
-  PASSWORD: "e2e-test-password-1"
 ---
-- evalScript: ${output.email = 'banter.e2e.list.' + Date.now() + '@example.com'}
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "list"
 - runFlow: ../common/open-app.yaml
 - runFlow: ../common/ensure-signed-out.yaml
 - runFlow: ../common/sign-up-new-account.yaml
@@ -20,15 +21,21 @@ env:
     file: ../scripts/seed-keys.js
     env:
       EMAIL: ${output.email}
+      PASSWORD: ${output.password}
 
 # Restart: the app loads the two keys from Supabase.
 - stopApp
 - runFlow: ../common/open-app.yaml
 - extendedWaitUntil:
     visible:
+      id: "generate-screen"
+    timeout: 90000
+- runFlow: ../common/go-to-settings.yaml
+- extendedWaitUntil:
+    visible:
       id: "key-summary"
       text: "2 keys saved, 2 active."
-    timeout: 90000
+    timeout: 30000
 
 - tapOn:
     id: "manage-keys"
@@ -105,9 +112,17 @@ env:
 - runFlow: ../common/open-app.yaml
 - extendedWaitUntil:
     visible:
+      id: "generate-screen"
+    timeout: 90000
+# Neither key can be used now, and the Generate screen says so.
+- assertVisible:
+    id: "no-key-notice"
+- runFlow: ../common/go-to-settings.yaml
+- extendedWaitUntil:
+    visible:
       id: "key-summary"
       text: "2 keys saved, 0 active."
-    timeout: 90000
+    timeout: 30000
 - tapOn:
     id: "manage-keys"
 - assertVisible:
@@ -145,14 +160,4 @@ env:
 # Leave the app signed out for the next flow.
 - tapOn:
     id: "back-button"
-- scrollUntilVisible:
-    element:
-      id: "sign-out-button"
-    direction: DOWN
-- waitForAnimationToEnd
-- tapOn:
-    id: "sign-out-button"
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 10000
+- runFlow: ../common/sign-out.yaml

@@ -16,6 +16,7 @@
       "package": "com.banterlines.app",
       "adaptiveIcon": {
         "backgroundColor": "#120e1a",
+        "backgroundImage": "./assets/images/android-icon-background.png",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -28,7 +29,11 @@
         {
           "backgroundColor": "#120e1a",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 220,
+          "android": {
+            "image": "./assets/images/splash-icon-android.png",
+            "imageWidth": 200
+          }
         }
       ],
       [
@@ -79,7 +84,24 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Banter reads the screenshot you choose, or your newest one, to write lines for it.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Banter reads the screenshot you choose, or your newest one, to write lines for it.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

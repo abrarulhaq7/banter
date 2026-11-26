@@ -15,7 +15,7 @@ export type NewKey = {
   sort_order: number;
 };
 
-export type KeyPatch = Partial<Pick<ApiKeyRow, 'label' | 'model' | 'status' | 'last_error'>>;
+export type KeyPatch = Partial<Pick<ApiKeyRow, 'label' | 'model' | 'status' | 'last_error' | 'limited_at'>>;
 
 export type ProfilePatch = Partial<
   Pick<

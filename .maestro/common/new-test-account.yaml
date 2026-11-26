@@ -1,0 +1,7 @@
+# Makes up the email and password for this run's test account.
+# The password is random and never stored, so nobody can sign in to the account afterwards.
+# PREFIX is passed by the calling flow.
+appId: com.banterlines.app
+---
+- evalScript: ${output.email = 'banter.e2e.' + PREFIX + '.' + Date.now() + '@example.com'}
+- evalScript: ${output.password = 'e2e-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36)}

@@ -1,0 +1,10 @@
+# From the Generate screen (home): opens Settings.
+appId: com.banterlines.app
+---
+- runFlow: scroll-to-top.yaml
+- tapOn:
+    id: "open-settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 15000

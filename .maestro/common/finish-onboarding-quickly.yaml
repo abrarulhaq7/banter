@@ -1,4 +1,4 @@
-# From the first onboarding screen: gives a name, skips the key. Ends on the home screen.
+# From the first onboarding screen: gives a name, skips the key. Ends on the Generate screen.
 appId: com.banterlines.app
 ---
 - tapOn:
@@ -25,5 +25,5 @@ appId: com.banterlines.app
     id: "skip-key"
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
+      id: "generate-screen"
     timeout: 15000

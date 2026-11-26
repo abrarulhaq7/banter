@@ -9,10 +9,11 @@
 # Each run creates one new test account (banter.e2e.<time>@example.com). Delete them in
 # the Supabase dashboard under Authentication > Users when you like.
 appId: com.banterlines.app
-env:
-  PASSWORD: "e2e-test-password-1"
 ---
-- evalScript: ${output.email = 'banter.e2e.' + Date.now() + '@example.com'}
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "auth"
 - runFlow: ../common/open-app.yaml
 - runFlow: ../common/ensure-signed-out.yaml
 - assertNotVisible:
@@ -21,6 +22,7 @@ env:
 # Sign up. A new account starts in onboarding; get through it the short way.
 - runFlow: ../common/sign-up-new-account.yaml
 - runFlow: ../common/finish-onboarding-quickly.yaml
+- runFlow: ../common/go-to-settings.yaml
 - assertVisible:
     id: "account-email"
     text: ${output.email}
@@ -31,27 +33,18 @@ env:
 - runFlow: ../common/open-app.yaml
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
-    timeout: 60000
+      id: "generate-screen"
+    timeout: 90000
+- runFlow: ../common/go-to-settings.yaml
 - assertVisible:
     id: "account-email"
     text: ${output.email}
 - takeScreenshot: live-still-signed-in-after-restart
 
 # Sign out: back to the sign-in screen, and the app is no longer reachable.
-- scrollUntilVisible:
-    element:
-      id: "sign-out-button"
-    direction: DOWN
-- waitForAnimationToEnd
-- tapOn:
-    id: "sign-out-button"
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 10000
+- runFlow: ../common/sign-out.yaml
 - assertNotVisible:
-    id: "home-screen"
+    id: "generate-screen"
 
 # Sign in again with the same account.
 - tapOn:
@@ -59,28 +52,19 @@ env:
 - inputText: ${output.email}
 - tapOn:
     id: "password-input"
-- inputText: ${PASSWORD}
+- inputText: ${output.password}
 - tapOn: "Banter"
 - tapOn:
     id: "submit-button"
 - runFlow: ../common/dismiss-password-prompt.yaml
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
+      id: "generate-screen"
     timeout: 20000
 
 # A wrong password is refused with a clear message.
-- scrollUntilVisible:
-    element:
-      id: "sign-out-button"
-    direction: DOWN
-- waitForAnimationToEnd
-- tapOn:
-    id: "sign-out-button"
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 10000
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml
 - tapOn:
     id: "email-input"
 - inputText: ${output.email}

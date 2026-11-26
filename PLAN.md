@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 3 engine works with real screenshots on Gemini (2026-11-25). Waiting for your judgement of the lines, and for profile and chat screenshots** (see "Phase 3 result so far").
+Status: **Phase 4 (Generate screen) is built and tested on the simulator with real Gemini answers (2026-11-25), waiting for your approval.** Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -398,6 +398,59 @@ How I test: sample screenshots loaded into the simulator's photo library. Maestr
 the flow for each mode and takes screenshots, which I check and show you.
 From you: try it on the simulator and tell me what feels slow or confusing.
 
+**Phase 4 result (2026-11-25):**
+
+- **Generate is now the home screen.** The old home (account, keys, theme, sign out)
+  moved to a Settings screen, opened from the top right.
+- **Screenshot:** "Use latest screenshot" finds the newest screenshot in the photo
+  library (the newest photo if nothing is marked as a screenshot). "Pick from gallery"
+  opens the system picker, which needs no photo permission. Either way the image is
+  resized to 1280 px on the longest side before it is sent.
+- **Photo access:** if access is refused, or only "Limited access" is given, the app says
+  so and offers the gallery instead of showing an old screenshot.
+- **Options:** mode, tone and "How you know her" chips. Analyse hides the tones.
+- **Results:** what was noticed, the username, and three line cards. Tap a line to copy.
+  The page scrolls to the new lines by itself.
+- **Nothing is replaced, and Keep:** each new tone or adjustment adds a set above the
+  earlier ones. Keep pins a line in a strip above the results. A new screenshot starts over.
+- **New lines, Shorter, Bolder** act on the newest set and keep its mode and tone.
+- **Analyse:** her interest level, the signals, the advice and one suggested reply.
+- **Problems:** each of the nine engine cases shows its plain message with the right next
+  step (Add a key, Manage keys, Try again, or Pick from gallery).
+- **Keys:** a key that hits its limit is saved as limited, skipped, and tried again by
+  itself after 15 minutes.
+- **Checks:** `npm run check` passes (352 unit tests, 26 of them for this screen).
+- **Simulator:** all seven Maestro flows pass. The new `generate` flow runs the whole
+  screen against real Gemini: newest screenshot, lines, copy, keep, a second tone with
+  the first set still there, Shorter, and Analyse. Screenshots in
+  `.maestro/artifacts/phase-4/`.
+
+Not done in this phase:
+
+- **Only tested with the newest photo in the simulator.** The gallery picker itself has
+  not been driven on the simulator (it is Apple's screen); it is covered by unit tests
+  with a stand-in. Photos added to a simulator are not marked as screenshots, so the
+  "newest screenshot" path is only proven by its fallback. Both need a check on a real
+  phone in Phase 8.
+- **Context is per session.** "Banter remembers it for that person" needs Phase 5.
+- **Kept lines are not saved yet.** They last until a new screenshot is chosen or the app
+  restarts. Saving them needs Phase 5.
+- **Prompts come from the app's own copy**, not from Supabase yet (Phase 6).
+
+Also on 2026-11-25:
+
+- **GitHub "secret detected" email:** a false alarm. The flagged string was a made-up
+  test key shaped like a Google key. No real key has ever been committed (checked across
+  the whole history). The fake keys now look fake, and a test fails the check if any
+  key-shaped string appears in the project.
+- **Test accounts** now get a random password per run, so nobody can sign in to them.
+- **Logo and splash: set.** You chose option C (a bold B in a speech bubble) in the
+  "C3 Sunset" colours: the bubble fades from purple to pink on the Midnight Plum
+  background. It is the app icon and the splash screen now, on iOS and Android, checked
+  on the simulator. `python3 scripts/brand-assets.py` redraws every image from one
+  description of the logo, so a colour change is one edit. (This was item 4 of Phase 7,
+  done early.) The options you chose from are in `reference/`.
+
 ### Phase 5 — People and history
 
 Goal: Banter remembers each person and uses that memory.
@@ -440,7 +493,7 @@ Goal: the app feels finished for daily personal use.
    opens in the right colours before sign-in finishes.
 2. Usage view: how many generations per provider, model and key.
 3. Empty states, loading states, small animations, haptics.
-4. App icon and splash screen for Banter.
+4. App icon and splash screen for Banter. **Done on 2026-11-25** (see Phase 4 result).
 
 How I test: full Maestro run of every flow. Deletions confirmed in the database and
 in storage.
@@ -575,8 +628,8 @@ agreements are recorded here.
   the engine; needs `keys.local.json`), `npm run db:prompts` (write the SQL that copies
   the default prompts into Supabase), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
-  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates three test
-  accounts per run).
+  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates four test
+  accounts per run, and its Generate flow uses the Gemini key from `keys.local.json`).
 - Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
   `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in
   git, because they show another person and another company's app.

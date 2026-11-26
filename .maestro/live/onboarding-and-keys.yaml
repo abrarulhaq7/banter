@@ -7,10 +7,11 @@
 #
 #   npm run e2e:live
 appId: com.banterlines.app
-env:
-  PASSWORD: "e2e-test-password-1"
 ---
-- evalScript: ${output.email = 'banter.e2e.keys.' + Date.now() + '@example.com'}
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "keys"
 - runFlow: ../common/open-app.yaml
 - runFlow: ../common/ensure-signed-out.yaml
 - runFlow: ../common/sign-up-new-account.yaml
@@ -70,7 +71,7 @@ env:
 # A made-up Gemini key is sent to Gemini and rejected.
 - tapOn:
     id: "key-input"
-- inputText: "AIzaSyNotARealKeyForBanterTesting0000000"
+- inputText: "fake-gemini-key-for-banter-tests"
 - runFlow: ../common/close-keyboard.yaml
 - scrollUntilVisible:
     element:
@@ -94,23 +95,29 @@ env:
     id: "skip-key"
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
+      id: "generate-screen"
     timeout: 15000
+# With no key, the Generate screen says so.
+- assertVisible:
+    id: "no-key-notice"
+- takeScreenshot: generate-no-key
+- runFlow: ../common/go-to-settings.yaml
 - assertVisible:
     id: "greeting"
     text: "Hi Sam."
 - assertVisible:
     id: "key-summary"
     text: "No key yet.*"
-- takeScreenshot: home-no-key
+- takeScreenshot: settings-no-key
 
 # --- Restart: still past onboarding, profile still there --------------------------------
 - stopApp
 - runFlow: ../common/open-app.yaml
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
+      id: "generate-screen"
     timeout: 90000
+- runFlow: ../common/go-to-settings.yaml
 - assertVisible:
     id: "greeting"
     text: "Hi Sam."
@@ -136,7 +143,7 @@ env:
     id: "profile-submit"
 - extendedWaitUntil:
     visible:
-      id: "home-screen"
+      id: "settings-screen"
     timeout: 15000
 - assertVisible:
     id: "greeting"
@@ -149,7 +156,7 @@ env:
     id: "add-key-screen"
 - tapOn:
     id: "key-input"
-- inputText: "sk-not-a-real-key-for-banter-testing-0000"
+- inputText: "sk-fake-openai-key-for-banter-tests"
 # The provider follows what the key looks like.
 - assertVisible:
     id: "provider-openai"
@@ -170,17 +177,7 @@ env:
 - tapOn:
     id: "back-button"
 - assertVisible:
-    id: "home-screen"
+    id: "settings-screen"
 
 # Leave the app signed out for the next flow.
-- scrollUntilVisible:
-    element:
-      id: "sign-out-button"
-    direction: DOWN
-- waitForAnimationToEnd
-- tapOn:
-    id: "sign-out-button"
-- extendedWaitUntil:
-    visible:
-      id: "sign-in-screen"
-    timeout: 10000
+- runFlow: ../common/sign-out.yaml

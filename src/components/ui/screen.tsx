@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentRef, ReactNode, RefObject } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +12,9 @@ import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-ar
 
 import { spacing, useTheme } from '@/theme';
 
+/** The scrolling area of a screen, as a ref sees it. */
+export type ScrollHandle = ComponentRef<typeof ScrollView>;
+
 export type ScreenProps = {
   children: ReactNode;
   /** Scrolls the content. Use for forms and long pages. Default: true. */
@@ -20,6 +23,8 @@ export type ScreenProps = {
   edges?: readonly Edge[];
   /** Style for the content area (inside the padding). */
   contentStyle?: StyleProp<ViewStyle>;
+  /** Gives a screen control of the scrolling, for example to bring new results into view. */
+  scrollViewRef?: RefObject<ScrollHandle | null>;
   testID?: string;
 };
 
@@ -31,6 +36,7 @@ export function Screen({
   scroll = true,
   edges = DEFAULT_EDGES,
   contentStyle,
+  scrollViewRef,
   testID,
 }: ScreenProps) {
   const { colors } = useTheme();
@@ -51,6 +57,7 @@ export function Screen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
+            ref={scrollViewRef}
             style={styles.fill}
             contentContainerStyle={[
               styles.content,

@@ -1,5 +1,5 @@
 # From the sign-in screen: creates a new test account. Ends on the first onboarding screen.
-# Needs output.email (set by the calling flow) and PASSWORD.
+# Needs output.email and output.password (see new-test-account.yaml).
 appId: com.banterlines.app
 ---
 - tapOn:
@@ -9,7 +9,7 @@ appId: com.banterlines.app
 - inputText: ${output.email}
 - tapOn:
     id: "password-input"
-- inputText: ${PASSWORD}
+- inputText: ${output.password}
 - tapOn: "Banter"
 - tapOn:
     id: "submit-button"

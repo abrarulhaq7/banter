@@ -52,6 +52,7 @@ function AppNavigator() {
       {/* New users go through onboarding once; everyone else gets the app. */}
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="settings" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="keys/index" />
         <Stack.Screen name="keys/add" />
