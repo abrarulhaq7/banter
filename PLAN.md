@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 5.5 (App feel) is built and tested on the simulator (2026-11-26), waiting for your approval: tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
+Status: **Phase 5.5 (App feel) is done and pushed (2026-11-26): tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -617,8 +617,7 @@ themes at the end of each step.
 What it costs: no database changes. One rebuild of the simulator app, because icons and
 vibration are native parts. Nothing that Phase 5 saves changes.
 
-**Phase 5.5 result (2026-11-26):** built and tested on the simulator, waiting for your
-approval. `npm run check` passes (528 unit tests). The offline Maestro flows pass.
+**Phase 5.5 result (2026-11-26):** built, tested on the simulator, approved and pushed. `npm run check` passes (528 unit tests). The offline Maestro flows pass.
 The five live flows pass against the real Supabase project with real Gemini answers.
 Screenshots in `.maestro/artifacts/phase-5.5/`.
 
