@@ -37,7 +37,7 @@ export default function HomeScreen() {
         <AppText variant="caption" color="textMuted">
           Account
         </AppText>
-        <AppText testID="account-email" variant="bodyStrong">
+        <AppText testID="account-email" variant="bodyStrong" numberOfLines={1} ellipsizeMode="middle">
           {session?.user.email ?? 'Unknown email'}
         </AppText>
       </Card>

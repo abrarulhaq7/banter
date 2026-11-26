@@ -51,5 +51,6 @@ appId: com.banterlines.app
 # And back.
 - tapOn:
     id: "switch-button"
+- runFlow: common/dismiss-password-prompt.yaml
 - assertVisible:
     id: "sign-in-screen"

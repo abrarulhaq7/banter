@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 0 approved and committed. Phase 1 is built and tested locally; it now needs your Supabase project to finish** (see "Phase 1 result so far").
+Status: **Phase 1 built and tested against the real Supabase project on 2026-11-25, waiting for your approval.** Next step: Phase 2.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -177,7 +177,7 @@ From you: create a Supabase project and give me the project URL and the
 "anon" key). Turn off "Confirm email". Either log in to the Supabase CLI once so I can
 apply migrations, or paste the SQL I give you into the SQL editor.
 
-**Phase 1 result so far (2026-11-25):**
+**Phase 1 result (2026-11-25):**
 
 Done and tested without a Supabase project:
 
@@ -194,14 +194,23 @@ Done and tested without a Supabase project:
 - Maestro on the iPhone 17 simulator passes: sign-in and sign-up screens, their error
   messages, and the design preview. Screenshots in `.maestro/artifacts/phase-1/`.
 
-Still to do, and each needs the real project:
+Done against the real project (`fpgmhjnekiherrotofwn`, Sydney) on 2026-11-25:
 
-1. You: create the Supabase project and turn off "Confirm email".
-2. You: run `npm run db:bundle`, paste `supabase/paste-into-sql-editor.sql` into
-   Supabase > SQL Editor, and run it once.
-3. You: copy `.env.example` to `.env.local` and fill in the project URL and publishable key.
-4. Me: `npm run test:privacy` (two real test users, one must not reach the other's data).
-5. Me: `npm run e2e:live` (sign up on the simulator, restart, still signed in, sign out).
+- Database created by pasting `supabase/paste-into-sql-editor.sql` into the SQL Editor.
+  "Confirm email" is off. No GitHub repository is connected to the project, so nothing
+  changes the database on push. **A new migration must be pasted by hand** (paste only
+  the new file, never the whole bundle again).
+- `npm run test:privacy` passes: 52 checks with two real test users. One cannot read,
+  change, take over or delete the other's rows or screenshots; a signed-out visitor
+  reaches nothing.
+- `npm run e2e:live` passes on the iPhone 17 simulator: sign up, land in the app, restart
+  the app and still be signed in, sign out, sign in again, wrong password refused.
+- Found by the live test and fixed: iOS's "strong password" suggestion on the sign-up
+  password field dropped typed characters. Password autofill is now offered only on
+  sign-in.
+- Test accounts left in Supabase (Authentication > Users): two `banter.privacy.*` and
+  one `banter.e2e.*`. Safe to delete.
+- `.env.local` holds the project URL and publishable key. It is not in git.
 
 Choices made in this phase that you may want to change:
 

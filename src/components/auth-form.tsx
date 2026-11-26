@@ -105,8 +105,10 @@ export function AuthForm({ mode }: AuthFormProps) {
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
-          autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
-          textContentType={mode === 'signIn' ? 'password' : 'newPassword'}
+          // On sign-up, iOS's "strong password" suggestion covers the field and drops typed
+          // characters, so password autofill is offered only when signing in.
+          autoComplete={mode === 'signIn' ? 'current-password' : 'off'}
+          textContentType={mode === 'signIn' ? 'password' : 'none'}
           returnKeyType="go"
           onSubmitEditing={submit}
         />

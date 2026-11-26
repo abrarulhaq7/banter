@@ -46,6 +46,7 @@ env:
 - tapOn: "Banter"
 - tapOn:
     id: "submit-button"
+- runFlow: ../common/dismiss-password-prompt.yaml
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -87,6 +88,7 @@ env:
 - tapOn: "Banter"
 - tapOn:
     id: "submit-button"
+- runFlow: ../common/dismiss-password-prompt.yaml
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -108,5 +110,6 @@ env:
 - tapOn: "Banter"
 - tapOn:
     id: "submit-button"
+- runFlow: ../common/dismiss-password-prompt.yaml
 - assertVisible: "Wrong email or password."
 - takeScreenshot: live-wrong-password
