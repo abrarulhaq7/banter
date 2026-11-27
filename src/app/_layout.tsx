@@ -6,12 +6,12 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AuthProvider, useAuth } from '@/auth';
 import { CrashScreen } from '@/components/crash-screen';
 import { ToastProvider } from '@/components/ui';
-import { ThemeProvider, useTheme } from '@/theme';
+import { DEFAULT_THEME, ThemeProvider, readSavedTheme, saveTheme, useTheme, type ThemeName } from '@/theme';
 
 // Keep the splash screen up until the saved session has been read, so a signed-in user
 // never sees the sign-in screen flash by.
@@ -21,8 +21,25 @@ void SplashScreen.preventAutoHideAsync();
 export { CrashScreen as ErrorBoundary };
 
 export default function RootLayout() {
+  /** undefined: not read yet. null: nothing saved on this phone. */
+  const [savedTheme, setSavedTheme] = useState<ThemeName | null | undefined>(undefined);
+
+  useEffect(() => {
+    let current = true;
+    void readSavedTheme().then((name) => {
+      if (current) setSavedTheme(name);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  // The splash screen stays up until the theme is known, so the app never opens in the
+  // wrong colours and then changes.
+  if (savedTheme === undefined) return null;
+
   return (
-    <ThemeProvider>
+    <ThemeProvider initialTheme={savedTheme ?? DEFAULT_THEME} onThemeChange={(name) => void saveTheme(name)}>
       <AuthProvider>
         {/* Toasts ("Copied") are drawn above whichever screen is open. */}
         <ToastProvider>
@@ -74,8 +91,8 @@ function RootNavigator() {
         </Stack.Protected>
 
         <Stack.Protected guard={!signedIn}>
+          {/* Sign in and sign up share one screen. */}
           <Stack.Screen name="sign-in" />
-          <Stack.Screen name="sign-up" />
         </Stack.Protected>
 
         {/* Design preview: development builds only, never in a build given to users. */}

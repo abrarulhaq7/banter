@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Banner, Button, ListRow, Screen, ScreenHeader } from '@/components/ui';
 import { usePrompts, type Tone } from '@/prompts';
+import { useToneVisibility } from '@/prompts/use-tone-visibility';
 import { spacing } from '@/theme';
 
 const KIND_LABEL: Record<Tone['kind'], string | undefined> = {
@@ -16,6 +17,7 @@ const KIND_LABEL: Record<Tone['kind'], string | undefined> = {
 export function TonesScreen() {
   const router = useRouter();
   const { tones, loadError, refresh } = usePrompts();
+  const { hidden } = useToneVisibility();
 
   // Opening the tab is a good moment to pick up a default that was changed in Supabase.
   useEffect(() => {
@@ -52,7 +54,7 @@ export function TonesScreen() {
             icon={tone.kind === 'custom' ? 'edit' : 'tone'}
             title={tone.label}
             subtitle={tone.definition}
-            value={KIND_LABEL[tone.kind]}
+            value={hidden.has(tone.key) ? 'Hidden' : KIND_LABEL[tone.kind]}
             onPress={() => router.push({ pathname: '/tones/[key]', params: { key: tone.key } })}
           />
         ))}

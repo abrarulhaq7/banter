@@ -188,6 +188,35 @@ describe('PersonScreen', () => {
     await waitFor(() => expect(history.people[0].context).toBe('already_talking'));
   });
 
+  it('keeps a note about her, written in a sheet', async () => {
+    const { history, personId } = await seed();
+    const user = await open(history, personId);
+    expect(screen.getByTestId('person-notes-row')).toHaveTextContent(/Add a note/);
+
+    await user.press(screen.getByTestId('person-notes-row'));
+    await user.type(screen.getByTestId('person-notes-input'), 'Close friend, we flirt a lot');
+    await user.press(screen.getByTestId('person-notes-save'));
+
+    expect(screen.queryByTestId('person-notes-sheet')).toBeNull();
+    expect(screen.getByTestId('person-notes-row')).toHaveTextContent(/Close friend, we flirt a lot/);
+    await waitFor(() => expect(history.people[0].notes).toBe('Close friend, we flirt a lot'));
+  });
+
+  it('removes the note when it is saved empty', async () => {
+    const history = createFakeHistoryRepo();
+    const { personId } = await seed(history);
+    await history.repo.setPersonNotes('some.one', 'Old note');
+    const user = await open(history, personId);
+    await waitFor(() => expect(screen.getByTestId('person-notes-row')).toHaveTextContent(/Old note/));
+
+    await user.press(screen.getByTestId('person-notes-row'));
+    await user.clear(screen.getByTestId('person-notes-input'));
+    await user.press(screen.getByTestId('person-notes-save'));
+
+    await waitFor(() => expect(history.people[0].notes).toBeNull());
+    expect(screen.getByTestId('person-notes-row')).toHaveTextContent(/Add a note/);
+  });
+
   it('says so when there is nothing saved for her', async () => {
     const history = createFakeHistoryRepo();
     const personId = await history.repo.upsertPerson('quiet.one', null, '2026-11-25T10:00:00Z');
@@ -207,6 +236,46 @@ describe('PersonScreen', () => {
 
     expect(await screen.findByTestId('shot-row-0')).toBeOnTheScreen();
     expect(screen.queryByTestId('timeline-error')).toBeNull();
+  });
+
+  it('asks before deleting her, and does nothing on Cancel', async () => {
+    const { history, personId } = await seed();
+    const user = await open(history, personId);
+
+    await user.press(screen.getByTestId('person-delete'));
+    expect(screen.getByText('Delete @some.one?')).toBeOnTheScreen();
+    await user.press(screen.getByTestId('dialog-cancel'));
+
+    expect(history.repo.deletePerson).not.toHaveBeenCalled();
+    expect(history.people).toHaveLength(1);
+  });
+
+  it('deletes her, her lines and her screenshots, and goes back to the list', async () => {
+    const { history, personId } = await seed();
+    const user = await open(history, personId);
+
+    await user.press(screen.getByTestId('person-delete'));
+    await user.press(screen.getByTestId('dialog-confirm'));
+
+    await waitFor(() => expect(history.repo.deletePerson).toHaveBeenCalledWith(personId));
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(history.people).toHaveLength(0);
+    expect(history.interactions).toHaveLength(0);
+    expect(history.lines).toHaveLength(0);
+    expect(history.files.has('user/shot.jpg')).toBe(false);
+  });
+
+  it('keeps her and says why when she cannot be deleted', async () => {
+    const { history, personId } = await seed();
+    const user = await open(history, personId);
+    history.failNext();
+
+    await user.press(screen.getByTestId('person-delete'));
+    await user.press(screen.getByTestId('dialog-confirm'));
+
+    expect(await screen.findByTestId('person-delete-error')).toHaveTextContent(/No connection/);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(history.people).toHaveLength(1);
   });
 
   it('says so when the person does not exist', async () => {

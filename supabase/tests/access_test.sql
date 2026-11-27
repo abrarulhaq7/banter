@@ -11,7 +11,7 @@
 -- Seed data
 -- =========================================================================================
 select tests.ok((select count(*) from public.modes) = 4, 'seed: four modes');
-select tests.ok((select count(*) from public.tones) = 5, 'seed: five tones');
+select tests.ok((select count(*) from public.tones) = 6, 'seed: six tones, Spicy included');
 select tests.ok((select count(*) from public.prompt_core where is_active) = 1,
   'seed: exactly one active version of the core rules');
 select tests.ok(
@@ -200,6 +200,9 @@ select tests.ok((select count(*) from public.people) = 1 and (select count(*) fr
 select tests.refused(
   $$update public.people set user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'$$,
   'B: cannot move a row to A');
+select tests.ok(
+  (select count(*) from public.usage_summary where key_label = 'Main') = 0,
+  'B: cannot see A''s usage');
 
 -- =========================================================================================
 -- Signed-out visitors have no access at all
@@ -221,6 +224,8 @@ select tests.refused(
   $$insert into public.api_keys (user_id, provider, label, key)
     values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'openai', 'planted', 'test-key-0000')$$,
   'signed out: cannot write api_keys');
+select tests.refused($$select 1 from public.usage_summary$$, 'signed out: cannot read usage');
+select tests.refused($$select public.delete_my_account()$$, 'signed out: cannot call delete_my_account');
 select tests.ok((select count(*) from storage.objects) = 0, 'signed out: cannot see any screenshot');
 select tests.refused(
   $$insert into storage.objects (bucket_id, name) values ('screenshots', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/anon.jpg')$$,
@@ -239,10 +244,20 @@ select tests.ok(
   and (select display_name from public.profiles) = 'A',
   'A: everything is unchanged after B''s and the visitor''s attempts');
 
+select tests.ok(
+  (select count(*) from public.usage_summary) = 1
+  and (select provider = 'gemini' and model = 'gemini-3.5-flash-lite' and key_label = 'Main'
+              and generations = 1 and this_month = 1 and last_used_at is not null
+       from public.usage_summary),
+  'A: usage counts own generations per provider, model and key');
+
 delete from public.api_keys where id = 'a0000000-0000-4000-8000-000000000001';
 select tests.ok(
   (select api_key_id is null and api_key_label = 'Main' from public.interactions),
   'deleting a key keeps the history and the key''s label');
+select tests.ok(
+  (select generations = 1 and key_label = 'Main' from public.usage_summary),
+  'usage still counts generations made with a key that was deleted');
 
 delete from public.user_prompts where id = 'a0000000-0000-4000-8000-000000000002';
 select tests.ok(
@@ -255,8 +270,14 @@ select tests.ok(
   'deleting a person deletes their interactions and lines');
 
 -- Deleting the account removes every row the user owns, and nothing of anyone else's.
+-- A does it themselves, through the one function that is allowed to.
+select tests.refused($$delete from auth.users$$, 'A: cannot delete from auth.users directly');
+select public.delete_my_account();
 reset role;
-delete from auth.users where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+select tests.ok(
+  (select count(*) from auth.users where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0
+  and (select count(*) from auth.users) = 1,
+  'delete_my_account removes the caller''s login and nobody else''s');
 select tests.ok(
   (select count(*) from public.profiles where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0
   and (select count(*) from public.user_prompts where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,

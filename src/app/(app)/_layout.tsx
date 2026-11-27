@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { useAuth } from '@/auth';
@@ -10,7 +10,7 @@ import { GenerateProvider } from '@/generate/generate-provider';
 import { HistoryProvider } from '@/history';
 import { PromptsProvider } from '@/prompts';
 import { useSignOut } from '@/hooks/use-sign-out';
-import { useTheme } from '@/theme';
+import { isThemeName, useTheme } from '@/theme';
 
 /** A crash in a signed-in screen is caught here, without signing the user out. */
 export { CrashScreen as ErrorBoundary };
@@ -39,8 +39,18 @@ export default function AppLayout() {
 }
 
 function AppNavigator() {
-  const { colors } = useTheme();
+  const { colors, name: themeName, setTheme } = useTheme();
   const { status, profile } = useProfile();
+
+  // The theme saved in the profile wins when it arrives, so the choice follows the user to
+  // another phone. Picking a theme saves it to the profile (see the Theme screen).
+  const profileTheme = profile?.theme;
+  useEffect(() => {
+    if (isThemeName(profileTheme) && profileTheme !== themeName) setTheme(profileTheme);
+    // Only when the profile's theme changes: a theme just picked here must not be undone
+    // by the old value while it is still being saved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileTheme]);
 
   if (status === 'loading') {
     return (
@@ -71,6 +81,8 @@ function AppNavigator() {
         <Stack.Screen name="tones/personalise" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="theme" />
+        <Stack.Screen name="data" />
+        <Stack.Screen name="usage" />
         <Stack.Screen name="keys/index" />
         <Stack.Screen name="keys/add" />
         <Stack.Screen name="keys/[id]" />

@@ -73,6 +73,13 @@ export function SettingsScreen() {
           value={themeLabel}
           onPress={() => router.push('/theme')}
         />
+        <ListRow
+          testID="open-data"
+          icon="data"
+          title="Your data"
+          subtitle="Screenshots, usage, deleting."
+          onPress={() => router.push('/data')}
+        />
       </View>
 
       {error ? <Banner tone="danger">{error}</Banner> : null}

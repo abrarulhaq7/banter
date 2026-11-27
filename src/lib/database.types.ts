@@ -158,6 +158,25 @@ export type LineInsert = Pick<LineRow, 'id' | 'interaction_id' | 'position' | 't
   Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at'>>;
 export type LinePatch = Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at'>>;
 
+/** One row of the usage view: generations made with one key on one model. */
+export type UsageRow = {
+  provider: ProviderId;
+  model: string;
+  /** The key's name at the time. Null when none was recorded. */
+  key_label: string | null;
+  generations: number;
+  this_month: number;
+  last_used_at: string | null;
+};
+
+/** What the app keeps in `profiles.settings`. Every field is optional. */
+export type ProfileSettings = {
+  /** False when the user turned off saving screenshots. Anything else means save them. */
+  save_screenshots?: boolean;
+  /** Tones (by `Tone.key`) the user hid from the Generate screen. Everything else shows. */
+  hidden_tones?: string[];
+};
+
 type Table<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;
@@ -201,8 +220,12 @@ export type Database = {
       interactions: Table<InteractionRow, InteractionInsert, Partial<InteractionInsert>>;
       lines: Table<LineRow, LineInsert, LinePatch>;
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      usage_summary: { Row: UsageRow & { user_id: string }; Relationships: [] };
+    };
+    Functions: {
+      delete_my_account: { Args: Record<string, never>; Returns: undefined };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

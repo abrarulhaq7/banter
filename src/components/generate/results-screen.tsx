@@ -9,9 +9,9 @@ import {
   Button,
   Chip,
   ChipRow,
+  EmptyState,
   Icon,
   IconButton,
-  OptionList,
   Screen,
   Sheet,
   TextField,
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui';
 import type { Adjustment } from '@/engine';
 import { useGenerateSession } from '@/generate/generate-provider';
-import { usePrompts } from '@/prompts';
+import { ToneSheet } from '@/components/tones/tone-sheet';
 import { adjustableLines, setChipLabel, type KeptLine } from '@/generate/session';
 import { haptics } from '@/lib/haptics';
 import { radius, spacing, useTheme } from '@/theme';
@@ -37,8 +37,6 @@ export function ResultsScreen() {
   const { colors } = useTheme();
   const toast = useToast();
   const session = useGenerateSession();
-  const prompts = usePrompts();
-  const tones = prompts.tones.map((tone) => ({ value: tone.key, label: tone.label }));
 
   // The set being looked at. A choice only holds until a newer set arrives; then the
   // newest is shown again.
@@ -139,10 +137,12 @@ export function ResultsScreen() {
           <View style={styles.emptyError}>{errorBanner}</View>
         ) : (
           <View style={styles.emptyBody}>
-            <Icon name="generate" size={40} color="accent" />
-            <AppText testID="results-empty" color="textMuted" style={styles.centerText}>
-              No lines yet. Choose a screenshot and tap Get lines.
-            </AppText>
+            <EmptyState
+              testID="results-empty"
+              icon="generate"
+              title="No lines yet"
+              message="Choose a screenshot and tap Get lines."
+            />
           </View>
         )}
       </Screen>
@@ -249,14 +249,14 @@ export function ResultsScreen() {
         onToggleKeep={toggleKeep}
       />
 
-      <Sheet
+      <ToneSheet
         testID="tone-sheet"
         visible={sheet === 'tone'}
         title="Another tone"
         subtitle="Writes a new set for this screenshot. The sets you have stay."
-        onClose={() => setSheet(null)}>
-        <OptionList testIDPrefix="tone" options={tones} value={null} onSelect={anotherTone} />
-      </Sheet>
+        onSelect={anotherTone}
+        onClose={() => setSheet(null)}
+      />
 
       <Sheet
         testID="person-edit"

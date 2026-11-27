@@ -2,7 +2,9 @@
 # Puts the sample screenshots into the booted simulator's photo library and gives Banter
 # full photo access, so "Use latest screenshot" can be tested.
 #
-# The last file added becomes the newest photo. Pass the one you want as "latest" last:
+# "Newest" means the time the picture was taken (from its own data), not when it was added.
+# A file added last is the newest only if it was also taken last. Pass the one you want as
+# "latest" last, and make sure it is the most recently taken one:
 #   bash scripts/sim-photos.sh samples/IMG_5198.HEIC
 # With no argument, every image in samples/ is added in name order.
 set -euo pipefail

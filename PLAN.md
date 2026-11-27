@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 6 (Personal prompts) is done and pushed (2026-11-26): the My tones tab, your own versions of tones, tones you make yourself, "Personalise for me", and default prompts read from Supabase. One step is yours: paste `supabase/paste-prompts.sql` into Supabase (see Phase 6 result).** Phase 5.5 (App feel) is done and pushed (2026-11-26): tab bar, icons, sheets, dialogs, toasts, and every screen rebuilt to the layout rules, including Keys, About you, sign-in and onboarding.** Phase 5 is done and pushed. Phase 3 is still open on your judgement of the lines and on profile and chat screenshots.
+Status: **Phase 7 (Settings and polish) and Phase 7.5 (Bolder flirting) are done and committed (2026-11-26). Supabase is at prompt version 6 with Spicy. Next: learning a tone from an example (Phase 7.6).** Earlier phases are done and pushed.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -65,7 +65,7 @@ the screens are these (the rules behind the split are in Phase 5.5):
 
 Bottom tab bar: **Generate · People · My tones · Settings**
 
-1. Sign in / Sign up
+1. Sign in and sign up: one screen, logo on top, a switch between the two forms
 2. Onboarding, three short steps: about you, how you sound, your first API key
 3. Generate (tab): the screenshot and the choices for it. Nothing else
 4. Results (opens after "Get lines"): the lines for this screenshot, one set at a time
@@ -77,11 +77,13 @@ Bottom tab bar: **Generate · People · My tones · Settings**
      Delete asks first
    - Personalise for me: what the AI will read, then its suggestions as rows; a row opens
      a sheet to compare and accept or skip
-9. Settings (tab): a short list that opens About you, AI keys, Theme, Data, Sign out
+9. Settings (tab): a short list that opens About you, AI keys, Theme, Your data, Sign out
 10. About you: one row per fact; a row opens a sheet to change it
 11. AI keys: one row per key, in the order they are tried; a row opens its key
 12. One key: name, model, on or off, check again, delete
 13. Add a key: provider, the key, model
+14. Your data: save screenshots on or off, Usage, Delete all history, Delete my account
+15. Usage: generations per key and model, this month or all time
 
 ## 5. Data in Supabase
 
@@ -773,7 +775,8 @@ Decided during the phase, with the reason:
 
 What you need to do:
 
-- **Paste `supabase/paste-prompts.sql` into Supabase > SQL Editor and press Run.** It
+- **Done on 2026-11-26** (as part of the Phase 7 update): Supabase's prompts are at
+  version 5. Previously: **paste `supabase/paste-prompts.sql` into Supabase > SQL Editor and press Run.** It
   brings Supabase's prompts to version 5 (safe to run twice). Until then the app keeps
   using its own copy, and "change a default in Supabase" has no effect. After it, to test:
   change the Casual definition in the `tones` table, reopen the app, open My tones.
@@ -818,6 +821,140 @@ Goal: the app feels finished for daily personal use.
 
 How I test: full Maestro run of every flow. Deletions confirmed in the database and
 in storage.
+
+**Phase 7 result (2026-11-26):** built, tested, approved and committed. `npm run check` passes (621 unit tests) and
+`npm run test:db` passes (89 checks). The three offline
+Maestro flows and the six earlier live flows pass. The new live flow (`live/data.yaml`)
+passes against the real project after you applied the update on 2026-11-26: theme
+remembered after a restart; screenshots off (lines saved, no file stored) and on again;
+Usage counting two generations; a person deleted; all history deleted; the account
+deleted, after which the same email and password are refused. Each step is confirmed by
+reading Supabase and its storage directly, not only the screen. Screenshots in `.maestro/artifacts/phase-7/`.
+
+Built:
+
+- **Theme is remembered.** Before this phase it went back to Midnight Plum on every
+  start. Now the choice is kept on the phone (so the app opens in the right colours, even
+  on the sign-in screen) and saved in the profile (so it follows you to another phone).
+- **Settings > Your data:** a short menu.
+  - *Save screenshots* on or off. Off: lines are saved as before, the picture is not sent
+    to Supabase. Sets made from one screenshot still stay together in her history.
+  - *Usage* opens its own screen.
+  - *Delete all history*: every person, line and stored screenshot, and anything still
+    waiting on the phone to be sent. Keys, tones and the profile stay.
+  - *Delete my account*: the stored screenshots, then the login itself; every row goes
+    with it. The app then signs out.
+  Both deletions ask first, in the danger colour.
+- **Delete a person:** a bin button on her screen. Her lines and screenshots go with her.
+- **Usage screen:** a total, then one row per key and model, for this month or all time.
+  Counted in the database (a view), so the numbers are exact however long the history is.
+- **Empty states** with an icon, a title, a sentence and, where there is one obvious next
+  step, a button: People, a person with nothing saved, Results, Keys, Usage.
+- **Small animations:** lines arrive one after the other with a short fade; toasts and
+  empty states fade in.
+- **Sign in and sign up on one screen** (asked for on 2026-11-26): the logo, then a
+  "Sign in | Sign up" switch, then the form, all in the middle of the screen. Switching
+  changes the form in place and keeps the email typed. The separate sign-up screen is
+  gone. This screen keeps its button inside the form, under the fields, instead of pinned
+  to the bottom: a short centred form is easier to take in at a glance, and the keyboard
+  never covers a centred button for long.
+- **Clear button on Generate** (asked for on 2026-11-26): a ✕ on the screenshot's corner
+  goes back to no screenshot, ready for a new one. The person, context and lines on screen
+  go; mode and tone stay. Nothing is deleted: every set was saved to People when it
+  arrived. Before this, the only way to start over was to pick another screenshot.
+
+Database change (`20261126000500_account_and_usage.sql`):
+
+- `delete_my_account()`: a function that deletes the signed-in user. It takes no
+  argument, so it can only ever delete the caller. Signed-out visitors cannot call it.
+- `usage_summary`: a view over `interactions`, read with the caller's own rights, so a
+  user sees only their own counts.
+
+Changed from the plan above, with the reason:
+
+- **"Delete account data" became "Delete my account".** Emptying an account but leaving
+  its login behind helps nobody, and app stores require that an account made in the app
+  can be deleted in the app.
+- **No usage per day or cost.** Banter does not know what a request cost; the provider's
+  own dashboard does. The screen says so.
+
+Not done in this phase:
+
+- **The "Could not load your account" and crash screens** are still as they were.
+- **No small-phone or Android check**, as before.
+- **Screens are not animated between each other beyond what the system does.**
+
+### Phase 7.5 — Bolder flirting
+
+Added on 2026-11-26 at your request. You tried Flirty on a story of a close friend you
+flirt with, and the lines were about the wallpaper and the song. The cause was our own
+rules, not the AI: they banned any comment on how she looks and anything suggestive
+without a chat, for everyone, and the AI did not know she was a close friend.
+
+Built:
+
+- **The rules depend on how well you know her** (core rules version 6). Stranger or
+  mutual follow, or not set: as before, nothing about how she looks. Know her or already
+  talking: a confident compliment on how she looks is fine, and tension, teasing and
+  innuendo when the tone asks for heat. Whatever the context: never specific body parts,
+  never rating her body, never crude, nothing explicit unless she is already there in the
+  chat. No pressure, no chasing after silence, and the under-18 stop, as before.
+- **A sixth tone, Spicy**, after Flirty. Bold flirting with real heat: says what seeing her
+  does to him, teases, dares her a little, innuendo rather than spelling it out, a little
+  cocky, never needy. With a stranger the heat comes from confidence and wit only. Flirty
+  stays the warm, light one.
+- **"About her": a note per person** on her screen ("close friend, we flirt a lot, she
+  flirts back"). It goes into the prompt, and the AI uses it to judge how bold to be. It
+  is never quoted to her. Saved through the offline queue like the rest of her history.
+- **"Who is she" on Generate**, once a screenshot is chosen and anyone is saved: pick her
+  before asking, so the very first set already knows her note, how you know her, and what
+  you sent her before. Before this, all of that reached only the second set, because her
+  username is read from the AI's first answer. This also gives the automatic Replied / No
+  reply (Phase 5.5 finding) what it needs, when you pick her.
+- **The three lines may take different angles on the same detail** (core rule 10), so a
+  selfie can get three lines about her instead of one about her and two about the room.
+- **A tone missing from Supabase no longer loses lines.** Spicy is new in the app; until
+  Supabase's tones table has it, a Spicy set is saved without the link (its name is kept).
+- `npm run lines` takes `--her "note"` and `--tone spicy`.
+
+Measured on your sample IMG_5214 (Gemini 3.5 Flash-Lite, Story reply, Know her, with a
+note), three runs each:
+
+- Before (version 5, Flirty): "Are you ever going to show your face in these mirror pics…",
+  "Playing Adele while plotting a whole wall takeover with paper butterflies".
+- After (version 6, Spicy): "that black dress is dangerous, do you even want me to survive
+  today", "adele in the background plus that outfit? you are actually trying to ruin me",
+  "you know what that black dress does to me".
+- Spicy with Stranger stays clean: no comment on her looks, no innuendo.
+- The cheap model still sometimes spends one line on the background. A stronger model
+  should do better; Gemini 4 Hydrogen was overloaded (HTTP 503) on every try that day,
+  so that comparison is still to do.
+
+Supabase: you pasted `supabase/paste-prompts.sql` on 2026-11-26. Supabase now holds core
+rules version 6 and six tones, Spicy included (checked the same day).
+
+Added the same day, at your request:
+
+- **Choose which tones show on Generate.** The tone row starts with a "Tones" button that
+  opens every tone in a sheet: tap one to use it, tap its eye to show it on Generate or
+  hide it. A search field appears from eight tones on, so 50 tones stay manageable. The
+  tone in use always shows, even a hidden one. Hidden tones are kept in your profile's
+  settings, so the choice follows you; a tone you make, or one Banter adds later, shows
+  until you hide it. Each tone's own screen has the same switch ("Show on Generate"), and
+  My tones marks hidden ones. Results' "Another tone" uses the same sheet.
+- **"New tone" in that sheet**, so a tone can be made from Generate. No build is ever
+  needed for a new tone: your own in My tones > Add a tone; one for every user as a row in
+  Supabase's `tones` table (picked up on the next start, once Supabase is at version 6).
+- **Image formats checked on the simulator:** a HEIC, a PNG, a JPG and a JPEG, each put
+  in the photo library and opened with "Use latest". All four opened as their own picture.
+  The app converts every picture to JPEG (at most 1280 px) before it is shown, sent or
+  stored, so the format of the original does not matter. Found on the way: "Use latest"
+  orders by the time a picture was taken, not when it was added; `scripts/sim-photos.sh`
+  said otherwise and now says this.
+- **Seen once, not explained:** in one live Generate run, tapping the older set's chip on
+  Results landed the app back on Generate (with everything kept). The rerun passed, as did
+  every earlier run of that step. Nothing in the app navigates on that tap. To watch for
+  on the phone in Phase 8, like the lost first tap of Phase 5.5.
 
 ### Phase 8 — Phone builds
 
@@ -955,7 +1092,7 @@ agreements are recorded here.
   the engine; needs `keys.local.json`), `npm run db:prompts` (write the SQL that copies
   the default prompts into Supabase), `npm run ios` (build and install on the simulator),
   `npm start` (dev server), `npm run e2e` (Maestro), `npm run test:privacy` and
-  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates six test
+  `npm run e2e:live` (both need the real Supabase project; `e2e:live` creates seven test
   accounts per run, and its Generate flow uses the Gemini key from `keys.local.json`).
 - Git: commits in this repo are made as `abrarulhaq7` and no other name. The GitHub repo
   `abrarulhaq7/banter` is public. The `reference/` images stay on this Mac and are not in

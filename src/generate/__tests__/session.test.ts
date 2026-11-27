@@ -124,6 +124,27 @@ describe('sessionReducer', () => {
     expect(state.copiedLineId).toBeNull();
   });
 
+  it('clears back to no screenshot, keeping the mode and tone', () => {
+    const state = play([
+      { type: 'screenshotReady', screenshot: screenshot('a') },
+      { type: 'setMode', mode: 'opener' },
+      { type: 'setTone', tone: 'flirty' },
+      { type: 'setContext', context: 'stranger' },
+      { type: 'generateStarted' },
+      { type: 'generateSucceeded', set: set('set-1') },
+      { type: 'toggleKeep', line: { id: 'set-1:0', text: 'One', label: 'x' } },
+      { type: 'clear' },
+    ]);
+
+    expect(state).toEqual({ ...initialSession, mode: 'opener', tone: 'flirty' });
+  });
+
+  it('does not clear while a request is running', () => {
+    const running = play([{ type: 'screenshotReady', screenshot: screenshot('a') }, { type: 'generateStarted' }]);
+
+    expect(sessionReducer(running, { type: 'clear' })).toBe(running);
+  });
+
   it('keeps the current screenshot and lines when choosing another one fails or is cancelled', () => {
     const before = play([
       { type: 'screenshotReady', screenshot: screenshot('a') },

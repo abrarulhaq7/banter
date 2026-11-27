@@ -14,5 +14,6 @@ export type {
   LinePatchEntry,
   OutboxEntry,
   PersonContextEntry,
+  PersonNotesEntry,
   QueuedEntry,
 } from './types';

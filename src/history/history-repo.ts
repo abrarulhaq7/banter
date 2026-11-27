@@ -6,6 +6,7 @@ import type {
   LinePatch,
   LineRow,
   PersonRow,
+  UsageRow,
 } from '@/lib/database.types';
 import type { BanterClient } from '@/lib/supabase';
 
@@ -29,12 +30,22 @@ export type HistoryRepo = {
   patchLine: (lineId: string, patch: LinePatch) => Promise<void>;
   assignPerson: (interactionIds: string[], personId: string) => Promise<void>;
   setPersonContext: (personId: string, context: ContextId) => Promise<void>;
+  /** The user's note about someone already saved. Null removes it. */
+  setPersonNotes: (username: string, notes: string | null) => Promise<void>;
   /** Deletes this person if nothing is saved under them: no interactions and no notes. */
   removePersonIfEmpty: (username: string) => Promise<void>;
 
   listPeople: () => Promise<PersonRow[]>;
   /** Newest first. */
   listInteractions: (personId: string, limit: number) => Promise<InteractionWithLines[]>;
+  /** Deletes a person with everything saved under them, and the screenshots stored for them. */
+  deletePerson: (personId: string) => Promise<void>;
+  /** Deletes every person, interaction, line and stored screenshot of this user. */
+  deleteAllHistory: (userId: string) => Promise<void>;
+  /** Deletes the stored screenshots, then the login itself and, with it, every row. */
+  deleteAccount: (userId: string) => Promise<void>;
+  /** Generations per provider, model and key, most used first. */
+  usage: () => Promise<UsageRow[]>;
   /** The user's latest interactions with anyone, newest first. */
   listRecent: (limit: number) => Promise<InteractionWithLines[]>;
   /** A link to a stored screenshot that works for a short time. */
@@ -42,6 +53,25 @@ export type HistoryRepo = {
 };
 
 export function createHistoryRepo(client: BanterClient): HistoryRepo {
+  const bucket = () => client.storage.from(SCREENSHOT_BUCKET);
+
+  const removeFiles = async (paths: string[]) => {
+    for (let at = 0; at < paths.length; at += 100) {
+      const { error } = await bucket().remove(paths.slice(at, at + 100));
+      if (error) throw error;
+    }
+  };
+
+  /** Removes every file in the user's folder, however many there are. */
+  const removeAllFiles = async (userId: string) => {
+    for (;;) {
+      const { data, error } = await bucket().list(userId, { limit: 100 });
+      if (error) throw error;
+      if (data.length === 0) return;
+      await removeFiles(data.map((file) => `${userId}/${file.name}`));
+    }
+  };
+
   return {
     async upsertPerson(username, context, at) {
       const row = { username, last_interaction_at: at, ...(context ? { context } : {}) };
@@ -55,14 +85,20 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
     },
 
     async saveInteraction(row) {
-      const { error } = await client.from('interactions').upsert(row, { onConflict: 'id' });
-      if (!error) return;
-      // The user's own tone was deleted before this reached the server (it waited on the
-      // phone without internet). The lines are still worth keeping: save them without the link.
-      const toneGone = error.code === '23503' && row.user_prompt_id && /user_prompt/.test(`${error.message} ${error.details}`);
-      if (!toneGone) throw error;
-      const retried = await client.from('interactions').upsert({ ...row, user_prompt_id: null }, { onConflict: 'id' });
-      if (retried.error) throw retried.error;
+      // The lines are always worth keeping, even when a tone they point at is missing:
+      // - the user's own tone was deleted while this waited on the phone without internet;
+      // - a tone new in this version of the app is not in Supabase's tones table yet.
+      // Then the link is dropped and the row saved again. The tone's name is kept either way.
+      let next = row;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { error } = await client.from('interactions').upsert(next, { onConflict: 'id' });
+        if (!error) return;
+        const about = `${error.message} ${error.details ?? ''}`;
+        if (error.code !== '23503') throw error;
+        if (next.user_prompt_id && /user_prompt/.test(about)) next = { ...next, user_prompt_id: null };
+        else if (next.tone_id && /tone_id/.test(about)) next = { ...next, tone_id: null };
+        else throw error;
+      }
     },
 
     async saveLines(rows) {
@@ -120,6 +156,11 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
       if (error) throw error;
     },
 
+    async setPersonNotes(username, notes) {
+      const { error } = await client.from('people').update({ notes }).eq('username', username);
+      if (error) throw error;
+    },
+
     async listPeople() {
       const { data, error } = await client
         .from('people')
@@ -141,6 +182,46 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
         ...row,
         lines: [...row.lines].sort((a, b) => a.position - b.position),
       }));
+    },
+
+    async deletePerson(personId) {
+      const found = await client
+        .from('interactions')
+        .select('screenshot_path')
+        .eq('person_id', personId)
+        .not('screenshot_path', 'is', null);
+      if (found.error) throw found.error;
+      // The rows go first: that is what the user asked for. A file left behind by a failed
+      // second step is invisible, and "Delete all history" clears the whole folder.
+      const { error } = await client.from('people').delete().eq('id', personId);
+      if (error) throw error;
+      const paths = [...new Set(found.data.map((row) => row.screenshot_path).filter((path): path is string => !!path))];
+      await removeFiles(paths);
+    },
+
+    async deleteAllHistory(userId) {
+      // Lines go with their interactions. Interactions with no person are deleted too.
+      const interactions = await client.from('interactions').delete().not('id', 'is', null);
+      if (interactions.error) throw interactions.error;
+      const people = await client.from('people').delete().not('id', 'is', null);
+      if (people.error) throw people.error;
+      await removeAllFiles(userId);
+    },
+
+    async deleteAccount(userId) {
+      // Files are not rows: they would outlive the account if they were not removed first.
+      await removeAllFiles(userId);
+      const { error } = await client.rpc('delete_my_account');
+      if (error) throw error;
+    },
+
+    async usage() {
+      const { data, error } = await client
+        .from('usage_summary')
+        .select('provider, model, key_label, generations, this_month, last_used_at')
+        .order('generations', { ascending: false });
+      if (error) throw error;
+      return data;
     },
 
     async listRecent(limit) {

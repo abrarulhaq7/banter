@@ -62,6 +62,11 @@ stop_server() {
 trap stop_server EXIT
 
 source scripts/env.sh
-maestro test --test-output-dir .maestro/artifacts \
+# A Mac that falls asleep mid-run freezes the simulator and the run with it (seen on
+# 2026-11-26). caffeinate keeps it awake for as long as the flows run. A closed lid still
+# puts it to sleep.
+AWAKE=""
+command -v caffeinate >/dev/null 2>&1 && AWAKE="caffeinate -i"
+$AWAKE maestro test --test-output-dir .maestro/artifacts \
   -e SUPABASE_URL="$URL" -e SUPABASE_KEY="$KEY" -e GEMINI_KEY="$GEMINI_KEY" -e METRO_PORT="$PORT" \
   "${@:-.maestro/live}"

@@ -60,6 +60,8 @@ export type PromptInput = {
   /** Not used for Analyse. */
   tone?: { label: string; definition: string } | null;
   context?: ContextId | null;
+  /** The sender's own note about her and where things stand ("close friend, she flirts back"). */
+  aboutHer?: string | null;
   profile?: SenderProfile | null;
   /** Up to the last five interactions with this person. */
   memory?: MemoryItem[];

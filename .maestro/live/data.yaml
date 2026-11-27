@@ -1,0 +1,292 @@
+# Phase 7 acceptance test against the real Supabase project, with real answers from Gemini:
+# the theme is remembered, screenshots can be kept off the server, usage is counted, and
+# a person, all history and the whole account can be deleted. After each deletion the
+# database and the storage are read directly, to see that the rows and files are gone.
+#
+#   npm run e2e:live -- .maestro/live/data.yaml
+appId: com.banterlines.app
+# Runs however the flow ends, so a failed run never leaves the real key or saved history
+# in its test account. After a successful run the account no longer exists, and these
+# skip quietly.
+onFlowComplete:
+  - runScript:
+      file: ../scripts/remove-history.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-keys.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "data"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+
+# --- Theme: picked once, remembered after a restart ----------------------------------------
+- runFlow: ../common/go-to-settings.yaml
+- assertVisible:
+    id: "open-theme"
+    text: ".*Midnight Plum.*"
+- tapOn:
+    id: "open-theme"
+- tapOn:
+    id: "theme-ember"
+- takeScreenshot: data-theme-ember
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "open-theme"
+    text: ".*Ember.*"
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "theme-ember"
+
+# Restart: still Ember, and the key is loaded.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+- runFlow: ../common/go-to-settings.yaml
+- assertVisible:
+    id: "open-theme"
+    text: ".*Ember.*"
+- takeScreenshot: data-settings
+
+# --- Your data: nothing counted yet --------------------------------------------------------
+- tapOn:
+    id: "open-data"
+- assertVisible:
+    id: "data-screen"
+- assertVisible:
+    id: "save-screenshots"
+    text: ".*On.*"
+- takeScreenshot: data-menu
+- tapOn:
+    id: "open-usage"
+- extendedWaitUntil:
+    visible:
+      id: "usage-empty"
+    timeout: 30000
+- takeScreenshot: data-usage-empty
+- tapOn:
+    id: "back-button"
+
+# --- Screenshots off: lines are saved, the picture is not ----------------------------------
+- tapOn:
+    id: "save-screenshots"
+- extendedWaitUntil:
+    visible:
+      id: "save-screenshots"
+      text: ".*Off.*"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+- tapOn:
+    id: "tab-generate"
+- tapOn:
+    id: "use-latest"
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Casual · Story reply"
+- takeScreenshot: data-lines
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "no-screenshot"
+- tapOn:
+    id: "back-button"
+
+# --- Screenshots on again: the next screenshot is stored -----------------------------------
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "open-data"
+- tapOn:
+    id: "save-screenshots"
+- extendedWaitUntil:
+    visible:
+      id: "save-screenshots"
+      text: ".*On.*"
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+- tapOn:
+    id: "tab-generate"
+# Choosing the screenshot again starts a new one.
+- tapOn:
+    id: "use-latest"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Casual · Story reply"
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "one-screenshot"
+- tapOn:
+    id: "back-button"
+
+# --- Usage: two generations, one key -------------------------------------------------------
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "open-data"
+- tapOn:
+    id: "open-usage"
+- extendedWaitUntil:
+    visible:
+      id: "usage-total-number"
+      text: "2"
+    timeout: 30000
+- assertVisible:
+    id: "usage-row-0"
+- takeScreenshot: data-usage
+- tapOn:
+    id: "usage-all"
+- assertVisible:
+    id: "usage-total-number"
+    text: "2"
+- tapOn:
+    id: "back-button"
+- tapOn:
+    id: "back-button"
+
+# --- Delete a person: the app asks first ---------------------------------------------------
+- tapOn:
+    id: "tab-people"
+- extendedWaitUntil:
+    visible:
+      id: "person-card-0"
+    timeout: 30000
+- tapOn:
+    id: "person-card-0"
+- assertVisible:
+    id: "person-screen"
+- tapOn:
+    id: "person-delete"
+- assertVisible: "Delete @.*\\?"
+- takeScreenshot: data-delete-person-dialog
+- tapOn:
+    id: "dialog-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "no-people"
+    timeout: 30000
+- takeScreenshot: data-people-empty
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "person-deleted"
+
+# --- Delete all history --------------------------------------------------------------------
+# Something to delete first. The empty People list offers the way there.
+- tapOn:
+    id: "no-people-action"
+- assertVisible:
+    id: "generate-screen"
+- tapOn:
+    id: "use-latest"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Casual · Story reply"
+- tapOn:
+    id: "back-button"
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "open-data"
+- tapOn:
+    id: "delete-history"
+- assertVisible: "Delete all history\\?"
+- takeScreenshot: data-delete-history-dialog
+- tapOn:
+    id: "dialog-confirm"
+- extendedWaitUntil:
+    notVisible: "Delete all history\\?"
+    timeout: 30000
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "history-deleted"
+
+# --- Delete my account ---------------------------------------------------------------------
+- tapOn:
+    id: "delete-account"
+- assertVisible: "Delete your account\\?"
+- takeScreenshot: data-delete-account-dialog
+- tapOn:
+    id: "dialog-confirm"
+# The login is gone: the app is back on the sign-in screen.
+- extendedWaitUntil:
+    visible:
+      id: "sign-in-screen"
+    timeout: 30000
+- runScript:
+    file: ../scripts/check-data.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+      EXPECT: "account-deleted"
+
+# The same email and password are refused in the app too.
+- tapOn:
+    id: "email-input"
+- inputText: ${output.email}
+- tapOn:
+    id: "password-input"
+- inputText: ${output.password}
+- tapOn: "Banter"
+- tapOn:
+    id: "submit-button"
+- runFlow: ../common/dismiss-password-prompt.yaml
+- assertVisible: "Wrong email or password."
+- takeScreenshot: data-deleted-account-cannot-sign-in
+# The phone keeps Ember until someone signs in whose profile says otherwise: the next
+# flow's new account starts on Midnight Plum again.

@@ -86,6 +86,39 @@ describe('outbox: saving a generation', () => {
   });
 });
 
+describe('outbox: screenshots turned off', () => {
+  it('saves the lines without uploading, and still records which screenshot they belong to', async () => {
+    const { fake, outbox } = setup();
+    await outbox.add(generation('i1', { screenshot: null }));
+    await outbox.add(generation('i2', { screenshot: null }));
+
+    await outbox.flush();
+
+    expect(fake.repo.uploadScreenshot).not.toHaveBeenCalled();
+    expect(fake.files.size).toBe(0);
+    // Same path on both: that is what groups two sets made from one screenshot.
+    expect(fake.interactions.map((row) => row.screenshot_path)).toEqual(['user/shot.jpg', 'user/shot.jpg']);
+    expect(fake.lines).toHaveLength(4);
+  });
+});
+
+describe('outbox: clearing', () => {
+  it('drops everything that is waiting, on the phone too', async () => {
+    const { fake, memory, outbox } = setup();
+    fake.failNext(offline());
+    await outbox.add(generation('i1'));
+    await outbox.flush();
+    expect(await outbox.waiting()).toBe(1);
+
+    await outbox.clear();
+
+    expect(await outbox.waiting()).toBe(0);
+    expect(memory.current()).toEqual([]);
+    await outbox.flush();
+    expect(fake.interactions).toHaveLength(0);
+  });
+});
+
 describe('outbox: no connection', () => {
   it('keeps everything on the phone and says why', async () => {
     const { fake, memory, outbox } = setup();
@@ -240,6 +273,19 @@ describe('outbox: other changes', () => {
     await outbox.flush();
 
     expect(fake.people[0]).toMatchObject({ username: 'some.one', context: 'know_her' });
+  });
+
+  it('saves a note about someone, and removes it', async () => {
+    const { fake, outbox } = setup();
+    await fake.repo.upsertPerson('some.one', null, '2026-11-25T10:00:00Z');
+
+    await outbox.add({ kind: 'personNotes', username: 'some.one', notes: 'Close friend, she flirts back.' });
+    await outbox.flush();
+    expect(fake.people[0].notes).toBe('Close friend, she flirts back.');
+
+    await outbox.add({ kind: 'personNotes', username: 'some.one', notes: null });
+    await outbox.flush();
+    expect(fake.people[0].notes).toBeNull();
   });
 
   it('sends one thing at a time even when asked twice at once', async () => {

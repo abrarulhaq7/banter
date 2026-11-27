@@ -20,7 +20,15 @@ export type KeyPatch = Partial<Pick<ApiKeyRow, 'label' | 'model' | 'status' | 'l
 export type ProfilePatch = Partial<
   Pick<
     ProfileRow,
-    'display_name' | 'age' | 'city' | 'work' | 'interests' | 'texting_style' | 'theme' | 'onboarded_at'
+    | 'display_name'
+    | 'age'
+    | 'city'
+    | 'work'
+    | 'interests'
+    | 'texting_style'
+    | 'theme'
+    | 'settings'
+    | 'onboarded_at'
   >
 >;
 

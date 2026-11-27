@@ -6,6 +6,8 @@ export { Card, type CardProps, type CardVariant } from './card';
 export { Chip, type ChipProps } from './chip';
 export { ChipRow } from './chip-row';
 export { Dialog, type DialogProps } from './dialog';
+export { EmptyState, type EmptyStateProps } from './empty-state';
+export { FadeIn, type FadeInProps } from './fade-in';
 export { ICON_NAMES, Icon, type IconName, type IconProps } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
 export { Avatar, ListRow, type ListRowProps } from './list-row';

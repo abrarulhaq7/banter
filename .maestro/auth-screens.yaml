@@ -24,17 +24,22 @@ appId: com.banterlines.app
 - assertVisible: "This does not look like an email."
 - takeScreenshot: sign-in-errors
 
-# Over to sign-up.
+# Over to sign-up, on the same screen.
 - tapOn:
-    id: "switch-button"
+    id: "auth-mode-signUp"
 - assertVisible:
     id: "sign-up-screen"
 - assertVisible: "Create your account."
-- assertVisible: "At least 8 characters."
+- assertVisible: "Create account"
+# What was typed on Sign in is still there: switching does not leave the screen.
+- assertVisible:
+    id: "email-input"
+    text: "not-an-email"
 
 # A password that is too short is refused before anything is sent.
 - tapOn:
     id: "email-input"
+- eraseText: 30
 - inputText: "sam@example.com"
 - tapOn:
     id: "password-input"
@@ -47,7 +52,7 @@ appId: com.banterlines.app
 
 # And back.
 - tapOn:
-    id: "switch-button"
+    id: "auth-mode-signIn"
 - runFlow: common/dismiss-password-prompt.yaml
 - assertVisible:
     id: "sign-in-screen"

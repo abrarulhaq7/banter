@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
@@ -8,6 +8,7 @@ import {
   Button,
   Dialog,
   IconButton,
+  ListRow,
   Screen,
   ScreenHeader,
   TextField,
@@ -21,6 +22,7 @@ import {
   usePrompts,
   type Tone,
 } from '@/prompts';
+import { useToneVisibility } from '@/prompts/use-tone-visibility';
 import { useTheme } from '@/theme';
 
 type ToneScreenProps = {
@@ -62,6 +64,8 @@ function ToneForm({ tone }: { tone: Tone | undefined }) {
   const prompts = usePrompts();
   const isNew = !tone;
   const isOwn = isNew || tone?.kind === 'custom';
+  const visibility = useToneVisibility();
+  const shownOnGenerate = tone ? !visibility.hidden.has(tone.key) : true;
 
   const [label, setLabel] = useState(tone?.label ?? '');
   const [definition, setDefinition] = useState(tone?.definition ?? '');
@@ -161,6 +165,17 @@ function ToneForm({ tone }: { tone: Tone | undefined }) {
         editable={!busy}
         multiline
       />
+
+      {tone ? (
+        <ListRow
+          testID="tone-visibility"
+          icon={shownOnGenerate ? 'shown' : 'hidden'}
+          title="Show on Generate"
+          value={shownOnGenerate ? 'On' : 'Off'}
+          trailing={<View />}
+          onPress={() => visibility.toggle(tone.key)}
+        />
+      ) : null}
 
       {error ? (
         <Banner tone="danger" messageTestID="tone-error">

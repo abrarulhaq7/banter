@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, Banner, Icon, ListRow, Screen, ScreenHeader, TextField } from '@/components/ui';
+import { AppText, Avatar, Banner, EmptyState, ListRow, Screen, ScreenHeader, TextField } from '@/components/ui';
 import { useHistory } from '@/history';
 import { CONTEXT_LABELS, timeAgo } from '@/history/labels';
 import { spacing } from '@/theme';
@@ -48,12 +48,13 @@ export function PeopleScreen() {
       ) : null}
 
       {peopleStatus === 'ready' && people.length === 0 ? (
-        <View testID="no-people" style={styles.empty}>
-          <Icon name="people" size={40} color="accent" />
-          <AppText color="textMuted" style={styles.centerText}>
-            Nobody yet. Get lines for a screenshot and she will appear here.
-          </AppText>
-        </View>
+        <EmptyState
+          testID="no-people"
+          icon="people"
+          title="Nobody yet"
+          message="Get lines for a screenshot and she will appear here, with everything Banter wrote for her."
+          action={{ testID: 'no-people-action', icon: 'generate', label: 'Get lines', onPress: () => router.push('/') }}
+        />
       ) : null}
       {people.length > 0 && shown.length === 0 ? (
         <AppText testID="no-match" color="textMuted">
@@ -82,6 +83,4 @@ export function PeopleScreen() {
 const styles = StyleSheet.create({
   content: { gap: spacing.lg },
   list: { gap: spacing.sm },
-  empty: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xxxl },
-  centerText: { textAlign: 'center' },
 });

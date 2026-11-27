@@ -128,10 +128,10 @@ onFlowComplete:
 - tapOn:
     id: "another-tone"
 - assertVisible:
-    id: "tone-flirty"
+    id: "tone-option-flirty"
 - takeScreenshot: generate-tone-sheet
 - tapOn:
-    id: "tone-flirty"
+    id: "tone-option-flirty"
 - runFlow:
     file: ../common/wait-for-result.yaml
     env:
@@ -194,13 +194,26 @@ onFlowComplete:
     id: "result-analysis-0|result-declined-0"
 - takeScreenshot: generate-analyse
 
-# --- Leave the app signed out. The key and the saved history are removed by onFlowComplete. --
+# --- Clear: back to no screenshot, ready for a new one ------------------------------------
 - tapOn:
     id: "back-button"
 - extendedWaitUntil:
     visible:
       id: "generate-screen"
     timeout: 15000
+- assertVisible:
+    id: "clear-screenshot"
+- tapOn:
+    id: "clear-screenshot"
+- assertVisible:
+    id: "screenshot-empty"
+- assertNotVisible:
+    id: "view-lines"
+- assertNotVisible:
+    id: "clear-screenshot"
+- takeScreenshot: generate-cleared
+
+# --- Leave the app signed out. The key and the saved history are removed by onFlowComplete. --
 - runFlow: ../common/go-to-settings.yaml
 - takeScreenshot: settings
 - runFlow: ../common/sign-out.yaml

@@ -57,7 +57,7 @@ npm run db:prompts     # write supabase/paste-prompts.sql from src/engine/defaul
 ```
 
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
-- Build screens from `src/components/ui` and the `spacing`, `radius` and `typography` tokens. The parts: `Screen` (with `footer` and `fill`), `ScreenHeader`, `AppText`, `Button`, `IconButton`, `BarButton`, `Icon`, `Chip`, `ChipRow`, `SegmentedControl`, `OptionList`, `Card`, `ListRow`, `Avatar`, `Banner`, `Sheet`, `Dialog`, `TextField`, and `useToast()`.
+- Build screens from `src/components/ui` and the `spacing`, `radius` and `typography` tokens. The parts: `Screen` (with `footer` and `fill`), `ScreenHeader`, `AppText`, `Button`, `IconButton`, `BarButton`, `Icon`, `Chip`, `ChipRow`, `SegmentedControl`, `OptionList`, `Card`, `ListRow`, `Avatar`, `Banner`, `Sheet`, `Dialog`, `TextField`, `EmptyState`, `FadeIn`, and `useToast()`.
 - Icons come only from `Icon` (`src/components/ui/icon.tsx`, built on `expo-symbols`). Add a name there, with both the iOS and the Android symbol; do not use `@expo/vector-icons`.
 - Colours with a meaning: `info`, `warning`, `success`, `danger`, each with a `…Soft` background. Use `Banner` for notices instead of red text on a card.
 - The tab bar is `Tabs` from `expo-router/js-tabs` (the `expo-router` export of `Tabs` is deprecated in SDK 58). Tab screens pass `edges={['top', 'left', 'right']}` to `Screen`.
@@ -69,7 +69,7 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 
 1. One job per screen.
 2. Lists scroll; nothing else should need to. A screen that is not a list fits on one phone screen (`<Screen fill>`); a longer form is split into steps.
-3. The main action is pinned to the bottom (`<Screen footer={…}>`).
+3. The main action is pinned to the bottom (`<Screen footer={…}>`). Exception: the sign-in screen, a short form centred under the logo with its button under the fields (the user's choice, 2026-11-26).
 4. Detail is one tap deeper, not unfolded in place: a list shows short rows, a row opens its own screen.
 5. A rarely changed choice is one `ListRow` showing its value, and opens a `Sheet`.
 6. Small edits and confirmations happen in a `Sheet` or a `Dialog`. Deleting and signing out always ask first.
@@ -80,6 +80,7 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 - `src/engine/` must stay free of React Native imports: the command-line tool runs it in Node.
 - Default prompts live in `src/engine/default-prompts.ts`. After changing them, raise `DEFAULT_CORE.version` if the core changed and run `npm run db:prompts`.
 - Tones, modes and core rules come from `usePrompts()` (`src/prompts/`): Supabase's defaults when they are at least as new as the app's, else the app's copy, with the user's own tones on top. Screens and `use-generate` must not read `DEFAULT_TONES`, `DEFAULT_MODES` or `DEFAULT_CORE` directly. A tone is identified by `Tone.key` (the default tone's id, or the row id of a tone the user made).
+- How bold lines may be depends on "How you know her" (core rules, version 6): strangers get nothing about her looks and no innuendo; Know her / Already talking may. Some limits hold for every tone and context: no specific body parts, no rating her body, nothing crude, nothing explicit unless she is already there in the chat, no pressure, never chase after silence, the under-18 stop. Do not weaken those.
 - "Personalise for me" (`src/engine/personalise.ts`) sends text only: no screenshot, no usernames, not the user's name or city. Keep it that way.
 - Provider requests must keep `store: false` (OpenAI, Gemini). Never send temperature or other sampling settings to Claude.
 
@@ -101,6 +102,8 @@ Maestro reads the accessibility tree, which does not know what is actually cover
 - **A `ListRow` with `actions`** (the key rows with up and down arrows): the row's `id` is on its tappable part, and each action button keeps its own `id` beside it.
 - **A button in a sheet, after typing:** the simulator's keyboard can slide up a moment after the typing, and the sheet moves with it. Maestro then taps where the button was and hits the space bar (seen 2026-11-26: a trailing space in the field, the sheet still open). Use `common/tap-after-typing.yaml` with `ID`, which waits, taps, and taps again if the button is still there.
 - **Replacing the text in a multi-line field:** a tap puts the cursor mid-text, so `eraseText` leaves the rest. `longPressOn` the field, tap "Select All", then `inputText`.
+- **The theme is remembered on the simulator** (phone storage), and a signed-in profile's theme wins when it loads. A flow that needs a certain theme must set it; `foundation.yaml` starts and ends on Midnight Plum.
+- **"Use latest" picks the newest photo by when it was taken, not when it was added** (2026-11-26). `simctl addmedia` of an older sample does not make it the latest. To test with a specific picture, give it a newer taken time first.
 - **Sheets and dialogs** are React Native `Modal`s. Their content is in the tree while open; close a sheet with `sheet-close`.
 - **Flows that seed a real key** (`live/generate.yaml`, `live/history.yaml`) remove the key and the saved history in `onFlowComplete`, which runs even when the flow fails. Keep it that way: a failed run must not leave a real key in a test account.
 

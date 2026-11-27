@@ -76,6 +76,8 @@ type Setup = {
   latest?: ScreenshotResult;
   history?: ReturnType<typeof createFakeHistoryRepo>;
   prompts?: ReturnType<typeof createFakePromptsRepo>;
+  settings?: Record<string, unknown>;
+  profile?: ReturnType<typeof createFakeProfileRepo>;
 };
 
 async function setup({
@@ -84,6 +86,8 @@ async function setup({
   latest = SCREENSHOT,
   history = createFakeHistoryRepo(),
   prompts = createFakePromptsRepo(),
+  settings = {},
+  profile,
 }: Setup = {}) {
   const calls: GenerateOptions[] = [];
   const keysRepo = createFakeKeysRepo(keys);
@@ -109,7 +113,7 @@ async function setup({
       keysRepo: keysRepo.repo,
       historyRepo: history.repo,
       promptsRepo: prompts.repo,
-      profileRepo: createFakeProfileRepo(makeProfile({ display_name: 'Sam', texting_style: 'short, dry' })).repo,
+      profileRepo: (profile ?? createFakeProfileRepo(makeProfile({ display_name: 'Sam', texting_style: 'short, dry', settings }))).repo,
     },
   );
   // Wait for the keys to load, so the screen knows whether there is one.
@@ -352,6 +356,39 @@ describe('Results: nothing is replaced, and lines can be kept', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Lines (1)' })).toBeNull());
     expect(screen.getByRole('button', { name: 'Get lines' })).toBeEnabled();
+  });
+
+  it('clears the screenshot and its lines with the clear button, keeping mode and tone', async () => {
+    const { calls, history, user } = await setup({ outputs: [lines('Flirty'), lines('Next')] });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Opener');
+    await press(user, 'Flirty');
+    await press(user, 'Get lines');
+    await screen.findByText('Flirty one');
+    await press(user, 'Back');
+    expect(screen.getByRole('button', { name: 'Lines (1)' })).toBeOnTheScreen();
+
+    await user.press(screen.getByTestId('clear-screenshot'));
+
+    expect(screen.getByTestId('screenshot-empty')).toBeOnTheScreen();
+    expect(screen.queryByTestId('clear-screenshot')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Lines (1)' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Get lines' })).toBeDisabled();
+    // The lines were saved when they arrived; clearing does not touch them.
+    await waitFor(() => expect(history.lines).toHaveLength(3));
+    expect(history.repo.deletePerson).not.toHaveBeenCalled();
+    // Mode and tone are habits, not part of the screenshot.
+    expect(screen.getByRole('button', { name: 'Opener' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Flirty' })).toBeSelected();
+
+    // The next screenshot starts fresh: nothing from the last one goes into its prompt.
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Get lines');
+    await screen.findByText('Next one');
+    expect(calls[1].prompt.memory).toEqual([]);
+    expect(screen.queryByTestId('set-chips')).toBeNull();
   });
 });
 
@@ -638,6 +675,24 @@ describe('Generate: history', () => {
     expect(new Set(history.interactions.map((row) => row.screenshot_path)).size).toBe(1);
   });
 
+  it('does not store the screenshot when saving screenshots is turned off', async () => {
+    const { history, user } = await setup({
+      outputs: [lines('Casual'), lines('Flirty')],
+      settings: { save_screenshots: false },
+    });
+    await firstLines(user);
+    await anotherTone(user, 'Flirty');
+    await screen.findByText('Flirty one');
+
+    await waitFor(() => expect(history.interactions).toHaveLength(2));
+    expect(history.repo.uploadScreenshot).not.toHaveBeenCalled();
+    expect(history.files.size).toBe(0);
+    // The lines are saved all the same, and the two sets still belong together.
+    expect(history.lines).toHaveLength(6);
+    expect(history.interactions[0].screenshot_path).toBeTruthy();
+    expect(history.interactions[1].screenshot_path).toBe(history.interactions[0].screenshot_path);
+  });
+
   it('records which set an adjustment came from', async () => {
     const { history, user } = await setup({ outputs: [lines('Casual'), lines('Short')] });
     await firstLines(user);
@@ -847,5 +902,195 @@ describe('Generate: the user\'s own tones', () => {
 
     expect(calls[0].prompt.core.version).toBeGreaterThanOrEqual(5);
     expect(calls[0].prompt.tone?.definition).toMatch(/Relaxed and low-pressure/);
+  });
+});
+
+describe('Generate: who she is, before asking', () => {
+  /** @close.friend is saved: known in real life, with a note, and one line sent to her before. */
+  async function savedFriend(history = createFakeHistoryRepo()) {
+    const personId = await history.repo.upsertPerson('close.friend', 'know_her', '2026-11-24T10:00:00Z');
+    await history.repo.setPersonNotes('close.friend', 'Close friend, we flirt a lot, she flirts back.');
+    await history.repo.saveInteraction({
+      id: 'old',
+      person_id: personId,
+      mode_id: 'story_reply',
+      tone_id: 'flirty',
+      tone_label: 'Flirty',
+      screenshot_path: 'user/old.jpg',
+      provider: 'gemini',
+      model: 'm',
+      created_at: '2026-11-24T10:00:00Z',
+    } as Parameters<typeof history.repo.saveInteraction>[0]);
+    await history.repo.saveLines([{ id: 'old-l1', interaction_id: 'old', position: 1, text: 'that playlist is dangerous', hook: null }]);
+    await history.repo.patchLine('old-l1', { copied_at: '2026-11-24T10:01:00Z' });
+    await history.repo.upsertPerson('someone.else', null, '2026-11-20T10:00:00Z');
+    return history;
+  }
+
+  it('offers the choice only once a screenshot is chosen and someone is saved', async () => {
+    const { user } = await setup({ history: await savedFriend() });
+    expect(screen.queryByTestId('person-pick-row')).toBeNull();
+
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    expect(await screen.findByTestId('person-pick-row')).toHaveTextContent(/Banter reads it/);
+  });
+
+  it('does not offer it to someone with nobody saved yet', async () => {
+    const { user } = await setup();
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    expect(screen.queryByTestId('person-pick-row')).toBeNull();
+  });
+
+  it('sends her note, how he knows her and what was sent before in the very first request', async () => {
+    const { calls, history, user } = await setup({ outputs: [lines('Spicy')], history: await savedFriend() });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    await user.press(await screen.findByTestId('person-pick-row'));
+    expect(screen.getByTestId('person-pick-__new__')).toBeSelected();
+    expect(screen.getByTestId('person-pick-close.friend')).toHaveTextContent(/Know her · Has a note/);
+    await user.press(screen.getByTestId('person-pick-close.friend'));
+
+    expect(screen.getByTestId('person-pick-row')).toHaveTextContent(/@close.friend/);
+    expect(screen.getByTestId('context-row')).toHaveTextContent(/Know her/);
+
+    await press(user, 'Spicy');
+    await press(user, 'Get lines');
+    await screen.findByText('Spicy one');
+
+    const prompt = calls[0].prompt;
+    expect(prompt.aboutHer).toBe('Close friend, we flirt a lot, she flirts back.');
+    expect(prompt.context).toBe('know_her');
+    expect(prompt.tone?.label).toBe('Spicy');
+    expect(prompt.tone?.definition).toMatch(/Bold flirting with real heat/);
+    expect(prompt.memory?.[0].lines[0]).toMatchObject({ text: 'that playlist is dangerous', copied: true });
+    // Saved under her, even though the AI read another username from the screenshot.
+    expect(screen.getByTestId('person-username')).toHaveTextContent('@close.friend');
+    await waitFor(() => expect(history.interactions.find((row) => row.id !== 'old')?.person_id).toBe('person-1'));
+  });
+
+  it('can go back to letting Banter read the username, before anything is made', async () => {
+    const { calls, user } = await setup({ history: await savedFriend() });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await user.press(await screen.findByTestId('person-pick-row'));
+    await user.press(screen.getByTestId('person-pick-close.friend'));
+
+    await user.press(screen.getByTestId('person-pick-row'));
+    await user.press(screen.getByTestId('person-pick-__new__'));
+    expect(screen.getByTestId('person-pick-row')).toHaveTextContent(/Banter reads it/);
+
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    expect(calls[0].prompt.aboutHer).toBeNull();
+    expect(calls[0].prompt.memory).toEqual([]);
+  });
+
+  it('moves the lines already made to her when she is picked afterwards', async () => {
+    const { history, user } = await setup({ outputs: [lines('Casual')], history: await savedFriend() });
+    await firstLines(user);
+    await press(user, 'Back');
+
+    await user.press(screen.getByTestId('person-pick-row'));
+    // The lines are saved under someone now: "Someone new" is no longer offered.
+    expect(screen.queryByTestId('person-pick-__new__')).toBeNull();
+    await user.press(screen.getByTestId('person-pick-close.friend'));
+
+    await waitFor(() =>
+      expect(history.interactions.filter((row) => row.id !== 'old').every((row) => row.person_id === 'person-1')).toBe(true),
+    );
+  });
+});
+
+describe('Generate: choosing which tones show', () => {
+  const chips = () =>
+    screen
+      .getAllByRole('button')
+      .filter((button) => button.props.testID?.startsWith('tone-') && button.props.testID !== 'tone-all')
+      .map((button) => button.props.testID.replace('tone-', ''));
+
+  it('shows every tone at first, with a Tones button that lists them all', async () => {
+    const { user } = await setup();
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe']);
+
+    await user.press(screen.getByTestId('tone-all'));
+
+    expect(screen.getByTestId('tone-picker-sheet')).toBeOnTheScreen();
+    expect(screen.getByTestId('tone-option-casual')).toBeOnTheScreen();
+    expect(screen.getByTestId('tone-option-safe')).toBeOnTheScreen();
+  });
+
+  it('hides a tone from Generate with its eye, and saves the choice', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { save_screenshots: false } }));
+    const { user } = await setup({ profile });
+
+    await user.press(screen.getByTestId('tone-all'));
+    await user.press(screen.getByTestId('tone-eye-confident'));
+    await user.press(screen.getByTestId('tone-eye-safe'));
+    await user.press(screen.getByTestId('sheet-close'));
+
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy']);
+    await waitFor(() =>
+      expect(profile.repo.update).toHaveBeenLastCalledWith(expect.any(String), {
+        settings: { save_screenshots: false, hidden_tones: ['confident', 'safe'] },
+      }),
+    );
+  });
+
+  it('keeps hidden tones hidden next time, and shows one again with its eye', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { hidden_tones: ['funny', 'safe'] } }));
+    const { user } = await setup({ profile });
+    await waitFor(() => expect(chips()).toEqual(['casual', 'flirty', 'spicy', 'confident']));
+
+    await user.press(screen.getByTestId('tone-all'));
+    expect(screen.getByTestId('tone-eye-funny')).not.toBeSelected();
+    await user.press(screen.getByTestId('tone-eye-funny'));
+    await user.press(screen.getByTestId('sheet-close'));
+
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident']);
+  });
+
+  it('uses a hidden tone picked from the list, and shows it while it is in use', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { hidden_tones: ['safe'] } }));
+    const { calls, user } = await setup({ profile });
+    await waitFor(() => expect(chips()).not.toContain('safe'));
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    await user.press(screen.getByTestId('tone-all'));
+    await user.press(screen.getByTestId('tone-option-safe'));
+
+    expect(screen.queryByTestId('tone-picker-sheet')).toBeNull();
+    expect(chips()[0]).toBe('safe');
+    expect(screen.getByTestId('tone-safe')).toBeSelected();
+    await press(user, 'Get lines');
+    await screen.findByText('Casual one');
+    expect(calls[0].prompt.tone?.label).toBe('Safe');
+  });
+
+  it('puts the choice back and says so when it cannot be saved', async () => {
+    const profile = createFakeProfileRepo(makeProfile());
+    const { user } = await setup({ profile });
+    await waitFor(() => expect(profile.repo.get).toHaveBeenCalled());
+    profile.failNext();
+
+    await user.press(screen.getByTestId('tone-all'));
+    await user.press(screen.getByTestId('tone-eye-safe'));
+
+    expect(await screen.findByText('Could not save that. Check your internet.')).toBeOnTheScreen();
+    await waitFor(() => expect(screen.getByTestId('tone-eye-safe')).toBeSelected());
+  });
+
+  it('makes a new tone from the list', async () => {
+    const { user } = await setup();
+
+    await user.press(screen.getByTestId('tone-all'));
+    await user.press(screen.getByTestId('tone-new'));
+
+    expect(mockPush).toHaveBeenCalledWith('/tones/new');
   });
 });

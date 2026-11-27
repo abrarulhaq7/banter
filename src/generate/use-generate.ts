@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useReducer, useRef } from 'react';
 
 import { useAuth } from '@/auth';
-import { useKeys, useProfile } from '@/data';
+import { savesScreenshots, useKeys, useProfile } from '@/data';
 import {
   EngineError,
   cleanUsername,
@@ -90,6 +90,12 @@ export type GenerateController = SessionState & {
   /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
   setUsername: (username: string) => string | null;
   /**
+   * Says who the screenshot is of before asking, so the first set already knows her: the
+   * note about her, how the user knows her, and what was sent to her before. Null goes back
+   * to letting the AI read her username (only before anything was made).
+   */
+  choosePerson: (username: string | null) => void;
+  /**
    * Asks for lines with the chosen mode and tone, or with `tone` when one is given (it
    * becomes the chosen tone). Resolves to true when a new set arrived.
    */
@@ -101,6 +107,8 @@ export type GenerateController = SessionState & {
   copyLine: (lineId: string, text: string) => Promise<void>;
   toggleKeep: (line: KeptLine) => void;
   dismissError: () => void;
+  /** Starts over with no screenshot, keeping the mode and tone. Not while a request runs. */
+  clear: () => void;
 };
 
 export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateController {
@@ -167,6 +175,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           modeInstruction: prompts.modes[mode].instruction,
           tone: tone ? { label: tone.label, definition: tone.definition } : null,
           context: state.context,
+          aboutHer: state.username ? (history.personByUsername(state.username)?.notes ?? null) : null,
           profile: senderProfile(profile),
           memory: memory.items,
           adjustment,
@@ -224,9 +233,12 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           created_at: at,
         },
         lines,
-        screenshot: screenshotPath.current
-          ? { path: screenshotPath.current, localUri: screenshot.previewUri }
-          : null,
+        // With saving turned off the file stays on the phone. The path is still recorded:
+        // it is what tells the sets made from one screenshot apart from the next.
+        screenshot:
+          screenshotPath.current && savesScreenshots(profile)
+            ? { path: screenshotPath.current, localUri: screenshot.previewUri }
+            : null,
       };
       // Saving happens in the background: the lines show at once, with or without internet.
       void history.save(entry);
@@ -274,6 +286,24 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     return previousLines ? run({ kind, previousLines }, from) : false;
   };
 
+  const setUsername = (raw: string): string | null => {
+    const username = cleanUsername(raw);
+    if (!username) return 'Use only letters, numbers, dots and underscores, as on Instagram.';
+    if (username === state.username) return null;
+    dispatch({ type: 'setUsername', username });
+    // Everything already made for this screenshot moves to the corrected person.
+    if (state.sets.length > 0) {
+      void history.save({
+        kind: 'assignPerson',
+        interactionIds: state.sets.map((set) => set.id),
+        username,
+        context: state.context,
+        previousUsername: state.username,
+      });
+    }
+    return null;
+  };
+
   return {
     ...state,
     // A chosen tone that has since been deleted falls back to the first one.
@@ -292,22 +322,19 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
       }
     },
 
-    setUsername: (raw) => {
-      const username = cleanUsername(raw);
-      if (!username) return 'Use only letters, numbers, dots and underscores, as on Instagram.';
-      if (username === state.username) return null;
-      dispatch({ type: 'setUsername', username });
-      // Everything already made for this screenshot moves to the corrected person.
-      if (state.sets.length > 0) {
-        void history.save({
-          kind: 'assignPerson',
-          interactionIds: state.sets.map((set) => set.id),
-          username,
-          context: state.context,
-          previousUsername: state.username,
-        });
+    setUsername,
+
+    choosePerson: (username) => {
+      if (state.phase !== 'idle') return;
+      if (username === null) {
+        // Back to "Banter reads it". Once lines are saved under someone, they stay there.
+        if (state.sets.length === 0) dispatch({ type: 'setUsername', username: null });
+        return;
       }
-      return null;
+      if (setUsername(username) !== null) return;
+      // Picking her brings what is known about her: how the user knows her, for a start.
+      const saved = history.personByUsername(username)?.context;
+      if (saved) dispatch({ type: 'rememberContext', context: saved, replace: true });
     },
 
     generate: (tone) => run(null, undefined, tone),
@@ -339,5 +366,11 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     },
 
     dismissError: () => dispatch({ type: 'dismissError' }),
+
+    clear: () => {
+      if (state.phase !== 'idle') return;
+      screenshotPath.current = null;
+      dispatch({ type: 'clear' });
+    },
   };
 }

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, useTheme, type ColorRole } from '@/theme';
 
 import { AppText } from './app-text';
+import { FadeIn } from './fade-in';
 import { Icon, type IconName } from './icon';
 
 export type ToastTone = 'success' | 'info' | 'danger';
@@ -54,14 +55,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {toast ? (
         <View pointerEvents="none" style={[styles.layer, { top: insets.top + spacing.sm }]}>
-          <View
-            testID="toast"
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            style={[styles.toast, { backgroundColor: colors.raised, borderColor: colors.border }]}>
-            <Icon name={LOOK[toast.tone].icon} size={18} color={LOOK[toast.tone].color} />
-            <AppText variant="label">{toast.message}</AppText>
-          </View>
+          {/* Keyed by the toast, so each new one fades in, even right after another. */}
+          <FadeIn key={toast.id}>
+            <View
+              testID="toast"
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+              style={[styles.toast, { backgroundColor: colors.raised, borderColor: colors.border }]}>
+              <Icon name={LOOK[toast.tone].icon} size={18} color={LOOK[toast.tone].color} />
+              <AppText variant="label">{toast.message}</AppText>
+            </View>
+          </FadeIn>
         </View>
       ) : null}
     </ToastContext>

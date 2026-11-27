@@ -1,35 +1,36 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { MIN_PASSWORD_LENGTH, useAuth, validateEmail, validatePassword } from '@/auth';
-import { AppText, Banner, Button, Icon, Screen, TextField } from '@/components/ui';
-import { radius, spacing, useTheme } from '@/theme';
+import { AppText, Banner, Button, Screen, SegmentedControl, TextField } from '@/components/ui';
+import { radius, spacing } from '@/theme';
+
+import LOGO from '../../assets/images/icon.png';
+
+export type AuthMode = 'signIn' | 'signUp';
 
 type AuthFormProps = {
-  mode: 'signIn' | 'signUp';
+  /** Which form shows first. The user switches between the two on the same screen. */
+  initialMode?: AuthMode;
 };
 
+const MODES: { value: AuthMode; label: string }[] = [
+  { value: 'signIn', label: 'Sign in' },
+  { value: 'signUp', label: 'Sign up' },
+];
+
 const COPY = {
-  signIn: {
-    subtitle: 'Sign in to continue.',
-    submit: 'Sign in',
-    switchLabel: 'Create an account',
-    switchTo: '/sign-up',
-  },
-  signUp: {
-    subtitle: 'Create your account.',
-    submit: 'Create account',
-    switchLabel: 'I already have an account',
-    switchTo: '/sign-in',
-  },
+  signIn: { subtitle: 'Sign in to continue.', submit: 'Sign in' },
+  signUp: { subtitle: 'Create your account.', submit: 'Create account' },
 } as const;
 
-/** The sign-in and sign-up screens. They differ only in wording and password rules. */
-export function AuthForm({ mode }: AuthFormProps) {
-  const router = useRouter();
-  const { colors } = useTheme();
+/**
+ * Sign in and sign up on one screen: the logo, a switch between the two, and the form,
+ * in the middle of the screen. The two forms differ only in wording and password rules.
+ */
+export function AuthForm({ initialMode = 'signIn' }: AuthFormProps) {
   const { signIn, signUp, setupProblem } = useAuth();
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const copy = COPY[mode];
 
   const [email, setEmail] = useState('');
@@ -41,6 +42,15 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   const emailError = validateEmail(email);
   const passwordError = validatePassword(password, mode);
+
+  /** What was typed stays; what was said about the other form goes. */
+  const switchMode = (next: AuthMode) => {
+    if (next === mode) return;
+    setMode(next);
+    setShowFieldErrors(false);
+    setFormError(null);
+    setNotice(null);
+  };
 
   const submit = async () => {
     setFormError(null);
@@ -64,35 +74,24 @@ export function AuthForm({ mode }: AuthFormProps) {
     <Screen
       testID={mode === 'signIn' ? 'sign-in-screen' : 'sign-up-screen'}
       fill
-      footer={
-        <>
-          <Button testID="submit-button" label={copy.submit} onPress={submit} loading={busy} />
-          <Button
-            testID="switch-button"
-            variant="ghost"
-            label={copy.switchLabel}
-            disabled={busy}
-            onPress={() => router.replace(copy.switchTo)}
-          />
-        </>
-      }>
-      <View style={styles.header}>
-        <View style={[styles.mark, { backgroundColor: colors.accentSoft }]}>
-          <Icon name="generate" size={28} color="accent" />
+      contentStyle={styles.centered}>
+      <View style={styles.form}>
+        <View style={styles.brand}>
+          <Image testID="auth-logo" source={LOGO} style={styles.logo} accessible={false} />
+          <AppText variant="display" accessibilityRole="header">
+            Banter
+          </AppText>
+          <AppText color="textMuted">{copy.subtitle}</AppText>
         </View>
-        <AppText variant="display" accessibilityRole="header">
-          Banter
-        </AppText>
-        <AppText color="textMuted">{copy.subtitle}</AppText>
-      </View>
 
-      {setupProblem ? (
-        <Banner testID="setup-problem" tone="warning" title="Setup needed">
-          {setupProblem}
-        </Banner>
-      ) : null}
+        <SegmentedControl testIDPrefix="auth-mode" options={MODES} value={mode} onChange={switchMode} disabled={busy} />
 
-      <View style={styles.fields}>
+        {setupProblem ? (
+          <Banner testID="setup-problem" tone="warning" title="Setup needed">
+            {setupProblem}
+          </Banner>
+        ) : null}
+
         <TextField
           testID="email-input"
           label="Email"
@@ -110,11 +109,12 @@ export function AuthForm({ mode }: AuthFormProps) {
         <TextField
           testID="password-input"
           label="Password"
-          placeholder="Password"
+          // The rule sits inside the empty field: a line under it would read like an error
+          // before anything was typed. A password that is too short is explained on Create.
+          placeholder={mode === 'signUp' ? `At least ${MIN_PASSWORD_LENGTH} characters` : 'Password'}
           value={password}
           onChangeText={setPassword}
           error={showFieldErrors ? passwordError : undefined}
-          helper={mode === 'signUp' ? `At least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
@@ -125,31 +125,28 @@ export function AuthForm({ mode }: AuthFormProps) {
           returnKeyType="go"
           onSubmitEditing={submit}
         />
-      </View>
 
-      {formError ? (
-        <Banner tone="danger" messageTestID="form-error">
-          {formError}
-        </Banner>
-      ) : null}
-      {notice ? (
-        <Banner tone="success" messageTestID="form-notice">
-          {notice}
-        </Banner>
-      ) : null}
+        {formError ? (
+          <Banner tone="danger" messageTestID="form-error">
+            {formError}
+          </Banner>
+        ) : null}
+        {notice ? (
+          <Banner tone="success" messageTestID="form-notice">
+            {notice}
+          </Banner>
+        ) : null}
+
+        <Button testID="submit-button" label={copy.submit} onPress={submit} loading={busy} />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: spacing.xs, marginTop: spacing.xl },
-  mark: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  fields: { gap: spacing.lg },
+  // The form sits in the middle of the screen, and scrolls when the keyboard needs the room.
+  centered: { justifyContent: 'center' },
+  form: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: spacing.lg },
+  brand: { alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm },
+  logo: { width: 84, height: 84, borderRadius: radius.lg + spacing.xs, marginBottom: spacing.sm },
 });

@@ -3,8 +3,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
 import { THEME_NAMES, radius, spacing, themes, useTheme, type ThemeName } from '@/theme';
 
+type ThemePickerProps = {
+  /** Called after a different theme was picked, so the choice can be saved. */
+  onPicked?: (name: ThemeName) => void;
+};
+
 /** Three preview cards, one per theme. Tap one to switch the whole app to it. */
-export function ThemePicker() {
+export function ThemePicker({ onPicked }: ThemePickerProps = {}) {
   const { name: active, setTheme } = useTheme();
 
   return (
@@ -14,7 +19,11 @@ export function ThemePicker() {
           key={name}
           name={name}
           selected={name === active}
-          onPress={() => setTheme(name)}
+          onPress={() => {
+            if (name === active) return;
+            setTheme(name);
+            onPicked?.(name);
+          }}
         />
       ))}
     </View>

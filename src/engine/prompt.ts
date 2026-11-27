@@ -78,6 +78,15 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   if (input.context) {
     parts.push(section('How they know each other', CONTEXT[input.context]));
   }
+  const aboutHer = input.aboutHer?.trim();
+  if (aboutHer) {
+    parts.push(
+      section(
+        'What the sender says about her',
+        `${aboutHer}\n\nUse this to judge how bold to be: bolder when it says she flirts back or they are close, lighter when it says she keeps things friendly. It is background for you, not something to quote back to her.`,
+      ),
+    );
+  }
   const about = input.profile ? profileText(input.profile) : null;
   if (about) {
     parts.push(section('About the sender', about));

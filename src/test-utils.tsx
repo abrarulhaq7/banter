@@ -25,6 +25,7 @@ import type {
   PersonRow,
   ProfileRow,
   ProviderId,
+  UsageRow,
   UserPromptRow,
 } from '@/lib/database.types';
 import { PromptsProvider, type CachedPrompts, type PromptsRepo, type RemoteDefaults } from '@/prompts';
@@ -336,6 +337,11 @@ export function createFakeHistoryRepo() {
       const person = people.find((item) => item.id === personId);
       if (person) person.context = context;
     }),
+    setPersonNotes: jest.fn(async (username, notes) => {
+      maybeFail();
+      const person = people.find((item) => item.username === username);
+      if (person) person.notes = notes;
+    }),
     removePersonIfEmpty: jest.fn(async (username) => {
       maybeFail();
       const at = people.findIndex((item) => item.username === username);
@@ -354,6 +360,50 @@ export function createFakeHistoryRepo() {
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .slice(0, limit)
         .map(withLines);
+    }),
+    deletePerson: jest.fn(async (personId) => {
+      maybeFail();
+      const at = people.findIndex((item) => item.id === personId);
+      if (at >= 0) people.splice(at, 1);
+      for (const row of interactions.filter((item) => item.person_id === personId)) {
+        if (row.screenshot_path) files.delete(row.screenshot_path);
+        for (let i = lines.length - 1; i >= 0; i -= 1) if (lines[i].interaction_id === row.id) lines.splice(i, 1);
+        interactions.splice(interactions.indexOf(row), 1);
+      }
+    }),
+    deleteAllHistory: jest.fn(async () => {
+      maybeFail();
+      people.length = 0;
+      interactions.length = 0;
+      lines.length = 0;
+      files.clear();
+    }),
+    deleteAccount: jest.fn(async () => {
+      maybeFail();
+      people.length = 0;
+      interactions.length = 0;
+      lines.length = 0;
+      files.clear();
+    }),
+    usage: jest.fn(async () => {
+      maybeFail();
+      const groups = new Map<string, UsageRow>();
+      for (const row of interactions) {
+        const key = `${row.provider}|${row.model}|${row.api_key_label ?? ''}`;
+        const group = groups.get(key) ?? {
+          provider: row.provider,
+          model: row.model,
+          key_label: row.api_key_label,
+          generations: 0,
+          this_month: 0,
+          last_used_at: null,
+        };
+        group.generations += 1;
+        group.this_month += 1;
+        group.last_used_at = row.created_at;
+        groups.set(key, group);
+      }
+      return [...groups.values()].sort((a, b) => b.generations - a.generations);
     }),
     listRecent: jest.fn(async (limit) => {
       maybeFail();
@@ -473,11 +523,12 @@ type DataOptions = {
   peopleCache?: UserCache<PersonRow[]>;
   promptsRepo?: PromptsRepo;
   promptsCache?: UserCache<CachedPrompts>;
-};
+} & ThemeOptions;
 
 /** Renders inside the theme, auth, profile, keys, history and prompts providers, all backed by fakes. */
 export function renderWithData(element: ReactElement, options: DataOptions = {}) {
   const userId = TEST_USER_ID;
+  const { theme, onThemeChange } = options;
   return renderWithTheme(
     <AuthProvider client={createFakeAuthClient(fakeSession()).client}>
       <ProfileProvider
@@ -503,5 +554,6 @@ export function renderWithData(element: ReactElement, options: DataOptions = {})
         </KeysProvider>
       </ProfileProvider>
     </AuthProvider>,
+    { theme, onThemeChange },
   );
 }

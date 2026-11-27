@@ -1,9 +1,10 @@
-# From the sign-in screen: creates a new test account. Ends on the first onboarding screen.
+# From the sign-in screen: switches to Sign up (same screen) and creates a new test account.
+# Ends on the first onboarding screen.
 # Needs output.email and output.password (see new-test-account.yaml).
 appId: com.banterlines.app
 ---
 - tapOn:
-    id: "switch-button"
+    id: "auth-mode-signUp"
 - tapOn:
     id: "email-input"
 - inputText: ${output.email}

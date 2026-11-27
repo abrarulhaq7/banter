@@ -24,6 +24,8 @@ export type Outbox = {
   add: (entry: OutboxEntry) => Promise<void>;
   flush: () => Promise<FlushResult>;
   waiting: () => Promise<number>;
+  /** Drops everything that is waiting. For "delete all history". */
+  clear: () => Promise<void>;
 };
 
 type Options = {
@@ -64,8 +66,9 @@ export function createOutbox({ repo, cache, now = () => new Date() }: Options): 
           ? await repo.upsertPerson(entry.username, entry.context, entry.interaction.created_at ?? entry.queuedAt)
           : null;
 
-        // The screenshot goes first: the interaction row points at it.
-        let screenshotPath: string | null = entry.screenshot?.path ?? null;
+        // The screenshot goes first: the interaction row points at it. With saving turned
+        // off there is no file, and the path only says which sets belong to one screenshot.
+        let screenshotPath: string | null = entry.interaction.screenshot_path ?? entry.screenshot?.path ?? null;
         if (entry.screenshot && !(await repo.screenshotExists(entry.screenshot.path))) {
           try {
             await repo.uploadScreenshot(entry.screenshot.path, entry.screenshot.localUri);
@@ -97,6 +100,9 @@ export function createOutbox({ repo, cache, now = () => new Date() }: Options): 
         await repo.setPersonContext(personId, entry.context);
         return;
       }
+      case 'personNotes':
+        await repo.setPersonNotes(entry.username, entry.notes);
+        return;
     }
   };
 
@@ -137,6 +143,11 @@ export function createOutbox({ repo, cache, now = () => new Date() }: Options): 
 
     async waiting() {
       return (await load()).length;
+    },
+
+    async clear() {
+      entries = [];
+      await persist();
     },
   };
 }

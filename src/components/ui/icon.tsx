@@ -35,6 +35,8 @@ const ICONS = {
   theme: { ios: 'paintpalette.fill', android: 'palette' },
   signOut: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout' },
   search: { ios: 'magnifyingglass', android: 'search' },
+  data: { ios: 'externaldrive.fill', android: 'storage' },
+  usage: { ios: 'chart.bar.fill', android: 'bar_chart' },
   // About you
   age: { ios: 'calendar', android: 'cake' },
   city: { ios: 'mappin.and.ellipse', android: 'location_on' },
@@ -49,6 +51,8 @@ const ICONS = {
   add: { ios: 'plus', android: 'add' },
   delete: { ios: 'trash', android: 'delete' },
   check: { ios: 'checkmark', android: 'check' },
+  shown: { ios: 'eye', android: 'visibility' },
+  hidden: { ios: 'eye.slash', android: 'visibility_off' },
   up: { ios: 'chevron.up', android: 'keyboard_arrow_up' },
   down: { ios: 'chevron.down', android: 'keyboard_arrow_down' },
   power: { ios: 'power', android: 'power_settings_new' },

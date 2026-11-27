@@ -78,14 +78,17 @@ export type SessionAction =
   | { type: 'setTone'; tone: string }
   | { type: 'setContext'; context: ContextId | null }
   /** Fills in the context remembered for this person, without the toggle behaviour. */
-  | { type: 'rememberContext'; context: ContextId }
-  | { type: 'setUsername'; username: string }
+  | { type: 'rememberContext'; context: ContextId; replace?: boolean }
+  /** Null: not known yet (only before anything was made for the screenshot). */
+  | { type: 'setUsername'; username: string | null }
   | { type: 'generateStarted' }
   | { type: 'generateSucceeded'; set: ResultSet }
   | { type: 'generateFailed'; error: SessionError }
   | { type: 'toggleKeep'; line: KeptLine }
   | { type: 'copied'; lineId: string }
-  | { type: 'dismissError' };
+  | { type: 'dismissError' }
+  /** Back to no screenshot. The chosen mode and tone stay: they are the user's habits. */
+  | { type: 'clear' };
 
 export const initialSession: SessionState = {
   screenshot: null,
@@ -138,7 +141,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case 'generateStarted':
       return { ...state, phase: 'generating', error: null };
     case 'rememberContext':
-      return { ...state, context: state.context ?? action.context };
+      return { ...state, context: action.replace ? action.context : (state.context ?? action.context) };
     case 'setUsername':
       return { ...state, username: action.username };
 
@@ -168,6 +171,9 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, copiedLineId: action.lineId };
     case 'dismissError':
       return { ...state, error: null };
+    case 'clear':
+      // Nothing is lost: every set was saved to history when it arrived.
+      return state.phase === 'idle' ? { ...initialSession, mode: state.mode, tone: state.tone } : state;
   }
 }
 

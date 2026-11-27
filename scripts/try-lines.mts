@@ -13,10 +13,11 @@
  *   --model <id>                      default: the provider's default model
  *   --mode story_reply|opener|reply|analyse|auto
  *                                     default: auto (from the file name, else story_reply)
- *   --tone casual|funny|flirty|confident|safe      default: casual
+ *   --tone casual|funny|flirty|spicy|confident|safe   default: casual
  *   --all-tones                       run each image once per tone
  *   --context stranger|mutual_follow|know_her|already_talking
  *   --about "free text"               how the sender texts (stands in for the profile)
+ *   --her "free text"                 the sender's note about her ("close friend, she flirts back")
  *   --delay <ms>                      wait between requests (free tiers allow few per minute)
  *   --show-prompt                     print the exact prompt that is sent
  *   --json                            print the raw result as JSON
@@ -160,6 +161,7 @@ const modeFlag = choice('mode', [...MODES, 'auto'] as const, 'auto');
 const tones = flags.has('all-tones') ? TONES : [choice('tone', TONES, 'casual')];
 const context = flags.has('context') ? choice('context', CONTEXTS, 'stranger') : null;
 const about = flags.get('about');
+const her = flags.get('her');
 
 function print(result: GenerationResult) {
   const { output } = result;
@@ -198,6 +200,7 @@ for (const file of files) {
       modeInstruction: DEFAULT_MODES[mode].instruction,
       tone: tone ? DEFAULT_TONES[tone] : null,
       context,
+      aboutHer: typeof her === 'string' && her ? her : null,
       profile: typeof about === 'string' && about ? { textingStyle: about } : null,
     };
 

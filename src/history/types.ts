@@ -43,7 +43,19 @@ export type PersonContextEntry = {
   context: ContextId;
 };
 
-export type OutboxEntry = GenerationEntry | LinePatchEntry | AssignPersonEntry | PersonContextEntry;
+/** The user wrote or changed their note about someone. Null removes it. */
+export type PersonNotesEntry = {
+  kind: 'personNotes';
+  username: string;
+  notes: string | null;
+};
+
+export type OutboxEntry =
+  | GenerationEntry
+  | LinePatchEntry
+  | AssignPersonEntry
+  | PersonContextEntry
+  | PersonNotesEntry;
 
 export type QueuedEntry = OutboxEntry & {
   /** Id of the queue entry itself. */

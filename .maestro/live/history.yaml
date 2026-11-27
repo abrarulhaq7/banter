@@ -120,7 +120,7 @@ onFlowComplete:
 - tapOn:
     id: "another-tone"
 - tapOn:
-    id: "tone-flirty"
+    id: "tone-option-flirty"
 - runFlow:
     file: ../common/wait-for-result.yaml
     env:
@@ -209,7 +209,7 @@ onFlowComplete:
       USERNAME: ${PERSON}
       EXPECT_RESULT: "replied"
 
-# --- Leave the app signed out. The key and the saved history are removed by onFlowComplete. --
+# --- A note about her ----------------------------------------------------------------------
 - runFlow: ../common/scroll-to-top.yaml
 - tapOn:
     id: "back-button"
@@ -218,11 +218,69 @@ onFlowComplete:
       id: "person-screen"
     timeout: 15000
 - tapOn:
+    id: "person-notes-row"
+- tapOn:
+    id: "person-notes-input"
+- inputText: "Close friend, we flirt a lot and she flirts back"
+- takeScreenshot: history-note-sheet
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "person-notes-save"
+- assertVisible:
+    id: "person-notes-row"
+    text: ".*Close friend, we flirt a lot.*"
+- takeScreenshot: history-person-with-note
+
+# --- Who is she, before asking: the first set already knows her ---------------------------
+- tapOn:
     id: "back-button"
 - extendedWaitUntil:
     visible:
       id: "people-screen"
     timeout: 15000
+- tapOn:
+    id: "tab-generate"
+- tapOn:
+    id: "use-latest"
+- extendedWaitUntil:
+    visible:
+      id: "person-pick-row"
+      text: ".*Banter reads it.*"
+    timeout: 30000
+- tapOn:
+    id: "person-pick-row"
+- assertVisible:
+    id: "person-pick-sheet"
+- takeScreenshot: history-who-is-she
+- tapOn:
+    id: "person-pick-${PERSON}"
+- assertVisible:
+    id: "person-pick-row"
+    text: ".*@${PERSON}.*"
+- tapOn:
+    id: "tone-spicy"
+- takeScreenshot: history-spicy-chosen
+- tapOn:
+    id: "generate-button"
+# Spicy is new in this version of the app. Until Supabase's tones are updated, the set is
+# saved without the link to the tone (its name is kept), so this works either way.
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Spicy · Story reply"
+- assertVisible:
+    id: "person-username"
+    text: "@${PERSON}"
+- takeScreenshot: history-spicy-lines
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 15000
+
+# --- Leave the app signed out. The key and the saved history are removed by onFlowComplete. --
 - runFlow: ../common/go-to-settings.yaml
 - takeScreenshot: history-settings
 - tapOn:

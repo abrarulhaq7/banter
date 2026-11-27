@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Banner, Button, IconButton, ListRow, Screen, ScreenHeader } from '@/components/ui';
+import { Banner, Button, EmptyState, IconButton, ListRow, Screen, ScreenHeader } from '@/components/ui';
 import { effectiveModel, useKeys } from '@/data';
 import type { ApiKeyRow } from '@/lib/database.types';
 import { PROVIDERS } from '@/providers/providers';
@@ -40,9 +40,12 @@ export function KeysScreen() {
       ) : null}
 
       {status === 'ready' && keys.length === 0 ? (
-        <AppText testID="no-keys" color="textMuted">
-          No keys yet.
-        </AppText>
+        <EmptyState
+          testID="no-keys"
+          icon="key"
+          title="No keys yet"
+          message="Banter writes lines with your own key from Gemini, OpenAI or Claude."
+        />
       ) : null}
 
       <View style={styles.list}>

@@ -17,6 +17,10 @@ appId: com.banterlines.app
     timeout: 60000
 
 - assertVisible: "Banter"
+# The phone remembers the theme, so an earlier run may have left another one. Start from
+# Midnight Plum whatever was there.
+- tapOn:
+    id: "theme-midnightPlum"
 - assertVisible:
     id: "section-detail-Theme"
     text: "Midnight Plum"
@@ -35,6 +39,13 @@ appId: com.banterlines.app
     id: "section-detail-Theme"
     text: "Deep Sea"
 - takeScreenshot: theme-deep-sea
+
+# Back to the default, so the flows after this one see the app as a new user does.
+- tapOn:
+    id: "theme-midnightPlum"
+- assertVisible:
+    id: "section-detail-Theme"
+    text: "Midnight Plum"
 
 # --- The parts added in Phase 5.5 ---------------------------------------------------------
 - scrollUntilVisible:

@@ -49,6 +49,17 @@ describe('TonesScreen', () => {
     expect(screen.getByTestId('tone-row-prompt-nerdy')).toHaveTextContent(/Yours/);
   });
 
+  it('marks the tones hidden from Generate', async () => {
+    const prompts = createFakePromptsRepo([FLIRTY, NERDY]);
+    await renderWithData(<TonesScreen />, {
+      promptsRepo: prompts.repo,
+      profileRepo: createFakeProfileRepo(makeProfile({ settings: { hidden_tones: ['safe'] } })).repo,
+    });
+
+    await waitFor(() => expect(screen.getByTestId('tone-row-safe')).toHaveTextContent(/Hidden/));
+    expect(screen.getByTestId('tone-row-casual')).not.toHaveTextContent(/Hidden/);
+  });
+
   it('opens a tone, a new tone, and Personalise', async () => {
     const { user } = await setup();
 
@@ -90,6 +101,21 @@ describe('ToneScreen: one of Banter\'s tones', () => {
     expect(screen.queryByTestId('tone-reset')).toBeNull();
     expect(screen.queryByTestId('tone-delete')).toBeNull();
     expect(screen.getByTestId('tone-save')).toBeDisabled();
+  });
+
+  it('shows or hides the tone on Generate', async () => {
+    const profile = createFakeProfileRepo(makeProfile());
+    const prompts = createFakePromptsRepo([]);
+    await renderWithData(<ToneScreen toneKey="safe" />, { promptsRepo: prompts.repo, profileRepo: profile.repo });
+    const user = userEvent.setup();
+    expect(await screen.findByTestId('tone-visibility')).toHaveTextContent(/On/);
+
+    await user.press(screen.getByTestId('tone-visibility'));
+
+    await waitFor(() => expect(screen.getByTestId('tone-visibility')).toHaveTextContent(/Off/));
+    await waitFor(() =>
+      expect(profile.repo.update).toHaveBeenCalledWith(expect.any(String), { settings: { hidden_tones: ['safe'] } }),
+    );
   });
 
   it('saves the user\'s own version and goes back', async () => {
@@ -321,7 +347,7 @@ describe('PersonaliseScreen', () => {
     await screen.findByTestId('suggestion-flirty');
 
     const { input } = calls[0];
-    expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'confident', 'safe', 'prompt-nerdy']);
+    expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe', 'prompt-nerdy']);
     expect(input.profile).toEqual({ age: null, work: null, interests: null, textingStyle: 'short, dry' });
     expect(input.history).toEqual([
       {

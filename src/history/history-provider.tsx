@@ -1,7 +1,7 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
-import { createUserCache, dataErrorMessage, type UserCache } from '@/data';
-import type { PersonRow } from '@/lib/database.types';
+import { createUserCache, dataErrorMessage, type Result, type UserCache } from '@/data';
+import type { PersonRow, UsageRow } from '@/lib/database.types';
 import { getSupabase } from '@/lib/supabase';
 
 import { createHistoryRepo, type HistoryRepo, type InteractionWithLines } from './history-repo';
@@ -27,6 +27,13 @@ type HistoryContextValue = {
    */
   memoryFor: (username: string, sameScreenshot?: ReadonlySet<string>) => Promise<Memory>;
   listInteractions: (personId: string) => Promise<InteractionWithLines[]>;
+  /** Deletes one person with everything saved under them. Needs internet. */
+  removePerson: (personId: string) => Promise<Result>;
+  /** Deletes all history: people, lines, screenshots, and anything still waiting to be sent. */
+  removeAllHistory: () => Promise<Result>;
+  /** Deletes the account and everything in it. The caller signs out afterwards. */
+  deleteAccount: () => Promise<Result>;
+  usage: () => Promise<UsageRow[]>;
   /** The latest interactions with anyone, newest first: what "Personalise for me" reads. */
   recentInteractions: () => Promise<InteractionWithLines[]>;
   screenshotUrl: (path: string) => Promise<string | null>;
@@ -139,6 +146,45 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
         return NO_MEMORY;
       }
     },
+
+    async removePerson(personId) {
+      try {
+        // Anything still waiting is sent first, so it cannot bring the person back afterwards.
+        await source.outbox.flush();
+        await source.repo.deletePerson(personId);
+        const left = people.filter((person) => person.id !== personId);
+        setPeople(left);
+        await source.people.write(left);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: dataErrorMessage(error, 'delete her history') };
+      }
+    },
+
+    async removeAllHistory() {
+      try {
+        await source.outbox.clear();
+        setWaiting(0);
+        await source.repo.deleteAllHistory(userId);
+        setPeople([]);
+        await source.people.write([]);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: dataErrorMessage(error, 'delete your history') };
+      }
+    },
+
+    async deleteAccount() {
+      try {
+        await source.repo.deleteAccount(userId);
+        await source.outbox.clear();
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: dataErrorMessage(error, 'delete your account') };
+      }
+    },
+
+    usage: () => source.repo.usage(),
 
     listInteractions: (personId) => source.repo.listInteractions(personId, TIMELINE_SIZE),
     recentInteractions: () => source.repo.listRecent(RECENT_SIZE),

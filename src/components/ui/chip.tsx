@@ -3,12 +3,15 @@ import { Pressable, StyleSheet } from 'react-native';
 import { MIN_TOUCH_TARGET, radius, spacing, useTheme } from '@/theme';
 
 import { AppText } from './app-text';
+import { Icon, type IconName } from './icon';
 
 const CHIP_HEIGHT = 36;
 const HIT_SLOP = (MIN_TOUCH_TARGET - CHIP_HEIGHT) / 2;
 
 export type ChipProps = {
   label: string;
+  /** Drawn before the label. */
+  icon?: IconName;
   selected?: boolean;
   onPress?: () => void;
   disabled?: boolean;
@@ -16,7 +19,7 @@ export type ChipProps = {
 };
 
 /** A pill for picking one option from a row: mode, tone, context. */
-export function Chip({ label, selected = false, onPress, disabled = false, testID }: ChipProps) {
+export function Chip({ label, icon, selected = false, onPress, disabled = false, testID }: ChipProps) {
   const { colors } = useTheme();
 
   return (
@@ -37,6 +40,7 @@ export function Chip({ label, selected = false, onPress, disabled = false, testI
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}>
+      {icon ? <Icon name={icon} size={16} color={selected ? 'onAccent' : 'accent'} /> : null}
       <AppText variant="label" color={selected ? 'onAccent' : 'text'} numberOfLines={1}>
         {label}
       </AppText>
@@ -50,6 +54,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.pill,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },

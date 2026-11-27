@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Banner, Card } from '@/components/ui';
+import { AppText, Banner, Card, FadeIn } from '@/components/ui';
 import type { Interest } from '@/engine';
 import { setHeading, setLabel, type KeptLine, type ResultSet } from '@/generate/session';
 import { spacing, type ColorRole } from '@/theme';
@@ -31,19 +31,21 @@ export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep
   const { output } = set;
   const label = setLabel(set);
 
-  /** `position` names the line in test ids; `id` is the saved line's id. */
-  const line = (position: string, id: string, text: string, caption?: string) => {
+  /** `position` names the line in test ids; `id` is the saved line's id; `order` staggers the arrival. */
+  const line = (position: string, id: string, text: string, caption?: string, order = 0) => {
     return (
-      <LineCard
-        key={id}
-        testKey={`0-${position}`}
-        text={text}
-        caption={caption}
-        copied={copiedLineId === id}
-        kept={keptIds.has(id)}
-        onCopy={() => onCopy(id, text)}
-        onToggleKeep={() => onToggleKeep({ id, text, label })}
-      />
+      // Keyed by the line, so a new set fades in and a copied mark on the same set does not.
+      <FadeIn key={id} delay={order * 70}>
+        <LineCard
+          testKey={`0-${position}`}
+          text={text}
+          caption={caption}
+          copied={copiedLineId === id}
+          kept={keptIds.has(id)}
+          onCopy={() => onCopy(id, text)}
+          onToggleKeep={() => onToggleKeep({ id, text, label })}
+        />
+      </FadeIn>
     );
   };
 
@@ -68,7 +70,7 @@ export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep
 
       {output.kind === 'lines'
         ? output.lines.map((item, position) =>
-            line(String(position), set.lineIds[position], item.text, item.hook || undefined),
+            line(String(position), set.lineIds[position], item.text, item.hook || undefined, position),
           )
         : null}
 

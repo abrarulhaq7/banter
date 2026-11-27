@@ -1,3 +1,4 @@
+export { readSavedTheme, saveTheme } from './theme-cache';
 export { ThemeProvider, useTheme } from './theme-provider';
 export {
   DEFAULT_THEME,
