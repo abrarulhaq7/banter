@@ -36,6 +36,8 @@ export type ResultSet = {
   adjustment: Adjustment | null;
   /** Reply only: where the user asked to take the chat. Null for the usual. */
   direction?: Direction | null;
+  /** What the lines were asked to be about ("her nails"): the set then has five lines. */
+  focus?: string | null;
   /** When the set fixes a line the user marked: why they marked it. */
   fix?: LineFeedback | null;
   output: ModelOutput;
@@ -79,6 +81,11 @@ export type SessionState = {
   copiedLineId: string | null;
   /** Reply only: where to take the chat. Back to keep_going with each new screenshot. */
   direction: Direction;
+  /**
+   * What the lines should be about ("her nails", "the café"): three of five lines are about
+   * it. Null for Banter's own picks, and again with each new screenshot.
+   */
+  focus: string | null;
   /** Why the user did not like a line, by line id. */
   feedback: Record<string, LineFeedback>;
   /** Lines the user liked, by line id. A line is liked or marked "not for me", never both. */
@@ -103,6 +110,7 @@ export type SessionAction =
   | { type: 'copied'; lineId: string }
   | { type: 'dismissError' }
   | { type: 'setDirection'; direction: Direction }
+  | { type: 'setFocus'; focus: string | null }
   | { type: 'setFeedback'; lineId: string; reason: LineFeedback | null }
   | { type: 'toggleLike'; lineId: string }
   /** Back to no screenshot. The chosen mode and tone stay: they are the user's habits. */
@@ -120,6 +128,7 @@ export const initialSession: SessionState = {
   error: null,
   copiedLineId: null,
   direction: 'keep_going',
+  focus: null,
   feedback: {},
   liked: {},
 };
@@ -143,6 +152,8 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         error: null,
         // Turning up the heat is a choice about one conversation, not a habit.
         direction: 'keep_going',
+        // Her nails were in that picture, not necessarily in this one.
+        focus: null,
         feedback: {},
         liked: {},
       };
@@ -198,6 +209,8 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, error: null };
     case 'setDirection':
       return { ...state, direction: action.direction };
+    case 'setFocus':
+      return { ...state, focus: action.focus };
     case 'setFeedback': {
       const feedback = { ...state.feedback };
       const liked = { ...state.liked };
@@ -255,18 +268,27 @@ export const FIX_LABEL: Record<LineFeedback, string> = {
   generic: 'More specific',
 };
 
-type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction' | 'fix'>;
+type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction' | 'fix' | 'focus'>;
+
+/** A focus short enough for a chip: "her nails", "the rooftop c…". */
+function shortFocus(focus: string): string {
+  return focus.length > 14 ? `${focus.slice(0, 13).trimEnd()}…` : focus;
+}
 
 function adjustmentLabel(set: Named): string | null {
   if (!set.adjustment) return null;
   return set.fix && set.adjustment === 'new_lines' ? FIX_LABEL[set.fix] : ADJUSTMENT_LABEL[set.adjustment];
 }
 
-/** The full name of a set: "Flirty · Story reply · Shorter", "Spicy · Reply · Turn up the heat". */
+/**
+ * The full name of a set: "Flirty · Story reply · Shorter", "Spicy · Reply · Turn up the heat",
+ * "Casual · Story reply · About her nails".
+ */
 export function setHeading(set: Named): string {
   return [
     setLabel(set),
     set.direction && set.direction !== 'keep_going' ? DIRECTION_LABEL[set.direction] : null,
+    set.focus ? `About ${set.focus}` : null,
     adjustmentLabel(set),
   ]
     .filter(Boolean)
@@ -278,6 +300,7 @@ export function setChipLabel(set: Named): string {
   return [
     set.toneLabel ?? set.modeLabel,
     set.direction ? DIRECTION_SHORT[set.direction] : null,
+    set.focus ? shortFocus(set.focus) : null,
     adjustmentLabel(set),
   ]
     .filter(Boolean)

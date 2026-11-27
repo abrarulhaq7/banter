@@ -40,6 +40,7 @@ export function setForTicket(set: ResultSet, marks: LineMarks, session: SetSessi
     tone: set.toneLabel,
     adjustment: set.adjustment,
     direction: set.direction ?? null,
+    focus: set.focus ?? null,
     fix: set.fix ?? null,
     howYouKnowHer: session.context,
     username: session.username,

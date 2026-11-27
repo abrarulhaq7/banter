@@ -1,4 +1,5 @@
 import { AI_WORDS } from './default-prompts';
+import { MAX_LINES } from './schema';
 import type {
   Adjustment,
   BuiltPrompt,
@@ -36,6 +37,40 @@ const CONTEXT_SHORT: Record<ContextId, string> = {
 /** How many people with notes go in a prompt, and how much of each note. */
 export const NOTED_PEOPLE_MAX = 20;
 export const NOTED_NOTE_MAX = 300;
+
+/** The longest focus a request carries ("her nails", "the café"). */
+export const FOCUS_MAX = 60;
+/** A set with a focus: how many lines in all, and how many of them are about the focus. */
+export const FOCUSED_SET_LINES = 5;
+export const FOCUS_LINES = 3;
+
+/** The focus as it goes into a request: one line, no quotes, not too long. Null when empty. */
+export function cleanFocus(focus: string | null | undefined): string | null {
+  const clean = (focus ?? '')
+    .replace(/["“”]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, FOCUS_MAX)
+    .trim();
+  return clean || null;
+}
+
+/** How many lines a request asks for: five with a focus (three of them about it), else three. */
+export function linesWanted(input: Pick<PromptInput, 'mode' | 'focus'>): number {
+  return input.mode !== 'analyse' && cleanFocus(input.focus) ? FOCUSED_SET_LINES : MAX_LINES;
+}
+
+/**
+ * What a focus asks for. It comes after everything else that shapes the lines (tone,
+ * direction, adjustments), so the number of lines it sets is the last word, and it says
+ * outright that no focus can break a rule: a stranger still gets nothing about her looks.
+ */
+function focusText(focus: string): string {
+  return `He wants lines about "${focus}". Whatever the sections above say about how many lines to write, write five this time:
+- Lines 1 to 3 are about "${focus}". Hook each one to it, each from a different angle and with a different move. If you cannot see it in the screenshot, take it as the topic he wants to bring up.
+- Lines 4 and 5 are your own picks: other things in the screenshot, as you would choose without a focus.
+Everything above holds for all five lines: the tone, how they know each other and every rule. The focus never overrides a rule. If the rules do not allow comments on her looks with this person, clothes and accessories are fine only as her choice or a find, and her face, hair, makeup and body are off limits even when they are the focus: then write lines 1 to 3 about something connected to it that the rules allow (a caption or song about it, the place, the moment, what she is doing), never about the thing itself.`;
+}
 
 const BOLDNESS_FROM_NOTE =
   'bolder when it says she flirts back or they are close, lighter when it says she keeps things friendly';
@@ -153,11 +188,17 @@ function finalCheck(input: PromptInput): string {
     input.context === 'know_her' || input.context === 'already_talking'
       ? null
       : '- Nothing about her face, hair, makeup, body, expression or pose: they do not know each other well enough.';
+  const focus = cleanFocus(input.focus);
   return [
     '- Each line hooks to something you can really see, and makes sense at once.',
-    '- Each line uses a move that fits the tone, and the three moves are different.',
+    focus
+      ? `- Five lines: 1 to 3 about "${focus}", 4 and 5 your own picks about other things. Each uses a move that fits the tone, and lines 1 to 3 use three different moves.`
+      : '- Each line uses a move that fits the tone, and the three moves are different.',
     `- No line uses any of these words: ${AI_WORDS.join(', ')}.`,
     looks,
+    looks && focus
+      ? `- The focus does not lift that: if "${focus}" is her face, hair, makeup or body, lines 1 to 3 are about what is around it instead, and say nothing about the thing itself.`
+      : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -237,6 +278,8 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
       : ADJUSTMENT[input.adjustment.kind];
     parts.push(section('Lines just shown', `${previous}\n\n${ask}`));
   }
+  const focus = input.mode === 'analyse' ? null : cleanFocus(input.focus);
+  if (focus) parts.push(section(`Focus: ${focus}`, focusText(focus)));
 
   if (input.language === 'roman_urdu') {
     parts.push(

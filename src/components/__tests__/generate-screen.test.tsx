@@ -1482,6 +1482,86 @@ describe('Generate: choosing the screenshot', () => {
   });
 });
 
+describe('Generate: focus on', () => {
+  const fiveLines = (prefix: string): ModelOutput => {
+    const three = lines(prefix);
+    if (three.kind !== 'lines') return three;
+    return {
+      ...three,
+      lines: [...three.lines, { text: `${prefix} four`, hook: 'the spoon' }, { text: `${prefix} five`, hook: 'the window' }],
+    };
+  };
+
+  it('asks for lines about what he picked, and shows all five', async () => {
+    const { calls, user } = await setup({ outputs: [fiveLines('Nails')] });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    await user.press(screen.getByTestId('focus-row'));
+    expect(screen.getByTestId('focus-sheet')).toBeOnTheScreen();
+    // How you know her is not set, so she counts as a stranger: the sheet says looks stay off limits.
+    expect(screen.getByText(/With a stranger, lines stay off her looks/)).toBeOnTheScreen();
+    await user.press(screen.getByTestId('focus-suggestion-her-nails'));
+    expect(screen.getByTestId('focus-input')).toHaveDisplayValue('her nails');
+    await user.press(screen.getByTestId('focus-save'));
+    expect(screen.queryByTestId('focus-sheet')).toBeNull();
+    expect(screen.getByTestId('focus-row')).toHaveTextContent(/her nails/);
+
+    await press(user, 'Get lines');
+    expect(await screen.findByText('Nails five')).toBeOnTheScreen();
+    expect(calls[0].prompt.focus).toBe('her nails');
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Story reply · About her nails');
+  });
+
+  it('keeps the focus when a set is adjusted, and Banter chooses again once it is cleared', async () => {
+    const { calls, user } = await setup({ outputs: [fiveLines('First'), fiveLines('Shorter'), lines('Free')] });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await user.press(screen.getByTestId('focus-row'));
+    await user.type(screen.getByTestId('focus-input'), 'the pho');
+    await user.press(screen.getByTestId('focus-save'));
+    await press(user, 'Get lines');
+    await screen.findByText('First five');
+
+    await press(user, 'Shorter');
+    await screen.findByText('Shorter five');
+    expect(calls[1].prompt.focus).toBe('the pho');
+    expect(calls[1].prompt.adjustment?.previousLines).toHaveLength(5);
+
+    await press(user, 'Back');
+    await user.press(screen.getByTestId('focus-row'));
+    await user.press(screen.getByTestId('focus-clear'));
+    expect(screen.getByTestId('focus-row')).not.toHaveTextContent(/the pho/);
+    await press(user, 'Get lines');
+    await screen.findByText('Free three');
+    expect(calls[2].prompt.focus).toBeNull();
+  });
+
+  it('starts each new screenshot without a focus, and does not say "stranger" when they know each other', async () => {
+    const { user } = await setup();
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await user.press(screen.getByTestId('context-row'));
+    await press(user, 'Know her');
+
+    await user.press(screen.getByTestId('focus-row'));
+    expect(screen.queryByText(/With a stranger/)).toBeNull();
+    await user.press(screen.getByTestId('focus-suggestion-her-dress'));
+    await user.press(screen.getByTestId('focus-save'));
+    expect(screen.getByTestId('focus-row')).toHaveTextContent(/her dress/);
+
+    await press(user, 'From gallery');
+    await waitFor(() => expect(screen.getByTestId('focus-row')).not.toHaveTextContent(/her dress/));
+  });
+
+  it('is not offered in Analyse, which writes no lines', async () => {
+    const { user } = await setup();
+    await press(user, 'Analyse');
+
+    expect(screen.queryByTestId('focus-row')).toBeNull();
+  });
+});
+
 describe('Generate: quick questions', () => {
   const ASK = { quick_questions: true };
   const OTHER: ScreenshotResult = {

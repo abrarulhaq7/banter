@@ -20,6 +20,8 @@
  *   --her "free text"                 the sender's note about her ("close friend, she flirts back")
  *   --direction keep_going|heat_up|ask_out   Reply only: where to take the chat
  *   --language english|roman_urdu     the language of the lines (default english)
+ *   --focus "free text"               what the lines should be about ("her nails"): five lines,
+ *                                     the first three about it
  *   --delay <ms>                      wait between requests (free tiers allow few per minute)
  *   --show-prompt                     print the exact prompt that is sent
  *   --json                            print the raw result as JSON
@@ -168,6 +170,7 @@ const about = flags.get('about');
 const her = flags.get('her');
 const direction = flags.get('direction');
 const language = flags.get('language');
+const focus = flags.get('focus');
 
 function print(result: GenerationResult) {
   const { output } = result;
@@ -211,9 +214,16 @@ for (const file of files) {
       direction: direction === 'heat_up' || direction === 'ask_out' ? direction : null,
       language: language === 'roman_urdu' ? 'roman_urdu' : null,
       profile: typeof about === 'string' && about ? { textingStyle: about } : null,
+      focus: typeof focus === 'string' && focus ? focus : null,
     };
 
-    const heading = [basename(file), DEFAULT_MODES[mode].label, tone ? DEFAULT_TONES[tone].label : null]
+    const heading = [
+      basename(file),
+      DEFAULT_MODES[mode].label,
+      tone ? DEFAULT_TONES[tone].label : null,
+      context ? `context: ${context}` : null,
+      prompt.focus ? `focus: ${prompt.focus}` : null,
+    ]
       .filter(Boolean)
       .join('  |  ');
     console.log(`\n${'='.repeat(88)}\n${heading}\n${'-'.repeat(88)}`);

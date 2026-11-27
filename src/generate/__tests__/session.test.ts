@@ -159,6 +159,18 @@ describe('sessionReducer', () => {
     expect(state.feedback).toEqual({});
   });
 
+  it('keeps a focus for one screenshot: a new screenshot, or Clear, starts without one', () => {
+    const focused = play([
+      { type: 'screenshotReady', screenshot: screenshot('a') },
+      { type: 'setFocus', focus: 'her nails' },
+    ]);
+    expect(focused.focus).toBe('her nails');
+
+    expect(sessionReducer(focused, { type: 'screenshotReady', screenshot: screenshot('b') }).focus).toBeNull();
+    expect(sessionReducer(focused, { type: 'clear' }).focus).toBeNull();
+    expect(sessionReducer(focused, { type: 'setFocus', focus: null }).focus).toBeNull();
+  });
+
   it('marks why a line was not for the user, and takes it back', () => {
     const marked = play([{ type: 'setFeedback', lineId: 'l1', reason: 'too_much' }]);
     expect(marked.feedback).toEqual({ l1: 'too_much' });
@@ -279,5 +291,14 @@ describe('setLabel', () => {
     );
     expect(setChipLabel({ toneLabel: 'Spicy', modeLabel: 'Reply', adjustment: null, direction: 'ask_out' })).toBe('Spicy · Ask out');
     expect(setLabel({ toneLabel: null, modeLabel: 'Analyse' })).toBe('Analyse');
+  });
+
+  it('says what a set was focused on, shortened on the chips', () => {
+    const focused = { toneLabel: 'Flirty', modeLabel: 'Story reply', adjustment: 'shorter' as const, focus: 'her nails' };
+    expect(setHeading(focused)).toBe('Flirty · Story reply · About her nails · Shorter');
+    expect(setChipLabel(focused)).toBe('Flirty · her nails · Shorter');
+    expect(setChipLabel({ ...focused, adjustment: null, focus: 'the rooftop café downtown' })).toBe(
+      'Flirty · the rooftop c…',
+    );
   });
 });

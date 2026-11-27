@@ -1,6 +1,6 @@
 import { ADAPTERS, type Adapter } from './adapters';
 import { EngineError, isEngineError, type LimitHint } from './errors';
-import { buildPrompt } from './prompt';
+import { buildPrompt, linesWanted } from './prompt';
 import { parseModelOutput, schemaFor, type AnswerSchema } from './schema';
 import type { GenerationResult, ImageInput, KeyCandidate, PromptInput } from './types';
 
@@ -217,7 +217,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     options,
     { system: built.system, user: built.user, image, schema: schemaFor(prompt.mode) },
     (text) => {
-      const output = parseModelOutput(prompt.mode, text);
+      const output = parseModelOutput(prompt.mode, text, linesWanted(prompt));
       if (output.kind !== 'lines' || asksForRead || !output.read) return output;
       const withoutRead = { ...output };
       delete withoutRead.read;

@@ -1421,6 +1421,14 @@ After the first APK (2026-11-27, asked for from the phone, sent over the air):
   only for Know her or Already talking. Once per screenshot, never in Analyse or once lines
   exist; "Help me pick" in the tone row opens it any time; it can be turned off from inside
   (saved as `quick_questions` in the profile settings).
+- Focus on (Generate): an optional "what the lines are about" (her nails, her dress, the
+  café), typed or picked from suggestions, cleared with each new screenshot. With a focus the
+  set has 5 lines: 3 about it and 2 of Banter's own picks; without one, 3 as before (the
+  user's choice, 2026-11-27: same speed, cost and tuned rules by default). New lines, Shorter
+  and Bolder keep the set's focus. Built as a section of the request from code, so the core
+  rules and modes did not change (prompt version 8, no SQL). Checked with `npm run lines`
+  on real samples: 5 lines, 1–3 on the focus; a stranger with "her hair" got lines about her
+  caption, not her hair, once the final check said so.
 - Feedback pictures: up to three of the user's own pictures with a ticket (a screenshot of
   the problem), next to the reported set's screenshot. Column `feedback.pictures`, checked to
   be in the sender's own folder (migration `20261128001100`); admins can open them, and

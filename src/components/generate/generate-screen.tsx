@@ -19,7 +19,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { DEFAULT_MODES, type ContextId, type Direction, type ModeId, type ToneId } from '@/engine';
-import type { Answers, QuickPick } from '@/generate/quick-questions';
+import { isClose, type Answers, type QuickPick } from '@/generate/quick-questions';
 import { DIRECTION_LABEL } from '@/generate/session';
 import { useIncomingScreenshot } from '@/generate/use-incoming-screenshot';
 import { useGenerateSession } from '@/generate/generate-provider';
@@ -32,6 +32,7 @@ import { useToneVisibility } from '@/prompts/use-tone-visibility';
 import { ToneSheet } from '@/components/tones/tone-sheet';
 import { radius, spacing, useTheme } from '@/theme';
 
+import { FocusSheet } from './focus-sheet';
 import { QuickQuestionsSheet } from './quick-questions-sheet';
 
 const MODE_IDS = Object.keys(DEFAULT_MODES) as ModeId[];
@@ -89,6 +90,9 @@ export function GenerateScreen() {
     currentTone && !shownTones.some((tone) => tone.key === currentTone.key) ? [currentTone, ...shownTones] : shownTones;
   const [personOpen, setPersonOpen] = useState(false);
   const [personQuery, setPersonQuery] = useState('');
+  const [focusOpen, setFocusOpen] = useState(false);
+  /** Counts the openings, so each one starts from the focus chosen now. */
+  const [focusOpens, setFocusOpens] = useState(0);
 
   // Who she is can be said before asking, so the first set knows her. Only for a chosen
   // screenshot (a new one starts over) and only once there is anyone saved to choose from.
@@ -125,7 +129,7 @@ export function GenerateScreen() {
   const [quickOpen, setQuickOpen] = useState(false);
   /** Counts the times they were opened by hand, so each opening starts from the screen's choices. */
   const [quickOpens, setQuickOpens] = useState(0);
-  const otherSheetOpen = contextOpen || toneOpen || directionOpen || personOpen;
+  const otherSheetOpen = contextOpen || toneOpen || directionOpen || personOpen || focusOpen;
   const quickAuto =
     askOnPick && shotUri !== null && quickDoneFor !== shotUri && !isAnalyse && !busy && setCount === 0 && !otherSheetOpen;
   const openQuick = () => {
@@ -355,6 +359,19 @@ export function GenerateScreen() {
           onPress={() => setContextOpen(true)}
           disabled={busy}
         />
+        {!isAnalyse ? (
+          <SettingChip
+            testID="focus-row"
+            icon="search"
+            label="Focus on"
+            value={session.focus}
+            onPress={() => {
+              setFocusOpens((count) => count + 1);
+              setFocusOpen(true);
+            }}
+            disabled={busy}
+          />
+        ) : null}
         {isReply ? (
           <SettingChip
             testID="direction-row"
@@ -390,6 +407,18 @@ export function GenerateScreen() {
           {screenshotError.message}
         </Banner>
       ) : null}
+
+      <FocusSheet
+        key={`focus:${focusOpens}`}
+        visible={focusOpen}
+        focus={session.focus}
+        stranger={!isClose(session.context)}
+        onSave={(focus) => {
+          session.setFocus(focus);
+          setFocusOpen(false);
+        }}
+        onClose={() => setFocusOpen(false)}
+      />
 
       <QuickQuestionsSheet
         key={`${shotUri ?? 'none'}:${quickOpens}`}

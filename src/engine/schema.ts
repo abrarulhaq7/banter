@@ -66,6 +66,7 @@ export function schemaFor(mode: ModeId): AnswerSchema {
   return mode === 'analyse' ? ANALYSIS_SCHEMA : LINES_SCHEMA;
 }
 
+/** Lines in a set. A set with a focus has more (`linesWanted` in prompt.ts). */
 export const MAX_LINES = 3;
 const MAX_SIGNALS = 5;
 
@@ -126,7 +127,7 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback
  * extra lines are dropped, blanks and duplicates removed, bad values replaced by safe ones.
  * Throws EngineError('unreadable') when there is nothing usable.
  */
-export function parseModelOutput(mode: ModeId, raw: string): ModelOutput {
+export function parseModelOutput(mode: ModeId, raw: string, maxLines = MAX_LINES): ModelOutput {
   const data = extractObject(raw);
 
   const base = {
@@ -165,7 +166,7 @@ export function parseModelOutput(mode: ModeId, raw: string): ModelOutput {
     seen.add(key);
     const move = text(entry.move, 60);
     lines.push({ text: message, hook: text(entry.hook, 500), ...(move ? { move } : {}) });
-    if (lines.length === MAX_LINES) break;
+    if (lines.length === maxLines) break;
   }
   if (lines.length === 0) throw unreadable('The answer has no lines and no refusal.');
   const read = text(data.read, 400);

@@ -135,6 +135,26 @@ onFlowComplete:
 - assertNotVisible:
     id: "quick-questions-sheet"
 
+# Focus on: what the lines are about. Chosen, shown on its pill, then cleared again (the rest
+# of this flow expects Banter's own picks).
+- tapOn:
+    id: "focus-row"
+- assertVisible:
+    id: "focus-sheet"
+- tapOn:
+    id: "focus-suggestion-her-nails"
+- tapOn:
+    id: "focus-save"
+- assertVisible:
+    id: "focus-row"
+    text: ".*her nails.*"
+- tapOn:
+    id: "focus-row"
+- tapOn:
+    id: "focus-clear"
+- assertNotVisible:
+    id: "focus-sheet"
+
 # Layout rule: everything on this tab, and its main button, is in reach without scrolling.
 - assertVisible:
     id: "screenshot-preview"

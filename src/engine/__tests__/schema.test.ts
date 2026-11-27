@@ -103,6 +103,18 @@ describe('parseModelOutput: lines', () => {
     ]);
   });
 
+  it('keeps five lines when five were asked for (a set with a focus)', () => {
+    const six = Array.from({ length: 6 }, (_, index) => ({ text: `Line ${index}`, hook: 'h' }));
+    const output = parseModelOutput('story_reply', lines({ lines: six }), 5);
+    expect(output.kind === 'lines' && output.lines.map((line) => line.text)).toEqual([
+      'Line 0',
+      'Line 1',
+      'Line 2',
+      'Line 3',
+      'Line 4',
+    ]);
+  });
+
   it('drops blank and repeated lines', () => {
     const output = parseModelOutput(
       'reply',

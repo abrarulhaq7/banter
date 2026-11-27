@@ -1,4 +1,13 @@
-import { DEFAULT_CORE, DEFAULT_MODES, DEFAULT_TONES, buildPrompt, type PromptInput } from '@/engine';
+import {
+  DEFAULT_CORE,
+  DEFAULT_MODES,
+  DEFAULT_TONES,
+  FOCUS_MAX,
+  buildPrompt,
+  cleanFocus,
+  linesWanted,
+  type PromptInput,
+} from '@/engine';
 
 const base: PromptInput = {
   core: DEFAULT_CORE,
@@ -407,5 +416,81 @@ describe('buildPrompt: language', () => {
 
   it('asks for the suggested reply in Roman Urdu in Analyse', () => {
     expect(buildPrompt({ ...base, mode: 'analyse', language: 'roman_urdu' }).user).toContain('Write the lines (the suggested reply) in Roman Urdu');
+  });
+});
+
+describe('buildPrompt: focus', () => {
+  const checkOf = (user: string) => user.slice(user.indexOf('## Check before you answer'));
+
+  it('without a focus, asks for three lines exactly as before', () => {
+    const { user } = buildPrompt({ ...base, context: 'stranger' });
+
+    expect(user).not.toContain('## Focus');
+    expect(checkOf(user)).toContain('the three moves are different');
+    expect(linesWanted(base)).toBe(3);
+    expect(linesWanted({ ...base, focus: '   ' })).toBe(3);
+  });
+
+  it('with a focus, asks for five lines: three about it, then two of its own picks, under the same rules', () => {
+    const input: PromptInput = { ...base, context: 'know_her', focus: 'her nails' };
+    const { system, user } = buildPrompt(input);
+
+    // The rules are not touched: only the request says what to write about.
+    expect(system).toBe(buildPrompt(base).system);
+    expect(user).toContain('## Focus: her nails');
+    expect(user).toContain('write five this time');
+    expect(user).toContain('Lines 1 to 3 are about "her nails"');
+    expect(user).toContain('Lines 4 and 5 are your own picks');
+    expect(user).toContain('The focus never overrides a rule.');
+    expect(checkOf(user)).toContain('Five lines: 1 to 3 about "her nails"');
+    expect(checkOf(user)).not.toContain('the three moves are different');
+    expect(linesWanted(input)).toBe(5);
+  });
+
+  it('comes after the direction and the lines being adjusted, so its number of lines is the last word', () => {
+    const { user } = buildPrompt({
+      ...base,
+      mode: 'reply',
+      modeInstruction: DEFAULT_MODES.reply.instruction,
+      context: 'already_talking',
+      direction: 'heat_up',
+      focus: 'the gym',
+      adjustment: { kind: 'shorter', previousLines: ['a', 'b', 'c', 'd', 'e'] },
+    });
+    const at = (title: string) => user.indexOf(title);
+
+    expect(at('## Focus: the gym')).toBeGreaterThan(at('## Where to take it: turn up the heat'));
+    expect(at('## Focus: the gym')).toBeGreaterThan(at('## Lines just shown'));
+    expect(at('## Focus: the gym')).toBeLessThan(at('## Check before you answer'));
+  });
+
+  it('keeps her looks off limits with a stranger, even when they are the focus', () => {
+    const stranger = buildPrompt({ ...base, context: 'stranger', focus: 'her hair' }).user;
+    expect(stranger).toContain('her face, hair, makeup and body are off limits even when they are the focus');
+    expect(checkOf(stranger)).toContain('The focus does not lift that');
+
+    // Know her allows looks (rule 1), so the check has nothing to lift.
+    expect(checkOf(buildPrompt({ ...base, context: 'know_her', focus: 'her hair' }).user)).not.toContain(
+      'The focus does not lift that',
+    );
+  });
+
+  it('cleans what was typed: one line, no quotes, not too long', () => {
+    expect(cleanFocus('  "her   nails"\n ')).toBe('her nails');
+    expect(cleanFocus('   ')).toBeNull();
+    expect(cleanFocus(null)).toBeNull();
+    expect(cleanFocus('x'.repeat(100))).toHaveLength(FOCUS_MAX);
+    expect(buildPrompt({ ...base, focus: 'her "dress"' }).user).toContain('## Focus: her dress');
+  });
+
+  it('is left out of Analyse, which writes no lines', () => {
+    const analyse: PromptInput = {
+      ...base,
+      mode: 'analyse',
+      modeInstruction: DEFAULT_MODES.analyse.instruction,
+      tone: null,
+      focus: 'her nails',
+    };
+    expect(buildPrompt(analyse).user).not.toContain('Focus');
   });
 });

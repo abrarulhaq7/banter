@@ -46,7 +46,17 @@ export {
   type UsedSet,
 } from './personalise';
 export { MAX_IMAGE_SIDE, fitWithin } from './image-size';
-export { CALIBRATION_MIN, NOTED_NOTE_MAX, NOTED_PEOPLE_MAX, buildPrompt } from './prompt';
+export {
+  CALIBRATION_MIN,
+  FOCUS_LINES,
+  FOCUS_MAX,
+  FOCUSED_SET_LINES,
+  NOTED_NOTE_MAX,
+  NOTED_PEOPLE_MAX,
+  buildPrompt,
+  cleanFocus,
+  linesWanted,
+} from './prompt';
 export { MAX_LINES, cleanUsername, parseModelOutput, schemaFor, type AnswerSchema } from './schema';
 export type {
   Adjustment,
