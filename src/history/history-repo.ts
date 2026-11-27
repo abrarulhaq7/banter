@@ -14,6 +14,20 @@ export const SCREENSHOT_BUCKET = 'screenshots';
 
 export type InteractionWithLines = InteractionRow & { lines: LineRow[] };
 
+/** A line the user saved (kept), with who it was for and how it was written. */
+export type SavedLine = {
+  id: string;
+  text: string;
+  keptAt: string;
+  copiedAt: string | null;
+  interactionId: string;
+  toneLabel: string | null;
+  modeId: string;
+  /** Null when the username could not be read. */
+  personId: string | null;
+  username: string | null;
+};
+
 /**
  * Every read and write of history in Supabase. Each function throws the Supabase error on
  * failure. Row-level security limits all of it to the signed-in user's own rows and files.
@@ -46,6 +60,8 @@ export type HistoryRepo = {
   deleteAccount: (userId: string) => Promise<void>;
   /** Generations per provider, model and key, most used first. */
   usage: () => Promise<UsageRow[]>;
+  /** Every line the user saved, with anyone, the most recently saved first. */
+  listSaved: (limit: number) => Promise<SavedLine[]>;
   /** The user's latest interactions with anyone, newest first. */
   listRecent: (limit: number) => Promise<InteractionWithLines[]>;
   /** A link to a stored screenshot that works for a short time. */
@@ -222,6 +238,40 @@ export function createHistoryRepo(client: BanterClient): HistoryRepo {
         .order('generations', { ascending: false });
       if (error) throw error;
       return data;
+    },
+
+    async listSaved(limit) {
+      const { data, error } = await client
+        .from('lines')
+        .select('id, text, kept_at, copied_at, interaction_id, interactions(mode_id, tone_label, person_id, people(username))')
+        .not('kept_at', 'is', null)
+        .order('kept_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      type Raw = {
+        id: string;
+        text: string;
+        kept_at: string;
+        copied_at: string | null;
+        interaction_id: string;
+        interactions: {
+          mode_id: string;
+          tone_label: string | null;
+          person_id: string | null;
+          people: { username: string } | null;
+        } | null;
+      };
+      return (data as unknown as Raw[]).map((row) => ({
+        id: row.id,
+        text: row.text,
+        keptAt: row.kept_at,
+        copiedAt: row.copied_at,
+        interactionId: row.interaction_id,
+        toneLabel: row.interactions?.tone_label ?? null,
+        modeId: row.interactions?.mode_id ?? 'story_reply',
+        personId: row.interactions?.person_id ?? null,
+        username: row.interactions?.people?.username ?? null,
+      }));
     },
 
     async listRecent(limit) {

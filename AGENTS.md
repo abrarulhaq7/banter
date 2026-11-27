@@ -106,6 +106,7 @@ Maestro reads the accessibility tree, which does not know what is actually cover
 - **Replacing the text in a multi-line field:** a tap puts the cursor mid-text, so `eraseText` leaves the rest. `longPressOn` the field, tap "Select All", then `inputText`.
 - **The theme is remembered on the simulator** (phone storage), and a signed-in profile's theme wins when it loads. A flow that needs a certain theme must set it; `foundation.yaml` starts and ends on Midnight Plum.
 - **"Use latest" picks the newest photo by when it was taken, not when it was added** (2026-11-26). `simctl addmedia` of an older sample does not make it the latest. To test with a specific picture, give it a newer taken time first.
+- **A line card's label is "text, caption"** (the hook, or who a saved line was for). Match lines by the start of their name (`name: /^Casual one/`), and in flows with `text: ".*…*"`.
 - **Sheets and dialogs** are React Native `Modal`s. Their content is in the tree while open; close a sheet with `sheet-close`.
 - **Flows that seed a real key** (`live/generate.yaml`, `live/history.yaml`) remove the key and the saved history in `onFlowComplete`, which runs even when the flow fails. Keep it that way: a failed run must not leave a real key in a test account.
 

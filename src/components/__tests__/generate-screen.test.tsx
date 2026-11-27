@@ -206,7 +206,7 @@ describe('Generate: getting lines', () => {
     const { deps, user } = await setup();
     await firstLines(user);
 
-    await user.press(screen.getByRole('button', { name: 'Casual two' }));
+    await user.press(screen.getByRole('button', { name: /^Casual two/ }));
 
     expect(deps.copy).toHaveBeenCalledWith('Casual two');
     expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Copied');
@@ -279,7 +279,7 @@ describe('Results: nothing is replaced, and lines can be kept', () => {
 
     await user.press(screen.getByTestId('keep-0-1'));
 
-    expect(screen.getByTestId('toast')).toHaveTextContent('Kept');
+    expect(screen.getByTestId('toast')).toHaveTextContent('Saved');
     expect(screen.getByTestId('kept-button')).toHaveTextContent('1');
     await user.press(screen.getByTestId('kept-button'));
     const strip = screen.getByTestId('kept-strip');
@@ -415,7 +415,7 @@ describe('Generate: Analyse and declines', () => {
     expect(await screen.findByTestId('result-interest-0')).toHaveTextContent('Not much interest');
     expect(screen.getByText('• One-word replies')).toBeOnTheScreen();
     expect(screen.getByText('Give it a rest for now.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'No worries, catch you later.' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: /^No worries, catch you later\./ })).toBeOnTheScreen();
     expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Analyse');
     expect(calls[0].prompt).toMatchObject({ mode: 'analyse', tone: null });
     // Nothing to shorten, make bolder or change the tone of in an analysis.
@@ -650,7 +650,7 @@ describe('Generate: history', () => {
     // The first prompt had nothing to remember.
     expect(calls[0].prompt.memory).toEqual([]);
 
-    await user.press(screen.getByRole('button', { name: 'Casual two' }));
+    await user.press(screen.getByRole('button', { name: /^Casual two/ }));
     await waitFor(() => expect(history.lines.find((line) => line.text === 'Casual two')?.copied_at).not.toBeNull());
 
     await anotherTone(user, 'Flirty');
@@ -771,7 +771,7 @@ describe('Generate: history', () => {
     const replied = { ...lines('Next'), sentLineStatus: 'replied' as const };
     const { history, user } = await setup({ outputs: [lines('Casual'), replied] });
     await firstLines(user);
-    await user.press(screen.getByRole('button', { name: 'Casual one' }));
+    await user.press(screen.getByRole('button', { name: /^Casual one/ }));
     const sent = () => history.lines.find((line) => line.text === 'Casual one');
     await waitFor(() => expect(sent()?.copied_at).not.toBeNull());
 
@@ -787,7 +787,7 @@ describe('Generate: history', () => {
   it('does not set a result when the screenshot does not show the line', async () => {
     const { history, user } = await setup({ outputs: [lines('Casual'), lines('Next')] });
     await firstLines(user);
-    await user.press(screen.getByRole('button', { name: 'Casual one' }));
+    await user.press(screen.getByRole('button', { name: /^Casual one/ }));
     await press(user, 'New lines');
     await screen.findByText('Next one');
     await waitFor(() => expect(history.interactions).toHaveLength(2));

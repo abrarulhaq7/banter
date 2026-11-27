@@ -4,6 +4,7 @@ export {
   createHistoryRepo,
   type HistoryRepo,
   type InteractionWithLines,
+  type SavedLine,
 } from './history-repo';
 export { MEMORY_SIZE, buildMemory, type Memory } from './memory';
 export { groupShots, tonesTried, type Shot, type ShotStatus } from './shots';

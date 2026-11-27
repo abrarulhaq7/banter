@@ -1063,6 +1063,20 @@ Added the same day, at your request (using the "Not for me" reasons):
   to change that"; Spicy after four "too much" marks gave "keeping my evening wide open
   for the right offer". `npm run check` passes (722 unit tests).
 
+Added the same day, at your request: **People > Saved.**
+
+- A **People | Saved** switch at the top of the People tab. Saved lists every line you
+  saved, for anyone, most recently saved first, each with who it was for, the tone and
+  when ("@her · Flirty · 2 hours ago"). Tap to copy; the bookmark takes it out of Saved.
+  Read again every time the tab is opened, after sending anything still waiting, so a line
+  saved a moment ago shows. One request returns the lines with the person and the tone
+  (checked against the real project with a throwaway account).
+- "Keep" is now called "Save" everywhere (the bookmark, the toast, the sheet on Results),
+  to match. A line's spoken label now includes its caption, so a screen reader hears who
+  a saved line was for (and test tools can see it).
+- The live history flow checks Saved after saving a line on Results. Passes against the
+  real project. `npm run check` passes (728 unit tests).
+
 Database and prompts (`supabase/paste-update.sql`, pasted by you on 2026-11-26 and checked: version 7 active, a reason saves, an unknown one is refused):
 
 - `20261127000600_line_feedback.sql`: a `feedback` column on lines, limited to those six

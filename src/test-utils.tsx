@@ -405,6 +405,28 @@ export function createFakeHistoryRepo() {
       }
       return [...groups.values()].sort((a, b) => b.generations - a.generations);
     }),
+    listSaved: jest.fn(async (limit) => {
+      maybeFail();
+      return lines
+        .filter((line) => line.kept_at)
+        .sort((a, b) => (b.kept_at ?? '').localeCompare(a.kept_at ?? ''))
+        .slice(0, limit)
+        .map((line) => {
+          const row = interactions.find((item) => item.id === line.interaction_id);
+          const person = people.find((item) => item.id === row?.person_id);
+          return {
+            id: line.id,
+            text: line.text,
+            keptAt: line.kept_at as string,
+            copiedAt: line.copied_at,
+            interactionId: line.interaction_id,
+            toneLabel: row?.tone_label ?? null,
+            modeId: row?.mode_id ?? 'story_reply',
+            personId: row?.person_id ?? null,
+            username: person?.username ?? null,
+          };
+        });
+    }),
     listRecent: jest.fn(async (limit) => {
       maybeFail();
       return [...interactions]

@@ -85,7 +85,7 @@ export function ResultsScreen() {
   };
   const toggleKeep = (line: KeptLine) => {
     haptics.tap();
-    toast.show(keptIds.has(line.id) ? 'Removed from kept' : 'Kept', 'info');
+    toast.show(keptIds.has(line.id) ? 'Removed from saved' : 'Saved', 'info');
     session.toggleKeep(line);
   };
 
@@ -233,7 +233,7 @@ export function ResultsScreen() {
             testID="kept-button"
             onPress={() => setSheet('kept')}
             accessibilityRole="button"
-            accessibilityLabel={`Kept lines: ${session.kept.length}`}
+            accessibilityLabel={`Saved lines: ${session.kept.length}`}
             style={[styles.keptButton, { backgroundColor: colors.accentSoft }]}>
             <Icon name="kept" size={16} color="accent" />
             <AppText variant="label" color="accent">
@@ -366,8 +366,8 @@ export function ResultsScreen() {
       <Sheet
         testID="kept-strip"
         visible={sheet === 'kept' && session.kept.length > 0}
-        title="Kept lines"
-        subtitle="They stay here while you try other tones on this screenshot."
+        title="Saved lines"
+        subtitle="They stay here while you try other tones, and all of them are under People > Saved."
         onClose={() => setSheet(null)}>
         {session.kept.map((line, position) => (
           <LineCard

@@ -4,7 +4,7 @@ import { createUserCache, dataErrorMessage, type Result, type UserCache } from '
 import type { PersonRow, UsageRow } from '@/lib/database.types';
 import { getSupabase } from '@/lib/supabase';
 
-import { createHistoryRepo, type HistoryRepo, type InteractionWithLines } from './history-repo';
+import { createHistoryRepo, type HistoryRepo, type InteractionWithLines, type SavedLine } from './history-repo';
 import { buildMemory, MEMORY_SIZE, type Memory } from './memory';
 import { buildTaste, NO_TASTE, type Taste } from './taste';
 import { createOutbox, type Outbox } from './outbox';
@@ -40,6 +40,8 @@ type HistoryContextValue = {
    * everyone. For the prompt. Empty when offline. `skip`: sets of the screenshot in hand.
    */
   taste: (skip?: ReadonlySet<string>) => Promise<Taste>;
+  /** Every line the user saved, with anyone, most recently saved first. Sends what is waiting first. */
+  savedLines: () => Promise<SavedLine[]>;
   /** The latest interactions with anyone, newest first: what "Personalise for me" reads. */
   recentInteractions: () => Promise<InteractionWithLines[]>;
   screenshotUrl: (path: string) => Promise<string | null>;
@@ -50,6 +52,8 @@ const HistoryContext = createContext<HistoryContextValue | null>(null);
 const NO_MEMORY: Memory = { items: [], awaitingReplyLineId: null };
 /** How many interactions the person timeline loads. */
 const TIMELINE_SIZE = 50;
+/** How many saved lines People > Saved shows. */
+const SAVED_SIZE = 200;
 /** How many interactions "Personalise for me" looks at. */
 const RECENT_SIZE = 60;
 /** How many interactions the taste for the prompt is read from. */
@@ -201,6 +205,12 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
 
     listInteractions: (personId) => source.repo.listInteractions(personId, TIMELINE_SIZE),
     recentInteractions: () => source.repo.listRecent(RECENT_SIZE),
+
+    async savedLines() {
+      // A line saved a moment ago may still be on its way: send it first, so it shows.
+      await flush();
+      return source.repo.listSaved(SAVED_SIZE);
+    },
 
     async taste(skip) {
       try {

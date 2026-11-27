@@ -10,6 +10,8 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
+  // In the app this runs each time the screen comes into view; here, once.
+  useFocusEffect: (effect: () => void | (() => void)) => jest.requireActual('react').useEffect(effect, []),
 }));
 
 beforeEach(() => {
@@ -373,5 +375,90 @@ describe('ShotScreen', () => {
     const { history, personId } = await seed();
     await renderWithData(<ShotScreen personId={personId} shotId="gone" />, { historyRepo: history.repo });
     expect(await screen.findByTestId('shot-missing')).toBeOnTheScreen();
+  });
+});
+
+describe('PeopleScreen: Saved', () => {
+  async function savedSetup(history: Fake) {
+    const copy = jest.fn(async () => true);
+    await renderWithData(<PeopleScreen copy={copy} />, { historyRepo: history.repo });
+    const user = userEvent.setup();
+    await user.press(screen.getByTestId('people-view-saved'));
+    return { copy, user };
+  }
+
+  it('lists every saved line, with who it was for and the tone, newest first', async () => {
+    const { history } = await seed();
+    // A second person, with a line saved later.
+    const other = await history.repo.upsertPerson('other.one', null, '2026-11-25T12:00:00Z');
+    await history.repo.saveInteraction({
+      id: 'x', person_id: other, mode_id: 'reply', tone_id: 'spicy', tone_label: 'Spicy',
+      screenshot_path: 'user/x.jpg', provider: 'gemini', model: 'm', created_at: '2026-11-25T12:00:00Z',
+    } as Parameters<Fake['repo']['saveInteraction']>[0]);
+    await history.repo.saveLines([{ id: 'x1', interaction_id: 'x', position: 1, text: 'Spicy saved', hook: null }] as Parameters<Fake['repo']['saveLines']>[0]);
+    await history.repo.patchLine('x1', { kept_at: '2026-11-25T12:05:00Z' });
+
+    await savedSetup(history);
+
+    expect(await screen.findByTestId('saved-list')).toBeOnTheScreen();
+    expect(screen.getByTestId('line-saved-0')).toHaveTextContent(/Spicy saved/);
+    expect(screen.getByText(/@other\.one · Spicy/)).toBeOnTheScreen();
+    expect(screen.getByTestId('line-saved-1')).toHaveTextContent(/Casual two/);
+    expect(screen.getByText(/@some\.one · Casual/)).toBeOnTheScreen();
+    // The people list is not shown meanwhile.
+    expect(screen.queryByTestId('person-card-0')).toBeNull();
+  });
+
+  it('copies a saved line when it is tapped, and marks it copied', async () => {
+    const { history } = await seed();
+    const { copy, user } = await savedSetup(history);
+
+    await user.press(await screen.findByTestId('line-saved-0'));
+
+    expect(copy).toHaveBeenCalledWith('Casual two');
+    expect(screen.getByTestId('line-status-saved-0')).toHaveTextContent('Copied');
+    await waitFor(() => expect(history.lines.find((line) => line.id === 'a2')?.copied_at).toBeTruthy());
+  });
+
+  it('takes a line out of Saved with its bookmark', async () => {
+    const { history } = await seed();
+    const { user } = await savedSetup(history);
+
+    await user.press(await screen.findByTestId('keep-saved-0'));
+
+    expect(await screen.findByTestId('saved-empty')).toBeOnTheScreen();
+    await waitFor(() => expect(history.lines.find((line) => line.id === 'a2')?.kept_at).toBeNull());
+  });
+
+  it('says so when nothing is saved yet', async () => {
+    await savedSetup(createFakeHistoryRepo());
+
+    expect(await screen.findByTestId('saved-empty')).toHaveTextContent(/Nothing saved yet/);
+  });
+
+  it('explains a failed load and loads again on Try again', async () => {
+    const { history } = await seed();
+    const real = history.repo.listSaved;
+    let calls = 0;
+    history.repo.listSaved = jest.fn(async (limit: number) => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('Network request failed');
+      return real(limit);
+    });
+    const { user } = await savedSetup(history);
+
+    expect(await screen.findByTestId('saved-error')).toHaveTextContent(/No connection/);
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByTestId('saved-list')).toBeOnTheScreen();
+  });
+
+  it('goes back to the people list', async () => {
+    const { history } = await seed();
+    const { user } = await savedSetup(history);
+    await screen.findByTestId('saved-list');
+
+    await user.press(screen.getByTestId('people-view-people'));
+
+    expect(await screen.findByTestId('person-card-0')).toBeOnTheScreen();
   });
 });

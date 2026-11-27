@@ -43,7 +43,9 @@ export function LineCard({
         testID={`line-${testKey}`}
         onPress={onCopy}
         accessibilityRole="button"
-        accessibilityLabel={text}
+        // The caption is inside the button, so it is part of what is read out (and of what
+        // test tools can see): the line first, then what it hooks to or who it was for.
+        accessibilityLabel={caption ? `${text}, ${caption}` : text}
         accessibilityHint="Copies this line"
         style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
         {caption ? (
@@ -74,7 +76,7 @@ export function LineCard({
         <IconButton
           testID={`keep-${testKey}`}
           icon={kept ? 'kept' : 'keep'}
-          label={kept ? 'Kept' : 'Keep'}
+          label={kept ? 'Remove from saved' : 'Save this line'}
           color={kept ? 'accent' : 'textMuted'}
           selected={kept}
           onPress={onToggleKeep}
