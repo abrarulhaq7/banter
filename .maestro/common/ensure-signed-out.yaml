@@ -23,6 +23,22 @@ appId: com.banterlines.app
       - tapOn:
           id: "back-button"
       - waitForAnimationToEnd
+# Opened on a screen above the tabs (left there by an earlier run, or by someone using the
+# simulator): go Back until the tabs show.
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: "tab-settings"
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "back-button"
+          commands:
+            - tapOn:
+                id: "back-button"
+            - waitForAnimationToEnd
 # Signed in and past onboarding: sign-out lives in the Settings tab.
 - runFlow:
     when:

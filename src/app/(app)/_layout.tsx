@@ -78,6 +78,7 @@ function AppNavigator() {
         <Stack.Screen name="people/[id]/[shot]" />
         <Stack.Screen name="tones/[key]" />
         <Stack.Screen name="tones/new" />
+        <Stack.Screen name="tones/learn" />
         <Stack.Screen name="tones/personalise" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="theme" />

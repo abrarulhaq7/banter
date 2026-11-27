@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phase 7 (Settings and polish) and Phase 7.5 (Bolder flirting) are done and committed (2026-11-26). Supabase is at prompt version 6 with Spicy. Next: learning a tone from an example (Phase 7.6).** Earlier phases are done and pushed.
+Status: **Phases 7, 7.5 and 7.6 are done and pushed (2026-11-26): settings and polish, bolder flirting (Spicy, About her, Who is she), and learning a tone from an example.** Supabase is at prompt version 6 with Spicy. Next: Phase 8, phone builds.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -955,6 +955,43 @@ Added the same day, at your request:
   Results landed the app back on Generate (with everything kept). The rerun passed, as did
   every earlier run of that step. Nothing in the app navigates on that tap. To watch for
   on the phone in Phase 8, like the lost first tap of Phase 5.5.
+
+### Phase 7.6 — Learn a tone from an example
+
+Added on 2026-11-26 at your request: you see a line you like on Instagram but do not know
+what to call its style.
+
+Built:
+
+- **My tones > Learn from an example** (also "From an example" in the Tones sheet on
+  Generate). Give it a screenshot of the comment or message, or paste the line.
+- **The AI finds the line** (up to three when the screenshot has several; chips switch
+  between them) and shows: the line, a name for the style, what makes it work in plain
+  words, the style written as a tone, and two lines in that style about other things.
+- **New tone** opens the tone editor filled in: the name, and the style with the example
+  after it, marked "never to be copied word for word" (an example teaches the move better
+  than a description alone). **Add to a tone** opens a chosen tone with the style added
+  to its description. Either way you see and can change the text before saving, and
+  nothing is saved until you press Save. After saving, Back goes to My tones.
+- **Limits:** it learns the structure, the wit and the confidence, never the example's
+  words. A crude example is either cleaned up or declined; harassment, threats, anything
+  aimed at someone who may be under 18, and screenshots with no line from a person are
+  declined with the reason.
+- No database change: a learned tone is saved like one you make yourself. One AI request
+  on your own key, with the screenshot or the text, like getting lines.
+
+Tested:
+
+- `npm run check` passes (671 unit tests).
+- With real Gemini answers: "you look like you'd steal my hoodie and then act like it was
+  always yours" became "Playful assumption", with new lines like "you look like you would
+  eat all the fries off my plate after saying you were not hungry". A crude line about
+  her body was declined, and so was a story screenshot with no message on it.
+- The live tones flow now also learns from a pasted line, saves it as a tone and finds it
+  in My tones. Passes against the real Supabase project.
+- Found on the way: the live flows assumed the app starts on a tab. If someone has used
+  the simulator in between, it can open on any screen; `common/ensure-signed-out.yaml`
+  now goes Back until the tabs show.
 
 ### Phase 8 — Phone builds
 

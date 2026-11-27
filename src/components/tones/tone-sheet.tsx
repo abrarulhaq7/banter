@@ -87,7 +87,19 @@ export function ToneSheet({ visible, title, subtitle, selectedKey, onSelect, onC
 
       <View style={styles.footer}>
         <Button
+          testID="tone-learn"
+          style={styles.fill}
+          variant="secondary"
+          icon="screenshot"
+          label="From an example"
+          onPress={() => {
+            close();
+            router.push('/tones/learn');
+          }}
+        />
+        <Button
           testID="tone-new"
+          style={styles.fill}
           variant="secondary"
           icon="add"
           label="New tone"
@@ -105,5 +117,6 @@ const styles = StyleSheet.create({
   // Shrinks to fit the sheet, and scrolls when there are many tones.
   scroll: { flexGrow: 0, flexShrink: 1 },
   list: { gap: spacing.sm },
-  footer: { paddingTop: spacing.xs },
+  footer: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs },
+  fill: { flex: 1 },
 });

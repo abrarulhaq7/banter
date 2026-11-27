@@ -116,9 +116,11 @@ onFlowComplete:
 - takeScreenshot: tone-new
 - tapOn:
     id: "tone-save"
-- extendedWaitUntil:
-    visible: "Dry, Yours, Deadpan and very short.*"
+- scrollUntilVisible:
+    element: "Dry, Yours, Deadpan and very short.*"
+    direction: DOWN
     timeout: 15000
+- waitForAnimationToEnd
 - takeScreenshot: tones-list-edited
 - runScript:
     file: ../scripts/check-tones.js
@@ -199,6 +201,8 @@ onFlowComplete:
 # --- Personalise for me --------------------------------------------------------------------
 - tapOn:
     id: "tab-tones"
+# The list keeps its scroll position from before; the Personalise row is at the top.
+- runFlow: ../common/scroll-to-top.yaml
 - tapOn:
     id: "personalise-row"
 - assertVisible:
@@ -265,6 +269,48 @@ onFlowComplete:
       PASSWORD: ${output.password}
       EXPECT: "reset"
 
+# --- Learn from an example: a pasted line becomes a tone -----------------------------------
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "learn-row"
+- assertVisible:
+    id: "learn-run"
+    enabled: false
+- tapOn:
+    id: "learn-text"
+- inputText: "you look like you'd steal my hoodie and then act like it was always yours"
+- runFlow: ../common/close-keyboard.yaml
+- takeScreenshot: learn-example
+- tapOn:
+    id: "learn-run"
+- extendedWaitUntil:
+    visible:
+      id: "learn-name"
+    timeout: 90000
+- assertVisible:
+    id: "learn-sample-0"
+- takeScreenshot: learn-result
+- tapOn:
+    id: "learn-save-new"
+# The editor opens filled in: the learned name, and the style with the example after it.
+- assertVisible:
+    id: "tone-definition"
+    text: ".*Example of the move, never to be copied word for word.*steal my hoodie.*"
+- takeScreenshot: learn-tone-editor
+- tapOn:
+    id: "tone-save"
+# Back on My tones, with the learned tone as one of the user's own.
+- extendedWaitUntil:
+    visible:
+      id: "tones-screen"
+    timeout: 15000
+- scrollUntilVisible:
+    element: ".*, Yours, .*steal my hoodie.*"
+    direction: DOWN
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: learn-saved
+
 # --- Restart: the own tone is still there --------------------------------------------------
 - stopApp
 - runFlow: ../common/open-app.yaml
@@ -275,8 +321,15 @@ onFlowComplete:
 - tapOn:
     id: "tab-tones"
 - extendedWaitUntil:
-    visible: "Dry, Yours, Deadpan and very short.*"
+    visible:
+      id: "tone-row-casual"
     timeout: 30000
+- scrollUntilVisible:
+    element: "Dry, Yours, Deadpan and very short.*"
+    direction: DOWN
+    timeout: 30000
+- waitForAnimationToEnd
+
 
 # Leave the app signed out for the next flow.
 - runFlow: ../common/go-to-settings.yaml

@@ -28,13 +28,17 @@ import { useTheme } from '@/theme';
 type ToneScreenProps = {
   /** The tone to change. Left out to make a new one. */
   toneKey?: string;
+  /** A new tone's name and description to start from (Learn from an example). */
+  draft?: { label?: string; definition?: string };
+  /** A style to add to the tone's description (Learn from an example). */
+  append?: string;
 };
 
 /**
  * One tone: its definition, and its name when it is the user's own. Save is pinned to the
  * bottom. One of Banter's tones can be put back as Banter wrote it; an own tone can be deleted.
  */
-export function ToneScreen({ toneKey }: ToneScreenProps) {
+export function ToneScreen({ toneKey, draft, append }: ToneScreenProps) {
   const router = useRouter();
   const { colors } = useTheme();
   const prompts = usePrompts();
@@ -55,10 +59,12 @@ export function ToneScreen({ toneKey }: ToneScreenProps) {
       </Screen>
     );
   }
-  return <ToneForm tone={tone} />;
+  return <ToneForm tone={tone} draft={draft} append={append} />;
 }
 
-function ToneForm({ tone }: { tone: Tone | undefined }) {
+type ToneFormProps = Pick<ToneScreenProps, 'draft' | 'append'> & { tone: Tone | undefined };
+
+function ToneForm({ tone, draft, append }: ToneFormProps) {
   const router = useRouter();
   const toast = useToast();
   const prompts = usePrompts();
@@ -67,8 +73,11 @@ function ToneForm({ tone }: { tone: Tone | undefined }) {
   const visibility = useToneVisibility();
   const shownOnGenerate = tone ? !visibility.hidden.has(tone.key) : true;
 
-  const [label, setLabel] = useState(tone?.label ?? '');
-  const [definition, setDefinition] = useState(tone?.definition ?? '');
+  const [label, setLabel] = useState(tone?.label ?? draft?.label ?? '');
+  const [definition, setDefinition] = useState(() => {
+    if (tone && append) return `${tone.definition.trim()} ${append.trim()}`;
+    return tone?.definition ?? draft?.definition ?? '';
+  });
   const [showErrors, setShowErrors] = useState(false);
   const [asking, setAsking] = useState<null | 'reset' | 'delete'>(null);
   const [busy, setBusy] = useState(false);

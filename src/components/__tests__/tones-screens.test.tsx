@@ -1,5 +1,6 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 
+import { LearnToneScreen } from '@/components/tones/learn-tone-screen';
 import { PersonaliseScreen } from '@/components/tones/personalise-screen';
 import { ToneScreen } from '@/components/tones/tone-screen';
 import { TonesScreen } from '@/components/tones/tones-screen';
@@ -17,13 +18,15 @@ import {
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
 }));
 
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockReplace.mockClear();
 });
 
 const FLIRTY = makeUserPrompt({ id: 'prompt-flirty', tone_id: 'flirty', content: 'Dry and teasing. Never sexual.' });
@@ -487,5 +490,160 @@ describe('PersonaliseScreen', () => {
       await user.press(screen.getByRole('button', { name: 'Try again' }));
     }
     expect(await screen.findByTestId('personalise-evidence')).toBeOnTheScreen();
+  });
+});
+
+describe('LearnToneScreen', () => {
+  const LEARNED = {
+    kind: 'learned' as const,
+    styles: [
+      {
+        line: "you look like you'd steal my hoodie",
+        name: 'Playful assumption',
+        whyItWorks: 'It guesses a cute habit of hers.',
+        definition: 'Make a confident, funny guess about her habits. Lowercase, no emoji.',
+        samples: ['you look like you take all the fries', 'you definitely argue about movie endings'],
+      },
+      {
+        line: 'ok but who gave you permission',
+        name: 'Mock outrage',
+        whyItWorks: 'It pretends to be offended by how good it is.',
+        definition: 'Act playfully offended by something good. Short.',
+        samples: ['who allowed this', 'rude honestly'],
+      },
+    ],
+  };
+  const SHOT = {
+    ok: true as const,
+    screenshot: { previewUri: 'file:///shot.jpg', image: { base64: 'QUJD', mediaType: 'image/jpeg' as const }, width: 10, height: 20 },
+  };
+
+  async function setup(answer: unknown = LEARNED, keys = [makeKey()]) {
+    const learn = jest.fn(async () => {
+      if (answer instanceof EngineError) throw answer;
+      return { output: answer, usedKey: { id: 'key-1', label: 'Main', provider: 'gemini' as const, model: 'm' }, durationMs: 1 };
+    });
+    const keysRepo = createFakeKeysRepo(keys);
+    await renderWithData(
+      <LearnToneScreen
+        deps={{
+          learn: learn as never,
+          getLatestScreenshot: jest.fn(async () => SHOT),
+          pickFromGallery: jest.fn(async () => SHOT),
+        }}
+      />,
+      { keysRepo: keysRepo.repo, promptsRepo: createFakePromptsRepo([NERDY]).repo },
+    );
+    await waitFor(() => expect(keysRepo.repo.list).toHaveBeenCalled());
+    return { learn, user: userEvent.setup() };
+  }
+
+  it('needs an example before it can ask', async () => {
+    await setup();
+
+    expect(screen.getByTestId('learn-run')).toBeDisabled();
+  });
+
+  it('learns from a pasted line and shows what makes it work', async () => {
+    const { learn, user } = await setup();
+
+    await user.type(screen.getByTestId('learn-text'), "you look like you'd steal my hoodie");
+    await user.press(screen.getByTestId('learn-run'));
+
+    expect(learn).toHaveBeenCalledWith(expect.objectContaining({ input: { kind: 'text', text: "you look like you'd steal my hoodie" } }));
+    expect(await screen.findByTestId('learn-name')).toHaveTextContent('Playful assumption');
+    expect(screen.getByTestId('learn-why')).toHaveTextContent('It guesses a cute habit of hers.');
+    expect(screen.getByTestId('learn-example-line')).toHaveTextContent("“you look like you'd steal my hoodie”");
+    expect(screen.getByTestId('learn-sample-0')).toHaveTextContent('you look like you take all the fries');
+  });
+
+  it('learns from a screenshot, and switches between the lines it found', async () => {
+    const { learn, user } = await setup();
+
+    await user.press(screen.getByTestId('learn-latest'));
+    expect(await screen.findByTestId('learn-preview')).toBeOnTheScreen();
+    await user.press(screen.getByTestId('learn-run'));
+
+    expect(learn).toHaveBeenCalledWith(expect.objectContaining({ input: { kind: 'image', image: SHOT.screenshot.image } }));
+    await user.press(await screen.findByTestId('learn-line-1'));
+    expect(screen.getByTestId('learn-name')).toHaveTextContent('Mock outrage');
+  });
+
+  it('opens a new tone filled in with the style and the example', async () => {
+    const { user } = await setup();
+    await user.type(screen.getByTestId('learn-text'), 'x');
+    await user.press(screen.getByTestId('learn-run'));
+
+    await user.press(await screen.findByTestId('learn-save-new'));
+
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/tones/new',
+      params: {
+        label: 'Playful assumption',
+        definition:
+          'Make a confident, funny guess about her habits. Lowercase, no emoji. Example of the move, never to be copied word for word: "you look like you\'d steal my hoodie"',
+      },
+    });
+  });
+
+  it('adds the style to a tone the user picks', async () => {
+    const { user } = await setup();
+    await user.type(screen.getByTestId('learn-text'), 'x');
+    await user.press(screen.getByTestId('learn-run'));
+
+    await user.press(await screen.findByTestId('learn-add-to'));
+    await user.press(screen.getByTestId('learn-add-spicy'));
+
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/tones/[key]',
+      params: { key: 'spicy', append: 'Make a confident, funny guess about her habits. Lowercase, no emoji.' },
+    });
+  });
+
+  it('says why when there is nothing to learn, and can start over', async () => {
+    const { user } = await setup({ kind: 'declined', reason: 'There is no message in this screenshot.' });
+    await user.type(screen.getByTestId('learn-text'), 'x');
+    await user.press(screen.getByTestId('learn-run'));
+
+    expect(await screen.findByTestId('learn-declined')).toHaveTextContent(/There is no message/);
+    expect(screen.queryByTestId('learn-save-new')).toBeNull();
+    await user.press(screen.getByTestId('learn-again'));
+    expect(screen.getByTestId('learn-text')).toBeOnTheScreen();
+  });
+
+  it('explains a failed request and keeps the example', async () => {
+    const { user } = await setup(new EngineError('no_internet'));
+    await user.type(screen.getByTestId('learn-text'), 'hello');
+    await user.press(screen.getByTestId('learn-run'));
+
+    expect(await screen.findByTestId('learn-error')).toBeOnTheScreen();
+    expect(screen.getByTestId('learn-text')).toHaveDisplayValue('hello');
+  });
+
+  it('needs a working key', async () => {
+    await setup(LEARNED, [makeKey({ status: 'invalid' })]);
+
+    expect(await screen.findByTestId('learn-no-key')).toBeOnTheScreen();
+  });
+});
+
+describe('ToneScreen: started from an example', () => {
+  it('opens a new tone filled in', async () => {
+    await renderWithData(<ToneScreen draft={{ label: 'Playful assumption', definition: 'Guess her habits.' }} />);
+
+    expect(await screen.findByTestId('tone-name')).toHaveDisplayValue('Playful assumption');
+    expect(screen.getByTestId('tone-definition')).toHaveDisplayValue('Guess her habits.');
+  });
+
+  it('adds a learned style to an existing tone, to be saved after a look', async () => {
+    const prompts = createFakePromptsRepo([]);
+    await renderWithData(<ToneScreen toneKey="casual" append="Guess her habits." />, { promptsRepo: prompts.repo });
+
+    expect(await screen.findByTestId('tone-definition')).toHaveDisplayValue(`${DEFAULT_TONES.casual.definition} Guess her habits.`);
+    expect(prompts.repo.addToneVersion).not.toHaveBeenCalled();
+    await userEvent.setup().press(screen.getByTestId('tone-save'));
+    await waitFor(() =>
+      expect(prompts.repo.addToneVersion).toHaveBeenCalledWith('casual', `${DEFAULT_TONES.casual.definition} Guess her habits.`),
+    );
   });
 });

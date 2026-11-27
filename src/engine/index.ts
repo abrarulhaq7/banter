@@ -8,6 +8,18 @@ export {
 export { EngineError, isEngineError, type EngineErrorKind } from './errors';
 export { askWithKeys, generate, type AskOptions, type Asked, type GenerateOptions, type KeyProblem } from './generate';
 export {
+  LEARNED_DEFINITION_MAX,
+  LEARNED_NAME_MAX,
+  buildLearnPrompt,
+  learnTone,
+  learnedToneText,
+  parseLearnOutput,
+  type LearnInput,
+  type LearnOptions,
+  type LearnOutput,
+  type LearnedStyle,
+} from './learn-tone';
+export {
   SUGGESTED_DEFINITION_MAX,
   buildPersonalisePrompt,
   evidenceCount,

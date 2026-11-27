@@ -45,6 +45,13 @@ export function TonesScreen() {
         subtitle="The AI suggests changes from how your lines went."
         onPress={() => router.push('/tones/personalise')}
       />
+      <ListRow
+        testID="learn-row"
+        icon="screenshot"
+        title="Learn from an example"
+        subtitle="Show it a line you liked. It makes a tone that writes like that."
+        onPress={() => router.push('/tones/learn')}
+      />
 
       <View style={styles.list}>
         {tones.map((tone) => (
