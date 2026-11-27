@@ -16,8 +16,9 @@ const KIND_LABEL: Record<Tone['kind'], string | undefined> = {
 /** The My tones tab: every tone as one short row. A row opens the tone to change it. */
 export function TonesScreen() {
   const router = useRouter();
-  const { tones, loadError, refresh } = usePrompts();
-  const { hidden } = useToneVisibility();
+  const { loadError, refresh } = usePrompts();
+  // In the user's order, the same as on Generate (set with the arrows in the Tones sheet).
+  const { hidden, ordered: tones } = useToneVisibility();
 
   // Opening the tab is a good moment to pick up a default that was changed in Supabase.
   useEffect(() => {

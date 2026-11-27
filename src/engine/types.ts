@@ -92,11 +92,11 @@ export type PromptInput = {
   /** Reply only: where he wants the chat to go. Left out, or keep_going, means as usual. */
   direction?: Direction | null;
   /**
-   * What he wants the lines to be about ("her nails", "the café"), or left out for the AI's
-   * own picks. With a focus the set has five lines: three about it, then two of its own.
-   * Not used for Analyse.
+   * What he wants the lines to be about, one to three things ("her nails", "her hair"), or
+   * left out for the AI's own picks. With a focus the set has five lines: three about it
+   * (at least one about each), then two of its own. Not used for Analyse.
    */
-  focus?: string | null;
+  focus?: readonly string[] | null;
   /** Lines he chose before, with anyone, best first: his taste and voice. */
   likedLines?: string[];
   /** Lines he marked as not for him, and why. */

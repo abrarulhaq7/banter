@@ -142,12 +142,14 @@ onFlowComplete:
 - assertVisible:
     id: "focus-sheet"
 - tapOn:
-    id: "focus-suggestion-her-nails"
+    id: "focus-pill-her-nails"
+- tapOn:
+    id: "focus-pill-her-hair"
 - tapOn:
     id: "focus-save"
 - assertVisible:
     id: "focus-row"
-    text: ".*her nails.*"
+    text: ".*her nails, her hair.*"
 - tapOn:
     id: "focus-row"
 - tapOn:

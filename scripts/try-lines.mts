@@ -20,8 +20,9 @@
  *   --her "free text"                 the sender's note about her ("close friend, she flirts back")
  *   --direction keep_going|heat_up|ask_out   Reply only: where to take the chat
  *   --language english|roman_urdu     the language of the lines (default english)
- *   --focus "free text"               what the lines should be about ("her nails"): five lines,
- *                                     the first three about it
+ *   --focus "free text"               what the lines should be about, up to three, comma
+ *                                     separated ("her nails, her hair"): five lines, the
+ *                                     first three about them
  *   --delay <ms>                      wait between requests (free tiers allow few per minute)
  *   --show-prompt                     print the exact prompt that is sent
  *   --json                            print the raw result as JSON
@@ -214,7 +215,7 @@ for (const file of files) {
       direction: direction === 'heat_up' || direction === 'ask_out' ? direction : null,
       language: language === 'roman_urdu' ? 'roman_urdu' : null,
       profile: typeof about === 'string' && about ? { textingStyle: about } : null,
-      focus: typeof focus === 'string' && focus ? focus : null,
+      focus: typeof focus === 'string' && focus ? focus.split(',') : null,
     };
 
     const heading = [
@@ -222,7 +223,7 @@ for (const file of files) {
       DEFAULT_MODES[mode].label,
       tone ? DEFAULT_TONES[tone].label : null,
       context ? `context: ${context}` : null,
-      prompt.focus ? `focus: ${prompt.focus}` : null,
+      prompt.focus ? `focus: ${prompt.focus.map((item) => item.trim()).join(' + ')}` : null,
     ]
       .filter(Boolean)
       .join('  |  ');

@@ -162,13 +162,13 @@ describe('sessionReducer', () => {
   it('keeps a focus for one screenshot: a new screenshot, or Clear, starts without one', () => {
     const focused = play([
       { type: 'screenshotReady', screenshot: screenshot('a') },
-      { type: 'setFocus', focus: 'her nails' },
+      { type: 'setFocus', focus: ['her nails'] },
     ]);
-    expect(focused.focus).toBe('her nails');
+    expect(focused.focus).toEqual(['her nails']);
 
-    expect(sessionReducer(focused, { type: 'screenshotReady', screenshot: screenshot('b') }).focus).toBeNull();
-    expect(sessionReducer(focused, { type: 'clear' }).focus).toBeNull();
-    expect(sessionReducer(focused, { type: 'setFocus', focus: null }).focus).toBeNull();
+    expect(sessionReducer(focused, { type: 'screenshotReady', screenshot: screenshot('b') }).focus).toEqual([]);
+    expect(sessionReducer(focused, { type: 'clear' }).focus).toEqual([]);
+    expect(sessionReducer(focused, { type: 'setFocus', focus: [] }).focus).toEqual([]);
   });
 
   it('marks why a line was not for the user, and takes it back', () => {
@@ -294,11 +294,15 @@ describe('setLabel', () => {
   });
 
   it('says what a set was focused on, shortened on the chips', () => {
-    const focused = { toneLabel: 'Flirty', modeLabel: 'Story reply', adjustment: 'shorter' as const, focus: 'her nails' };
+    const focused = { toneLabel: 'Flirty', modeLabel: 'Story reply', adjustment: 'shorter' as const, focus: ['her nails'] };
     expect(setHeading(focused)).toBe('Flirty · Story reply · About her nails · Shorter');
     expect(setChipLabel(focused)).toBe('Flirty · her nails · Shorter');
-    expect(setChipLabel({ ...focused, adjustment: null, focus: 'the rooftop café downtown' })).toBe(
+    expect(setChipLabel({ ...focused, adjustment: null, focus: ['the rooftop café downtown'] })).toBe(
       'Flirty · the rooftop c…',
     );
+    // Two or three focuses: all of them in the heading, the first and a count on the chip.
+    const two = { ...focused, adjustment: null, focus: ['her nails', 'her hair'] };
+    expect(setHeading(two)).toBe('Flirty · Story reply · About her nails and her hair');
+    expect(setChipLabel(two)).toBe('Flirty · her nails +1');
   });
 });

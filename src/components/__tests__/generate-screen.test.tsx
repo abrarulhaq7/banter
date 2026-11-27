@@ -1149,6 +1149,43 @@ describe('Generate: choosing which tones show', () => {
     );
   });
 
+  it('moves a tone up or down in the Tones sheet, so the first ones show first, and saves the order', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { save_screenshots: false } }));
+    const { user } = await setup({ profile });
+
+    await user.press(screen.getByTestId('tone-all'));
+    // The first can go no higher, the last no lower.
+    expect(screen.getByTestId('tone-up-casual')).toBeDisabled();
+    expect(screen.getByTestId('tone-down-sincere')).toBeDisabled();
+    await user.press(screen.getByTestId('tone-up-flirty'));
+    await user.press(screen.getByTestId('tone-up-flirty'));
+    await user.press(screen.getByTestId('sheet-close'));
+
+    expect(chips().slice(0, 3)).toEqual(['flirty', 'casual', 'funny']);
+    await waitFor(() =>
+      expect(profile.row().settings).toMatchObject({
+        save_screenshots: false,
+        tone_order: ['flirty', 'casual', 'funny', 'spicy', 'confident', 'safe', 'teasing', 'mysterious', 'sincere'],
+      }),
+    );
+  });
+
+  it('keeps his order next time, with tones he did not place after the ones he did', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { tone_order: ['sincere', 'casual'] } }));
+    await setup({ profile });
+
+    await waitFor(() => expect(chips().slice(0, 3)).toEqual(['sincere', 'casual', 'funny']));
+  });
+
+  it('keeps Tones and Help me pick in one small pill of icons', async () => {
+    await setup();
+
+    expect(screen.getByTestId('tone-tools')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Tones' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Help me pick' })).toBeOnTheScreen();
+    expect(screen.queryByText('Help me pick')).toBeNull();
+  });
+
   it('keeps hidden tones hidden next time, and shows one again with its eye', async () => {
     const profile = createFakeProfileRepo(makeProfile({ settings: { hidden_tones: ['funny', 'safe'] } }));
     const { user } = await setup({ profile });
@@ -1491,8 +1528,10 @@ describe('Generate: focus on', () => {
       lines: [...three.lines, { text: `${prefix} four`, hook: 'the spoon' }, { text: `${prefix} five`, hook: 'the window' }],
     };
   };
+  const settingsOf = (profile: ReturnType<typeof createFakeProfileRepo>) =>
+    profile.row().settings as { focus_pills?: string[] };
 
-  it('asks for lines about what he picked, and shows all five', async () => {
+  it('asks for lines about the pills he picked, and shows all five', async () => {
     const { calls, user } = await setup({ outputs: [fiveLines('Nails')] });
     await press(user, 'Use latest');
     await screen.findByTestId('screenshot-preview');
@@ -1501,16 +1540,62 @@ describe('Generate: focus on', () => {
     expect(screen.getByTestId('focus-sheet')).toBeOnTheScreen();
     // How you know her is not set, so she counts as a stranger: the sheet says looks stay off limits.
     expect(screen.getByText(/With a stranger, lines stay off her looks/)).toBeOnTheScreen();
-    await user.press(screen.getByTestId('focus-suggestion-her-nails'));
-    expect(screen.getByTestId('focus-input')).toHaveDisplayValue('her nails');
+    await user.press(screen.getByTestId('focus-pill-her-nails'));
+    await user.press(screen.getByTestId('focus-pill-her-hair'));
+    expect(screen.getByTestId('focus-save')).toHaveTextContent('Use these 2');
     await user.press(screen.getByTestId('focus-save'));
     expect(screen.queryByTestId('focus-sheet')).toBeNull();
-    expect(screen.getByTestId('focus-row')).toHaveTextContent(/her nails/);
+    expect(screen.getByTestId('focus-row')).toHaveTextContent(/her nails, her hair/);
 
     await press(user, 'Get lines');
     expect(await screen.findByText('Nails five')).toBeOnTheScreen();
-    expect(calls[0].prompt.focus).toBe('her nails');
-    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Story reply · About her nails');
+    expect(calls[0].prompt.focus).toEqual(['her nails', 'her hair']);
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent(
+      'Casual · Story reply · About her nails and her hair',
+    );
+  });
+
+  it('takes three at most; a tap takes one off again', async () => {
+    const { user } = await setup();
+    await user.press(screen.getByTestId('focus-row'));
+    for (const pill of ['her-hair', 'her-nails', 'her-dress', 'the-food']) {
+      await user.press(screen.getByTestId(`focus-pill-${pill}`));
+    }
+
+    expect(screen.getByTestId('focus-pill-the-food')).not.toBeSelected();
+    expect(screen.getByTestId('focus-hint')).toHaveTextContent(/That is 3, the most/);
+    await user.press(screen.getByTestId('focus-pill-her-hair'));
+    await user.press(screen.getByTestId('focus-pill-the-food'));
+    expect(screen.getByTestId('focus-pill-the-food')).toBeSelected();
+    expect(screen.getByTestId('focus-pill-her-hair')).not.toBeSelected();
+  });
+
+  it('adds his own pill for next time, and removes one he holds once he says yes', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { quick_questions: false } }));
+    const { user } = await setup({ profile });
+    await user.press(screen.getByTestId('focus-row'));
+
+    await user.type(screen.getByTestId('focus-input'), 'the gym');
+    await user.press(screen.getByTestId('focus-add'));
+    expect(screen.getByTestId('focus-pill-the-gym')).toBeSelected();
+    expect(screen.getByTestId('focus-input')).toHaveDisplayValue('');
+    await waitFor(() => expect(settingsOf(profile).focus_pills?.[0]).toBe('the gym'));
+
+    // Holding a pill asks first; Keep leaves it.
+    await user.longPress(screen.getByTestId('focus-pill-her-pet'));
+    expect(screen.getByTestId('focus-remove-confirm')).toHaveTextContent(/Remove "her pet" from your pills\?/);
+    await user.press(screen.getByTestId('focus-remove-keep'));
+    expect(screen.getByTestId('focus-pill-her-pet')).toBeOnTheScreen();
+
+    await user.longPress(screen.getByTestId('focus-pill-her-pet'));
+    await user.press(screen.getByTestId('focus-remove-yes'));
+    expect(screen.queryByTestId('focus-pill-her-pet')).toBeNull();
+    await waitFor(() => expect(settingsOf(profile).focus_pills).not.toContain('her pet'));
+
+    // Next time his own pill is there.
+    await user.press(screen.getByTestId('focus-save'));
+    await user.press(screen.getByTestId('focus-row'));
+    expect(screen.getByTestId('focus-pill-the-gym')).toBeOnTheScreen();
   });
 
   it('keeps the focus when a set is adjusted, and Banter chooses again once it is cleared', async () => {
@@ -1519,13 +1604,14 @@ describe('Generate: focus on', () => {
     await screen.findByTestId('screenshot-preview');
     await user.press(screen.getByTestId('focus-row'));
     await user.type(screen.getByTestId('focus-input'), 'the pho');
+    await user.press(screen.getByTestId('focus-add'));
     await user.press(screen.getByTestId('focus-save'));
     await press(user, 'Get lines');
     await screen.findByText('First five');
 
     await press(user, 'Shorter');
     await screen.findByText('Shorter five');
-    expect(calls[1].prompt.focus).toBe('the pho');
+    expect(calls[1].prompt.focus).toEqual(['the pho']);
     expect(calls[1].prompt.adjustment?.previousLines).toHaveLength(5);
 
     await press(user, 'Back');
@@ -1534,7 +1620,7 @@ describe('Generate: focus on', () => {
     expect(screen.getByTestId('focus-row')).not.toHaveTextContent(/the pho/);
     await press(user, 'Get lines');
     await screen.findByText('Free three');
-    expect(calls[2].prompt.focus).toBeNull();
+    expect(calls[2].prompt.focus).toEqual([]);
   });
 
   it('starts each new screenshot without a focus, and does not say "stranger" when they know each other', async () => {
@@ -1546,7 +1632,7 @@ describe('Generate: focus on', () => {
 
     await user.press(screen.getByTestId('focus-row'));
     expect(screen.queryByText(/With a stranger/)).toBeNull();
-    await user.press(screen.getByTestId('focus-suggestion-her-dress'));
+    await user.press(screen.getByTestId('focus-pill-her-dress'));
     await user.press(screen.getByTestId('focus-save'));
     expect(screen.getByTestId('focus-row')).toHaveTextContent(/her dress/);
 

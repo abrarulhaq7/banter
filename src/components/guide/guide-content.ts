@@ -162,7 +162,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       { name: 'Mysterious', text: 'Says less and leaves her curious.' },
       { name: 'Sincere', text: 'Warm and genuine.' },
     ],
-    note: "Tap Tones on Generate to see them all, hide the ones you don't use, or pick a hidden one. Make your own in My tones.",
+    note: "Tap the Tones icon on Generate to see them all: the arrows put your favourites first, the eye hides the ones you don't use, and you can pick a hidden one. Make your own in My tones.",
   },
   {
     id: 'how-you-know-her',
@@ -204,7 +204,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
       {
         name: 'Focus on',
-        text: "Name something in the screenshot (her nails, her dress, the café) and you get 5 lines: 3 about it and 2 of Banter's own picks. With a stranger they still stay off her looks.",
+        text: "Pick up to 3 things in the screenshot (her nails, her dress, the café) and you get 5 lines: 3 about them and 2 of Banter's own picks. Add your own pills; hold one to remove it. With a stranger the lines still stay off her looks.",
       },
       { name: 'English / Roman Urdu', text: 'One tap on Generate switches the language of the lines.' },
       {

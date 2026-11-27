@@ -38,13 +38,14 @@ const CONTEXT_SHORT: Record<ContextId, string> = {
 export const NOTED_PEOPLE_MAX = 20;
 export const NOTED_NOTE_MAX = 300;
 
-/** The longest focus a request carries ("her nails", "the café"). */
+/** The longest focus a request carries ("her nails", "the café"), and how many it may carry. */
 export const FOCUS_MAX = 60;
+export const FOCUSES_MAX = 3;
 /** A set with a focus: how many lines in all, and how many of them are about the focus. */
 export const FOCUSED_SET_LINES = 5;
 export const FOCUS_LINES = 3;
 
-/** The focus as it goes into a request: one line, no quotes, not too long. Null when empty. */
+/** One focus as it goes into a request: one line, no quotes, not too long. Null when empty. */
 export function cleanFocus(focus: string | null | undefined): string | null {
   const clean = (focus ?? '')
     .replace(/["“”]/g, '')
@@ -55,9 +56,37 @@ export function cleanFocus(focus: string | null | undefined): string | null {
   return clean || null;
 }
 
+/** The focuses of a request, each cleaned: no blanks, no repeats, at most three. */
+export function cleanFocuses(focuses: readonly (string | null | undefined)[] | null | undefined): string[] {
+  const kept: string[] = [];
+  for (const focus of focuses ?? []) {
+    const clean = cleanFocus(focus);
+    if (clean && !kept.some((item) => item.toLowerCase() === clean.toLowerCase())) kept.push(clean);
+    if (kept.length === FOCUSES_MAX) break;
+  }
+  return kept;
+}
+
+/** "her nails", "her nails and her hair", "her nails, her hair and the gym". */
+export function focusList(focuses: readonly string[]): string {
+  if (focuses.length <= 1) return focuses[0] ?? '';
+  return `${focuses.slice(0, -1).join(', ')} and ${focuses[focuses.length - 1]}`;
+}
+
 /** How many lines a request asks for: five with a focus (three of them about it), else three. */
 export function linesWanted(input: Pick<PromptInput, 'mode' | 'focus'>): number {
-  return input.mode !== 'analyse' && cleanFocus(input.focus) ? FOCUSED_SET_LINES : MAX_LINES;
+  return input.mode !== 'analyse' && cleanFocuses(input.focus).length > 0 ? FOCUSED_SET_LINES : MAX_LINES;
+}
+
+/** How lines 1 to 3 share out between one, two or three focuses. */
+function focusSplit(focuses: string[], what: string): string {
+  if (focuses.length === 1) {
+    return `Lines 1 to 3 are about ${what}. Hook each one to it, each from a different angle and with a different move.`;
+  }
+  if (focuses.length === 2) {
+    return `Lines 1 to 3 are about ${what}: at least one line about each, hooked to it, each with a different move.`;
+  }
+  return `Lines 1 to 3 are one about each, in this order: ${what}. Hook each one to it, each with a different move.`;
 }
 
 /**
@@ -65,11 +94,12 @@ export function linesWanted(input: Pick<PromptInput, 'mode' | 'focus'>): number 
  * direction, adjustments), so the number of lines it sets is the last word, and it says
  * outright that no focus can break a rule: a stranger still gets nothing about her looks.
  */
-function focusText(focus: string): string {
-  return `He wants lines about "${focus}". Whatever the sections above say about how many lines to write, write five this time:
-- Lines 1 to 3 are about "${focus}". Hook each one to it, each from a different angle and with a different move. If you cannot see it in the screenshot, take it as the topic he wants to bring up.
+function focusText(focuses: string[]): string {
+  const what = focusList(focuses.map((focus) => `"${focus}"`));
+  return `He wants lines about ${what}. Whatever the sections above say about how many lines to write, write five this time:
+- ${focusSplit(focuses, what)} If you cannot see one in the screenshot, take it as a topic he wants to bring up.
 - Lines 4 and 5 are your own picks: other things in the screenshot, as you would choose without a focus.
-Everything above holds for all five lines: the tone, how they know each other and every rule. The focus never overrides a rule. If the rules do not allow comments on her looks with this person, clothes and accessories are fine only as her choice or a find, and her face, hair, makeup and body are off limits even when they are the focus: then write lines 1 to 3 about something connected to it that the rules allow (a caption or song about it, the place, the moment, what she is doing), never about the thing itself.`;
+Everything above holds for all five lines: the tone, how they know each other and every rule. The focus never overrides a rule. If the rules do not allow comments on her looks with this person, clothes and accessories are fine only as her choice or a find, and her face, hair, makeup and body are off limits even when they are the focus: then its lines are about something connected to it that the rules allow (a caption or song about it, the place, the moment, what she is doing), never about the thing itself.`;
 }
 
 const BOLDNESS_FROM_NOTE =
@@ -188,16 +218,20 @@ function finalCheck(input: PromptInput): string {
     input.context === 'know_her' || input.context === 'already_talking'
       ? null
       : '- Nothing about her face, hair, makeup, body, expression or pose: they do not know each other well enough.';
-  const focus = cleanFocus(input.focus);
+  const focuses = cleanFocuses(input.focus);
+  const what = focusList(focuses.map((focus) => `"${focus}"`));
   return [
     '- Each line hooks to something you can really see, and makes sense at once.',
-    focus
-      ? `- Five lines: 1 to 3 about "${focus}", 4 and 5 your own picks about other things. Each uses a move that fits the tone, and lines 1 to 3 use three different moves.`
+    focuses.length > 0
+      ? `- Five lines: 1 to 3 about ${what}${focuses.length > 1 ? ', each of them at least once' : ''}, 4 and 5 your own picks about other things. Each uses a move that fits the tone, and lines 1 to 3 use three different moves.`
       : '- Each line uses a move that fits the tone, and the three moves are different.',
     `- No line uses any of these words: ${AI_WORDS.join(', ')}.`,
     looks,
-    looks && focus
-      ? `- The focus does not lift that: if "${focus}" is her face, hair, makeup or body, lines 1 to 3 are about what is around it instead, and say nothing about the thing itself.`
+    looks && focuses.length === 1
+      ? `- The focus does not lift that: if ${what} is her face, hair, makeup or body, lines 1 to 3 are about what is around it instead, and say nothing about the thing itself.`
+      : null,
+    looks && focuses.length > 1
+      ? `- The focus does not lift that: any of ${what} that is her face, hair, makeup or body gets lines about what is around it instead, never about the thing itself.`
       : null,
   ]
     .filter(Boolean)
@@ -278,8 +312,8 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
       : ADJUSTMENT[input.adjustment.kind];
     parts.push(section('Lines just shown', `${previous}\n\n${ask}`));
   }
-  const focus = input.mode === 'analyse' ? null : cleanFocus(input.focus);
-  if (focus) parts.push(section(`Focus: ${focus}`, focusText(focus)));
+  const focuses = input.mode === 'analyse' ? [] : cleanFocuses(input.focus);
+  if (focuses.length > 0) parts.push(section(`Focus: ${focuses.join(', ')}`, focusText(focuses)));
 
   if (input.language === 'roman_urdu') {
     parts.push(

@@ -4,6 +4,7 @@ export { BarButton, type BarButtonProps } from './bar-button';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps, type CardVariant } from './card';
 export { Chip, type ChipProps } from './chip';
+export { IconChip, type IconChipItem, type IconChipProps } from './icon-chip';
 export { ChipRow } from './chip-row';
 export { Dialog, type DialogProps } from './dialog';
 export { EmptyState, type EmptyStateProps } from './empty-state';

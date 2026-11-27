@@ -14,22 +14,36 @@ export type ChipProps = {
   icon?: IconName;
   selected?: boolean;
   onPress?: () => void;
+  /** Holding the chip, for example to remove it. Say what it does in `longPressHint`. */
+  onLongPress?: () => void;
+  longPressHint?: string;
   disabled?: boolean;
   testID?: string;
 };
 
 /** A pill for picking one option from a row: mode, tone, context. */
-export function Chip({ label, icon, selected = false, onPress, disabled = false, testID }: ChipProps) {
+export function Chip({
+  label,
+  icon,
+  selected = false,
+  onPress,
+  onLongPress,
+  longPressHint,
+  disabled = false,
+  testID,
+}: ChipProps) {
   const { colors } = useTheme();
 
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled}
       hitSlop={HIT_SLOP}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={onLongPress ? longPressHint : undefined}
       accessibilityState={{ selected, disabled }}
       style={({ pressed }) => [
         styles.base,

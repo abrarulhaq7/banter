@@ -201,6 +201,10 @@ export type ProfileSettings = {
   hidden_tones?: string[];
   /** False when the user turned off the quick questions asked after choosing a screenshot. */
   quick_questions?: boolean;
+  /** The user's order of tones (by `Tone.key`), first shown first. Tones not listed follow. */
+  tone_order?: string[];
+  /** The pills offered for "Focus on", once the user added or removed one. Missing: the defaults. */
+  focus_pills?: string[];
 };
 
 /** What a ticket is about. */

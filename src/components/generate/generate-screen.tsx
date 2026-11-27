@@ -10,6 +10,7 @@ import {
   ChipRow,
   Icon,
   IconButton,
+  IconChip,
   OptionList,
   Screen,
   SegmentedControl,
@@ -321,8 +322,15 @@ export function GenerateScreen() {
 
       {!isAnalyse ? (
         <ChipRow testID="tone-row">
-          <Chip testID="tone-all" icon="tone" label="Tones" onPress={() => setToneOpen(true)} disabled={busy} />
-          <Chip testID="quick-questions-open" icon="idea" label="Help me pick" onPress={openQuick} disabled={busy} />
+          {/* Two tools in one small pill, so the tones themselves get the room. */}
+          <IconChip
+            testID="tone-tools"
+            disabled={busy}
+            items={[
+              { icon: 'tone', label: 'Tones', onPress: () => setToneOpen(true), testID: 'tone-all' },
+              { icon: 'idea', label: 'Help me pick', onPress: openQuick, testID: 'quick-questions-open' },
+            ]}
+          />
           {chipTones.map((tone) => (
             <Chip
               key={tone.key}
@@ -364,7 +372,7 @@ export function GenerateScreen() {
             testID="focus-row"
             icon="search"
             label="Focus on"
-            value={session.focus}
+            value={session.focus.length > 0 ? session.focus.join(', ') : null}
             onPress={() => {
               setFocusOpens((count) => count + 1);
               setFocusOpen(true);
@@ -453,7 +461,7 @@ export function GenerateScreen() {
         testID="tone-picker-sheet"
         visible={toneOpen}
         title="Tones"
-        subtitle="Tap one to use it. The eye shows it on this screen or hides it."
+        subtitle="Tap one to use it. The arrows set the order on this screen; the eye shows or hides it."
         selectedKey={session.tone}
         onSelect={(key) => {
           session.setTone(key);

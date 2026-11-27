@@ -5,7 +5,7 @@ import { useAuth } from '@/auth';
 import { profileGoal, replyLanguage, savesScreenshots, useKeys, useProfile } from '@/data';
 import {
   EngineError,
-  cleanFocus,
+  cleanFocuses,
   cleanUsername,
   generate as runEngine,
   isEngineError,
@@ -122,10 +122,11 @@ export type GenerateController = SessionState & {
   /** Reply only: where to take the chat. */
   setDirection: (direction: Direction) => void;
   /**
-   * What the lines should be about ("her nails"), or null (or blank) for Banter's own picks.
-   * With a focus a set has five lines: three about it, two of Banter's own.
+   * What the lines should be about, up to three things ("her nails", "her hair"), or an empty
+   * list for Banter's own picks. With a focus a set has five lines: three about it, two of
+   * Banter's own.
    */
-  setFocus: (focus: string | null) => void;
+  setFocus: (focus: string[]) => void;
   /** Why the user did not like a line, or null to take it back. Saved with the line. */
   setFeedback: (lineId: string, reason: LineFeedback | null) => void;
   /** Likes a line ("more like this"), or takes the like back. Liking clears a "not for me". */
@@ -220,7 +221,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
       mode === 'reply' ? (from ? (from.direction ?? 'keep_going') : state.direction) : null;
     const heading = direction && direction !== 'keep_going' ? direction : null;
     // An adjustment keeps the focus of the set it adjusts. Analyse writes no lines to focus.
-    const focus = mode === 'analyse' ? null : from ? (from.focus ?? null) : state.focus;
+    const focus = mode === 'analyse' ? [] : from ? (from.focus ?? []) : state.focus;
 
     // The tone is read now, so an edit made a moment ago in My tones is what gets sent.
     const tone =
@@ -342,7 +343,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           toneLabel: tone?.label ?? null,
           adjustment: adjustment?.kind ?? null,
           direction: heading,
-          focus,
+          focus: focus.length > 0 ? focus : null,
           fix: adjustment?.fix?.reason ?? null,
           output,
           usedKey: result.usedKey,
@@ -395,7 +396,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
     setTone: (tone) => dispatch({ type: 'setTone', tone }),
     setDirection: (direction) => dispatch({ type: 'setDirection', direction }),
-    setFocus: (focus) => dispatch({ type: 'setFocus', focus: cleanFocus(focus) }),
+    setFocus: (focus) => dispatch({ type: 'setFocus', focus: cleanFocuses(focus) }),
 
     setFeedback: (lineId, reason) => {
       dispatch({ type: 'setFeedback', lineId, reason });

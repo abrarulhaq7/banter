@@ -51,10 +51,13 @@ export {
   FOCUS_LINES,
   FOCUS_MAX,
   FOCUSED_SET_LINES,
+  FOCUSES_MAX,
   NOTED_NOTE_MAX,
   NOTED_PEOPLE_MAX,
   buildPrompt,
   cleanFocus,
+  cleanFocuses,
+  focusList,
   linesWanted,
 } from './prompt';
 export { MAX_LINES, cleanUsername, parseModelOutput, schemaFor, type AnswerSchema } from './schema';

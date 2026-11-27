@@ -1429,6 +1429,12 @@ After the first APK (2026-11-27, asked for from the phone, sent over the air):
   rules and modes did not change (prompt version 8, no SQL). Checked with `npm run lines`
   on real samples: 5 lines, 1–3 on the focus; a stranger with "her hair" got lines about her
   caption, not her hair, once the final check said so.
+- Then, from the phone (2026-11-28): up to 3 focuses at once ("her nails" and "her hair":
+  lines 1–3 cover each at least once; three get one line each), pills of his own added from
+  the field and kept in the profile settings (`focus_pills`), and holding a pill removes it
+  after asking. "Tones" and "Help me pick" became one small pill of two icons (`IconChip`),
+  and the Tones sheet has up and down arrows: his order (`tone_order` in the profile
+  settings) is the order of the tones on Generate and in My tones.
 - Feedback pictures: up to three of the user's own pictures with a ticket (a screenshot of
   the problem), next to the reported set's screenshot. Column `feedback.pictures`, checked to
   be in the sender's own folder (migration `20261128001100`); admins can open them, and

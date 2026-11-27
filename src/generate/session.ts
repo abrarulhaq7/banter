@@ -1,12 +1,13 @@
-import type {
-  Adjustment,
-  ContextId,
-  Direction,
-  LineFeedback,
-  EngineErrorKind,
-  GenerationResult,
-  ModeId,
-  ModelOutput,
+import {
+  focusList,
+  type Adjustment,
+  type ContextId,
+  type Direction,
+  type LineFeedback,
+  type EngineErrorKind,
+  type GenerationResult,
+  type ModeId,
+  type ModelOutput,
 } from '@/engine';
 import type { PreparedScreenshot } from '@/screenshot/types';
 
@@ -36,8 +37,8 @@ export type ResultSet = {
   adjustment: Adjustment | null;
   /** Reply only: where the user asked to take the chat. Null for the usual. */
   direction?: Direction | null;
-  /** What the lines were asked to be about ("her nails"): the set then has five lines. */
-  focus?: string | null;
+  /** What the lines were asked to be about ("her nails", "her hair"): the set then has five lines. */
+  focus?: string[] | null;
   /** When the set fixes a line the user marked: why they marked it. */
   fix?: LineFeedback | null;
   output: ModelOutput;
@@ -82,10 +83,10 @@ export type SessionState = {
   /** Reply only: where to take the chat. Back to keep_going with each new screenshot. */
   direction: Direction;
   /**
-   * What the lines should be about ("her nails", "the café"): three of five lines are about
-   * it. Null for Banter's own picks, and again with each new screenshot.
+   * What the lines should be about, up to three things ("her nails", "her hair"): three of
+   * five lines are about them. Empty for Banter's own picks, and again with each new screenshot.
    */
-  focus: string | null;
+  focus: string[];
   /** Why the user did not like a line, by line id. */
   feedback: Record<string, LineFeedback>;
   /** Lines the user liked, by line id. A line is liked or marked "not for me", never both. */
@@ -110,7 +111,7 @@ export type SessionAction =
   | { type: 'copied'; lineId: string }
   | { type: 'dismissError' }
   | { type: 'setDirection'; direction: Direction }
-  | { type: 'setFocus'; focus: string | null }
+  | { type: 'setFocus'; focus: string[] }
   | { type: 'setFeedback'; lineId: string; reason: LineFeedback | null }
   | { type: 'toggleLike'; lineId: string }
   /** Back to no screenshot. The chosen mode and tone stay: they are the user's habits. */
@@ -128,7 +129,7 @@ export const initialSession: SessionState = {
   error: null,
   copiedLineId: null,
   direction: 'keep_going',
-  focus: null,
+  focus: [],
   feedback: {},
   liked: {},
 };
@@ -153,7 +154,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         // Turning up the heat is a choice about one conversation, not a habit.
         direction: 'keep_going',
         // Her nails were in that picture, not necessarily in this one.
-        focus: null,
+        focus: [],
         feedback: {},
         liked: {},
       };
@@ -270,9 +271,11 @@ export const FIX_LABEL: Record<LineFeedback, string> = {
 
 type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction' | 'fix' | 'focus'>;
 
-/** A focus short enough for a chip: "her nails", "the rooftop c…". */
-function shortFocus(focus: string): string {
-  return focus.length > 14 ? `${focus.slice(0, 13).trimEnd()}…` : focus;
+/** Focuses short enough for a chip: "her nails", "the rooftop c…", "her nails +1". */
+function shortFocus(focus: string[]): string {
+  const [first] = focus;
+  const short = first.length > 14 ? `${first.slice(0, 13).trimEnd()}…` : first;
+  return focus.length > 1 ? `${short} +${focus.length - 1}` : short;
 }
 
 function adjustmentLabel(set: Named): string | null {
@@ -288,7 +291,7 @@ export function setHeading(set: Named): string {
   return [
     setLabel(set),
     set.direction && set.direction !== 'keep_going' ? DIRECTION_LABEL[set.direction] : null,
-    set.focus ? `About ${set.focus}` : null,
+    set.focus && set.focus.length > 0 ? `About ${focusList(set.focus)}` : null,
     adjustmentLabel(set),
   ]
     .filter(Boolean)
@@ -300,7 +303,7 @@ export function setChipLabel(set: Named): string {
   return [
     set.toneLabel ?? set.modeLabel,
     set.direction ? DIRECTION_SHORT[set.direction] : null,
-    set.focus ? shortFocus(set.focus) : null,
+    set.focus && set.focus.length > 0 ? shortFocus(set.focus) : null,
     adjustmentLabel(set),
   ]
     .filter(Boolean)

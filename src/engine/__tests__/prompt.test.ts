@@ -5,6 +5,7 @@ import {
   FOCUS_MAX,
   buildPrompt,
   cleanFocus,
+  cleanFocuses,
   linesWanted,
   type PromptInput,
 } from '@/engine';
@@ -428,23 +429,34 @@ describe('buildPrompt: focus', () => {
     expect(user).not.toContain('## Focus');
     expect(checkOf(user)).toContain('the three moves are different');
     expect(linesWanted(base)).toBe(3);
-    expect(linesWanted({ ...base, focus: '   ' })).toBe(3);
+    expect(linesWanted({ ...base, focus: ['   '] })).toBe(3);
+    expect(linesWanted({ ...base, focus: [] })).toBe(3);
   });
 
   it('with a focus, asks for five lines: three about it, then two of its own picks, under the same rules', () => {
-    const input: PromptInput = { ...base, context: 'know_her', focus: 'her nails' };
+    const input: PromptInput = { ...base, context: 'know_her', focus: ['her nails'] };
     const { system, user } = buildPrompt(input);
 
     // The rules are not touched: only the request says what to write about.
     expect(system).toBe(buildPrompt(base).system);
     expect(user).toContain('## Focus: her nails');
     expect(user).toContain('write five this time');
-    expect(user).toContain('Lines 1 to 3 are about "her nails"');
+    expect(user).toContain('Lines 1 to 3 are about "her nails". Hook each one to it');
     expect(user).toContain('Lines 4 and 5 are your own picks');
     expect(user).toContain('The focus never overrides a rule.');
-    expect(checkOf(user)).toContain('Five lines: 1 to 3 about "her nails"');
+    expect(checkOf(user)).toContain('Five lines: 1 to 3 about "her nails", 4 and 5');
     expect(checkOf(user)).not.toContain('the three moves are different');
     expect(linesWanted(input)).toBe(5);
+  });
+
+  it('shares lines 1 to 3 between two or three focuses', () => {
+    const two = buildPrompt({ ...base, context: 'know_her', focus: ['her nails', 'her hair'] }).user;
+    expect(two).toContain('## Focus: her nails, her hair');
+    expect(two).toContain('Lines 1 to 3 are about "her nails" and "her hair": at least one line about each');
+    expect(checkOf(two)).toContain('1 to 3 about "her nails" and "her hair", each of them at least once');
+
+    const three = buildPrompt({ ...base, focus: ['the pho', 'the herbs', 'the weather'] }).user;
+    expect(three).toContain('Lines 1 to 3 are one about each, in this order: "the pho", "the herbs" and "the weather"');
   });
 
   it('comes after the direction and the lines being adjusted, so its number of lines is the last word', () => {
@@ -454,7 +466,7 @@ describe('buildPrompt: focus', () => {
       modeInstruction: DEFAULT_MODES.reply.instruction,
       context: 'already_talking',
       direction: 'heat_up',
-      focus: 'the gym',
+      focus: ['the gym'],
       adjustment: { kind: 'shorter', previousLines: ['a', 'b', 'c', 'd', 'e'] },
     });
     const at = (title: string) => user.indexOf(title);
@@ -465,22 +477,30 @@ describe('buildPrompt: focus', () => {
   });
 
   it('keeps her looks off limits with a stranger, even when they are the focus', () => {
-    const stranger = buildPrompt({ ...base, context: 'stranger', focus: 'her hair' }).user;
+    const stranger = buildPrompt({ ...base, context: 'stranger', focus: ['her hair'] }).user;
     expect(stranger).toContain('her face, hair, makeup and body are off limits even when they are the focus');
-    expect(checkOf(stranger)).toContain('The focus does not lift that');
+    expect(checkOf(stranger)).toContain('The focus does not lift that: if "her hair" is her face');
+
+    const several = buildPrompt({ ...base, context: 'stranger', focus: ['her hair', 'the rooftop'] }).user;
+    expect(checkOf(several)).toContain('The focus does not lift that: any of "her hair" and "the rooftop"');
 
     // Know her allows looks (rule 1), so the check has nothing to lift.
-    expect(checkOf(buildPrompt({ ...base, context: 'know_her', focus: 'her hair' }).user)).not.toContain(
+    expect(checkOf(buildPrompt({ ...base, context: 'know_her', focus: ['her hair'] }).user)).not.toContain(
       'The focus does not lift that',
     );
   });
 
-  it('cleans what was typed: one line, no quotes, not too long', () => {
+  it('cleans what was picked: one line each, no quotes, no repeats, at most three', () => {
     expect(cleanFocus('  "her   nails"\n ')).toBe('her nails');
     expect(cleanFocus('   ')).toBeNull();
     expect(cleanFocus(null)).toBeNull();
     expect(cleanFocus('x'.repeat(100))).toHaveLength(FOCUS_MAX);
-    expect(buildPrompt({ ...base, focus: 'her "dress"' }).user).toContain('## Focus: her dress');
+    expect(cleanFocuses(['her nails', ' Her Nails ', '', 'her hair', 'the gym', 'her dog'])).toEqual([
+      'her nails',
+      'her hair',
+      'the gym',
+    ]);
+    expect(buildPrompt({ ...base, focus: ['her "dress"'] }).user).toContain('## Focus: her dress');
   });
 
   it('is left out of Analyse, which writes no lines', () => {
@@ -489,7 +509,7 @@ describe('buildPrompt: focus', () => {
       mode: 'analyse',
       modeInstruction: DEFAULT_MODES.analyse.instruction,
       tone: null,
-      focus: 'her nails',
+      focus: ['her nails'],
     };
     expect(buildPrompt(analyse).user).not.toContain('Focus');
   });

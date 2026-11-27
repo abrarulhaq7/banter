@@ -45,9 +45,9 @@ const marks: LineMarks = {
 
 describe('setForTicket', () => {
   it('says what the set was focused on', () => {
-    expect(setForTicket({ ...set(), focus: 'her nails' }, marks, { context: null, username: null })).toMatchObject({
-      focus: 'her nails',
-    });
+    expect(
+      setForTicket({ ...set(), focus: ['her nails', 'her hair'] }, marks, { context: null, username: null }),
+    ).toMatchObject({ focus: ['her nails', 'her hair'] });
   });
 
   it('attaches the options, the model, each line with what the user did, and the request as sent', () => {
