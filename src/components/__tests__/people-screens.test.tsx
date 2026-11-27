@@ -462,3 +462,17 @@ describe('PeopleScreen: Saved', () => {
     expect(await screen.findByTestId('person-card-0')).toBeOnTheScreen();
   });
 });
+
+describe('PeopleScreen: Saved opens where a line came from', () => {
+  it('opens the screenshot a saved line was written for', async () => {
+    const { history } = await seed();
+    const copy = jest.fn(async () => true);
+    await renderWithData(<PeopleScreen copy={copy} />, { historyRepo: history.repo });
+    const user = userEvent.setup();
+    await user.press(screen.getByTestId('people-view-saved'));
+
+    await user.press(await screen.findByTestId('open-saved-0'));
+
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/people/[id]/[shot]', params: { id: 'person-1', shot: 'first' } });
+  });
+});

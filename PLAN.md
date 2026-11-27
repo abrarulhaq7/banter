@@ -1077,6 +1077,26 @@ Added the same day, at your request: **People > Saved.**
 - The live history flow checks Saved after saving a line on Results. Passes against the
   real project. `npm run check` passes (728 unit tests).
 
+Added the same day, at your request:
+
+- **Reply language: English or Roman Urdu.** A "Language" pill on Generate switches it; the
+  choice is saved in the profile's settings and used for every request until switched
+  back (Shorter, Bolder and the fixes too). Roman Urdu means Urdu in English letters, the
+  way people in Pakistan text, with English words mixed in naturally; never Urdu script or
+  Hindi words. Everything else in the answer stays English. Real Gemini output on the
+  made-up chat: "Soch lo, agar main aa gaya toh phir sirf baatein nahi hongi"; on your
+  sample story: "Adele ke gaane aur itna black? Serious mood lag raha hai". No database
+  or core-rules change (the instruction goes in the per-request part of the prompt).
+- **A calmer Generate screen.** "Use latest" and "From gallery" moved into the screenshot
+  area (two buttons while it is empty; two small icons on the preview once chosen, next to
+  the ✕). Who is she, How you know her, Where to take it and Language are now small pills
+  on one wrapped line instead of a full row each; each opens its own choice as before, and
+  Language just flips. The screen went from ten blocks to six, and the screenshot gets
+  back the room the rows took.
+- **Saved: open where a line came from.** Each saved card has an icon that opens the
+  screenshot it was saved from (People > her > that screenshot). Not shown for a line
+  saved before her username was known.
+
 Database and prompts (`supabase/paste-update.sql`, pasted by you on 2026-11-26 and checked: version 7 active, a reason saves, an unknown one is refused):
 
 - `20261127000600_line_feedback.sql`: a `feedback` column on lines, limited to those six

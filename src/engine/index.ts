@@ -53,6 +53,7 @@ export type {
   AnalysisOutput,
   Direction,
   LineFeedback,
+  ReplyLanguage,
   BuiltPrompt,
   ContextId,
   DeclinedOutput,

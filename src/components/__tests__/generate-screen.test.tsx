@@ -801,7 +801,7 @@ describe('Generate: history', () => {
     const { user } = await setup({ history });
     await waitFor(() => expect(history.repo.listPeople).toHaveBeenCalled());
     await press(user, 'Use latest');
-    expect(screen.getByTestId('context-row')).toHaveTextContent(/Not set/);
+    expect(screen.getByTestId('context-row')).toHaveTextContent('How you know her');
 
     await press(user, 'Get lines');
     await screen.findByText('Casual one');
@@ -937,7 +937,7 @@ describe('Generate: who she is, before asking', () => {
     await press(user, 'Use latest');
     await screen.findByTestId('screenshot-preview');
 
-    expect(await screen.findByTestId('person-pick-row')).toHaveTextContent(/Banter reads it/);
+    expect(await screen.findByTestId('person-pick-row')).toHaveTextContent('Who is she');
   });
 
   it('does not offer it to someone with nobody saved yet', async () => {
@@ -985,7 +985,7 @@ describe('Generate: who she is, before asking', () => {
 
     await user.press(screen.getByTestId('person-pick-row'));
     await user.press(screen.getByTestId('person-pick-__new__'));
-    expect(screen.getByTestId('person-pick-row')).toHaveTextContent(/Banter reads it/);
+    expect(screen.getByTestId('person-pick-row')).toHaveTextContent('Who is she');
 
     await press(user, 'Get lines');
     await screen.findByText('Casual one');
@@ -1271,5 +1271,54 @@ describe('Generate: fixing a line marked not for me', () => {
     await firstLines(user);
 
     expect(calls[0].prompt.toneMarks).toEqual([{ reason: 'too_long', count: 2 }]);
+  });
+});
+
+describe('Generate: the language of the lines', () => {
+  it('writes in English unless the user switches, and remembers the switch', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: { save_screenshots: true } }));
+    const { calls, user } = await setup({ profile, outputs: [lines('Eng'), lines('Urdu')] });
+    expect(screen.getByTestId('language-row')).toHaveTextContent('English');
+
+    await firstLines(user, 'Eng one');
+    expect(calls[0].prompt.language).toBe('english');
+    await press(user, 'Back');
+
+    await user.press(screen.getByTestId('language-row'));
+    expect(screen.getByTestId('language-row')).toHaveTextContent('Roman Urdu');
+    await waitFor(() =>
+      expect(profile.repo.update).toHaveBeenCalledWith(expect.any(String), {
+        settings: { save_screenshots: true, reply_language: 'roman_urdu' },
+      }),
+    );
+
+    await press(user, 'Get lines');
+    await screen.findByText('Urdu one');
+    expect(calls[1].prompt.language).toBe('roman_urdu');
+  });
+
+  it('starts in Roman Urdu when that was chosen before', async () => {
+    const { calls, user } = await setup({
+      profile: createFakeProfileRepo(makeProfile({ settings: { reply_language: 'roman_urdu' } })),
+    });
+    await waitFor(() => expect(screen.getByTestId('language-row')).toHaveTextContent('Roman Urdu'));
+
+    await firstLines(user);
+
+    expect(calls[0].prompt.language).toBe('roman_urdu');
+  });
+});
+
+describe('Generate: choosing the screenshot', () => {
+  it('chooses inside the screenshot area, and can swap it without clearing first', async () => {
+    const { deps, user } = await setup();
+    expect(screen.getByTestId('screenshot-empty')).toBeOnTheScreen();
+
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'From gallery');
+
+    expect(deps.pickFromGallery).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('screenshot-preview')).toBeOnTheScreen();
   });
 });

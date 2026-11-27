@@ -19,6 +19,7 @@
  *   --about "free text"               how the sender texts (stands in for the profile)
  *   --her "free text"                 the sender's note about her ("close friend, she flirts back")
  *   --direction keep_going|heat_up|ask_out   Reply only: where to take the chat
+ *   --language english|roman_urdu     the language of the lines (default english)
  *   --delay <ms>                      wait between requests (free tiers allow few per minute)
  *   --show-prompt                     print the exact prompt that is sent
  *   --json                            print the raw result as JSON
@@ -164,6 +165,7 @@ const context = flags.has('context') ? choice('context', CONTEXTS, 'stranger') :
 const about = flags.get('about');
 const her = flags.get('her');
 const direction = flags.get('direction');
+const language = flags.get('language');
 
 function print(result: GenerationResult) {
   const { output } = result;
@@ -205,6 +207,7 @@ for (const file of files) {
       context,
       aboutHer: typeof her === 'string' && her ? her : null,
       direction: direction === 'heat_up' || direction === 'ask_out' ? direction : null,
+      language: language === 'roman_urdu' ? 'roman_urdu' : null,
       profile: typeof about === 'string' && about ? { textingStyle: about } : null,
     };
 

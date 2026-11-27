@@ -262,7 +262,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       id: "person-pick-row"
-      text: ".*Banter reads it.*"
+      text: "Who is she: not set"
     timeout: 30000
 - tapOn:
     id: "person-pick-row"

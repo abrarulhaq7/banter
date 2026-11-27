@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -24,6 +24,7 @@ type SavedLinesProps = {
  */
 export function SavedLines({ copy = (text) => Clipboard.setStringAsync(text) }: SavedLinesProps) {
   const { colors } = useTheme();
+  const router = useRouter();
   const toast = useToast();
   const history = useHistory();
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -111,6 +112,12 @@ export function SavedLines({ copy = (text) => Clipboard.setStringAsync(text) }: 
           kept
           onCopy={() => void copyLine(line)}
           onToggleKeep={() => unsave(line)}
+          // The screenshot it was saved from, under her name. Not possible without a name.
+          onOpen={
+            line.personId
+              ? () => router.push({ pathname: '/people/[id]/[shot]', params: { id: line.personId!, shot: line.interactionId } })
+              : undefined
+          }
         />
       ))}
     </View>

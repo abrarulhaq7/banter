@@ -7,6 +7,8 @@ export type Interest = 'high' | 'medium' | 'low' | 'unclear';
 export type Adjustment = 'new_lines' | 'shorter' | 'bolder';
 /** Where the sender wants a chat to go next (Reply only). */
 export type Direction = 'keep_going' | 'heat_up' | 'ask_out';
+/** The language the lines are written in. */
+export type ReplyLanguage = 'english' | 'roman_urdu';
 /** Why the sender did not like a line. */
 export type LineFeedback = 'too_much' | 'too_tame' | 'cringe' | 'not_me' | 'too_long' | 'generic';
 /** What a chat screenshot shows about the last line the sender used. */
@@ -80,6 +82,8 @@ export type PromptInput = {
     previousLines: string[];
     fix?: { line: string; reason: LineFeedback } | null;
   } | null;
+  /** The language to write the lines in. Left out, or english, means English. */
+  language?: ReplyLanguage | null;
   /** Reply only: where he wants the chat to go. Left out, or keep_going, means as usual. */
   direction?: Direction | null;
   /** Lines he chose before, with anyone, best first: his taste and voice. */

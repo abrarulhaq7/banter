@@ -188,6 +188,15 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     parts.push(section('Lines just shown', `${previous}\n\n${ask}`));
   }
 
+  if (input.language === 'roman_urdu') {
+    parts.push(
+      section(
+        'Language',
+        `Write the lines${input.mode === 'analyse' ? ' (the suggested reply)' : ''} in Roman Urdu: Urdu written in English letters, the way people in Pakistan text each other ("kya scene hai", "acha ji", "itna attitude?"). Mix in English words where people naturally do. Not Urdu script, not Hindi words, not formal Urdu. Keep the same tone, length and rules as in English. Every other field of the answer (what you noticed, hooks, "read") stays in English.`,
+      ),
+    );
+  }
+
   parts.push('The screenshot is attached.');
   return { system, user: parts.join('\n\n') };
 }

@@ -177,6 +177,8 @@ export type UsageRow = {
 export type ProfileSettings = {
   /** False when the user turned off saving screenshots. Anything else means save them. */
   save_screenshots?: boolean;
+  /** The language lines are written in. Missing means English. */
+  reply_language?: 'english' | 'roman_urdu';
   /** What the user wants from Banter, in their own words (About you). Used in prompts. */
   goal?: string;
   /** Tones (by `Tone.key`) the user hid from the Generate screen. Everything else shows. */

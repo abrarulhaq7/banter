@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
@@ -10,10 +10,10 @@ import {
   ChipRow,
   Icon,
   IconButton,
-  ListRow,
   OptionList,
   Screen,
   SegmentedControl,
+  SettingChip,
   Sheet,
   TextField,
   useToast,
@@ -21,6 +21,7 @@ import {
 import { DEFAULT_MODES, type ContextId, type Direction, type ModeId } from '@/engine';
 import { DIRECTION_LABEL } from '@/generate/session';
 import { useGenerateSession } from '@/generate/generate-provider';
+import { profileSettings, replyLanguage, useProfile } from '@/data';
 import { useHistory } from '@/history';
 import { CONTEXT_LABELS } from '@/history/labels';
 import { haptics } from '@/lib/haptics';
@@ -60,6 +61,19 @@ export function GenerateScreen() {
   const history = useHistory();
   const [contextOpen, setContextOpen] = useState(false);
   const [toneOpen, setToneOpen] = useState(false);
+  const { profile, save: saveProfile } = useProfile();
+  /** The language just picked, shown while it is saved to the profile. */
+  const [pendingLanguage, setPendingLanguage] = useState<'english' | 'roman_urdu' | null>(null);
+  const language = pendingLanguage ?? replyLanguage(profile);
+  const toggleLanguage = () => {
+    const next = language === 'roman_urdu' ? 'english' : 'roman_urdu';
+    setPendingLanguage(next);
+    void saveProfile({ settings: { ...profileSettings(profile), reply_language: next } }).then((result) => {
+      setPendingLanguage(null);
+      if (!result.ok) toast.show('Could not change the language. Check your internet.', 'danger');
+      else toast.show(next === 'roman_urdu' ? 'Lines in Roman Urdu' : 'Lines in English', 'info');
+    });
+  };
   const [directionOpen, setDirectionOpen] = useState(false);
   const isReply = session.mode === 'reply';
   const { shown: shownTones } = useToneVisibility();
@@ -84,9 +98,10 @@ export function GenerateScreen() {
       .map((person) => ({
         value: person.username,
         label: `@${person.username}`,
-        subtitle: [person.context ? CONTEXT_LABELS[person.context] : null, person.notes ? 'Has a note' : null]
-          .filter(Boolean)
-          .join(' · ') || undefined,
+        subtitle:
+          [person.context ? CONTEXT_LABELS[person.context] : null, person.notes ? 'Has a note' : null]
+            .filter(Boolean)
+            .join(' · ') || undefined,
       })),
   ];
 
@@ -155,9 +170,13 @@ export function GenerateScreen() {
         </Banner>
       ) : null}
 
-      {/* The screenshot takes whatever room the rest leaves. */}
+      {/* The screenshot takes whatever room the rest leaves. Choosing it happens inside. */}
       <View style={[styles.zone, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {session.screenshot ? (
+        {session.phase === 'loadingScreenshot' ? (
+          <View style={styles.empty}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : session.screenshot ? (
           <>
             <Image
               testID="screenshot-preview"
@@ -175,38 +194,53 @@ export function GenerateScreen() {
               disabled={busy}
               style={styles.clear}
             />
+            {/* Another screenshot, without clearing first. */}
+            <View style={styles.swap}>
+              <IconButton
+                testID="use-latest"
+                icon="screenshot"
+                label="Use latest"
+                variant="filled"
+                onPress={session.useLatestScreenshot}
+                disabled={busy}
+              />
+              <IconButton
+                testID="pick-gallery"
+                icon="gallery"
+                label="From gallery"
+                variant="filled"
+                onPress={session.pickScreenshot}
+                disabled={busy}
+              />
+            </View>
           </>
         ) : (
           <View testID="screenshot-empty" style={styles.empty}>
-            <Icon name="screenshot" size={40} color="accent" />
+            <Icon name="screenshot" size={36} color="accent" />
             <AppText color="textMuted" style={styles.centerText}>
-              Screenshot her story, profile or chat in Instagram, then choose it here.
+              Screenshot her story, profile or chat in Instagram, then choose it.
             </AppText>
+            <View style={styles.row}>
+              <Button
+                testID="use-latest"
+                size="sm"
+                icon="screenshot"
+                label="Use latest"
+                onPress={session.useLatestScreenshot}
+                disabled={busy}
+              />
+              <Button
+                testID="pick-gallery"
+                size="sm"
+                variant="secondary"
+                icon="gallery"
+                label="From gallery"
+                onPress={session.pickScreenshot}
+                disabled={busy}
+              />
+            </View>
           </View>
         )}
-      </View>
-      <View style={styles.row}>
-        <Button
-          testID="use-latest"
-          style={styles.fill}
-          size="sm"
-          variant={session.screenshot ? 'secondary' : 'primary'}
-          icon="screenshot"
-          label="Use latest"
-          onPress={session.useLatestScreenshot}
-          loading={session.phase === 'loadingScreenshot'}
-          disabled={busy}
-        />
-        <Button
-          testID="pick-gallery"
-          style={styles.fill}
-          size="sm"
-          variant="secondary"
-          icon="gallery"
-          label="From gallery"
-          onPress={session.pickScreenshot}
-          disabled={busy}
-        />
       </View>
 
       <SegmentedControl
@@ -233,39 +267,49 @@ export function GenerateScreen() {
         </ChipRow>
       ) : null}
 
-      {isReply ? (
-        <ListRow
-          testID="direction-row"
-          icon="bolder"
-          tone={session.direction === 'heat_up' ? 'warning' : 'accent'}
-          title="Where to take it"
-          subtitle={DIRECTION_LABEL[session.direction]}
-          onPress={() => setDirectionOpen(true)}
+      {/* The rest of the request on one wrapped line: each pill opens its own choice. */}
+      <View testID="request-settings" style={styles.settings}>
+        {canChoosePerson ? (
+          <SettingChip
+            testID="person-pick-row"
+            icon="people"
+            label="Who is she"
+            value={session.username ? `@${session.username}` : null}
+            onPress={() => {
+              setPersonQuery('');
+              setPersonOpen(true);
+            }}
+            disabled={busy}
+          />
+        ) : null}
+        <SettingChip
+          testID="context-row"
+          icon="person"
+          label="How you know her"
+          value={session.context ? CONTEXT_LABELS[session.context] : null}
+          onPress={() => setContextOpen(true)}
           disabled={busy}
         />
-      ) : null}
-
-      {canChoosePerson ? (
-        <ListRow
-          testID="person-pick-row"
-          icon="people"
-          title="Who is she"
-          subtitle={session.username ? `@${session.username}` : 'Banter reads it'}
-          onPress={() => {
-            setPersonQuery('');
-            setPersonOpen(true);
-          }}
+        {isReply ? (
+          <SettingChip
+            testID="direction-row"
+            icon="bolder"
+            tone={session.direction === 'heat_up' ? 'warning' : 'accent'}
+            label="Where to take it"
+            value={DIRECTION_LABEL[session.direction]}
+            onPress={() => setDirectionOpen(true)}
+            disabled={busy}
+          />
+        ) : null}
+        <SettingChip
+          testID="language-row"
+          icon="language"
+          label="Language"
+          value={language === 'roman_urdu' ? 'Roman Urdu' : 'English'}
+          onPress={toggleLanguage}
           disabled={busy}
         />
-      ) : null}
-
-      <ListRow
-        testID="context-row"
-        icon="person"
-        title="How you know her"
-        subtitle={session.context ? CONTEXT_LABELS[session.context] : 'Not set'}
-        onPress={() => setContextOpen(true)}
-      />
+      </View>
 
       {screenshotError ? (
         <Banner
@@ -371,6 +415,8 @@ const styles = StyleSheet.create({
   },
   preview: { flex: 1 },
   clear: { position: 'absolute', top: spacing.sm, right: spacing.sm },
+  swap: { position: 'absolute', bottom: spacing.sm, right: spacing.sm, gap: spacing.sm },
+  settings: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   centerText: { textAlign: 'center' },
   row: { flexDirection: 'row', gap: spacing.sm },

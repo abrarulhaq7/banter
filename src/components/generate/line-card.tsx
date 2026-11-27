@@ -17,6 +17,8 @@ type LineCardProps = {
   feedbackLabel?: string | null;
   /** Opens the reasons. Left out where a line cannot be marked (the Kept sheet). */
   onDislike?: () => void;
+  /** Opens the screenshot the line was written for (People > Saved). */
+  onOpen?: () => void;
 };
 
 /** One line to send. Tap it, or the copy button, to copy; the bookmark keeps it. */
@@ -30,6 +32,7 @@ export function LineCard({
   onToggleKeep,
   feedbackLabel,
   onDislike,
+  onOpen,
 }: LineCardProps) {
   const { colors } = useTheme();
 
@@ -62,6 +65,9 @@ export function LineCard({
             {copied ? 'Copied' : feedbackLabel ? `Not for me: ${feedbackLabel}` : 'Tap to copy'}
           </AppText>
         </View>
+        {onOpen ? (
+          <IconButton testID={`open-${testKey}`} icon="open" label="Open where it came from" color="textMuted" onPress={onOpen} />
+        ) : null}
         {onDislike ? (
           <IconButton
             testID={`dislike-${testKey}`}

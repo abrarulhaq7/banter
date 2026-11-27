@@ -291,3 +291,21 @@ describe('buildPrompt: learning from Not for me', () => {
     expect(buildPrompt({ ...base, toneMarks: [{ reason: 'too_tame', count: 5 }] }).system).toBe(buildPrompt(base).system);
   });
 });
+
+describe('buildPrompt: language', () => {
+  it('asks for Roman Urdu lines, keeping every other field in English', () => {
+    const { user } = buildPrompt({ ...base, language: 'roman_urdu' });
+
+    expect(user).toContain('## Language\nWrite the lines in Roman Urdu: Urdu written in English letters');
+    expect(user).toContain('Not Urdu script, not Hindi words');
+    expect(user).toContain('stays in English');
+  });
+
+  it('adds nothing for English', () => {
+    expect(buildPrompt({ ...base, language: 'english' }).user).toBe(buildPrompt(base).user);
+  });
+
+  it('asks for the suggested reply in Roman Urdu in Analyse', () => {
+    expect(buildPrompt({ ...base, mode: 'analyse', language: 'roman_urdu' }).user).toContain('Write the lines (the suggested reply) in Roman Urdu');
+  });
+});

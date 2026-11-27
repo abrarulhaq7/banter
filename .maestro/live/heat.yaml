@@ -85,6 +85,13 @@ onFlowComplete:
 - takeScreenshot: heat-feedback-sheet
 - tapOn:
     id: "feedback-too_much"
+# The sheet offers to fix it right away; here, just note it.
+- assertVisible:
+    id: "feedback-fix"
+    text: "Get softer lines"
+- takeScreenshot: heat-feedback-fix
+- tapOn:
+    id: "feedback-done"
 - assertVisible:
     id: "line-status-0-0"
     text: "Not for me: too much"

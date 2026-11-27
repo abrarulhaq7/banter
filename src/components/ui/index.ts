@@ -15,6 +15,7 @@ export { OptionList, type OptionListProps } from './option-list';
 export { Screen, type ScreenProps, type ScrollHandle } from './screen';
 export { ScreenHeader, type ScreenHeaderProps } from './screen-header';
 export { SegmentedControl, type SegmentedControlProps } from './segmented-control';
+export { SettingChip, type SettingChipProps } from './setting-chip';
 export { Sheet, type SheetProps } from './sheet';
 export { TextField, type TextFieldProps } from './text-field';
 export { TOAST_MS, ToastProvider, useToast, type ToastTone } from './toast';

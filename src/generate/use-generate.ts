@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useReducer, useRef } from 'react';
 
 import { useAuth } from '@/auth';
-import { profileGoal, savesScreenshots, useKeys, useProfile } from '@/data';
+import { profileGoal, replyLanguage, savesScreenshots, useKeys, useProfile } from '@/data';
 import {
   EngineError,
   cleanUsername,
@@ -231,6 +231,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           // How this tone has landed with him lately: a run of the same mark adjusts it.
           toneMarks: tone ? marksFor(taste, tone.label) : [],
           direction: heading,
+          language: replyLanguage(profile),
           adjustment,
         },
         // Save what was learned about a key, so the Keys screen shows it and it is skipped.
