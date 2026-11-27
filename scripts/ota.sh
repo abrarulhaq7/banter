@@ -38,5 +38,12 @@ fi
 # Nothing reaches a phone without passing the checks.
 npm run check
 
-# The EAS environment of the same name gives the Supabase address and key, as for the builds.
-bash scripts/eas.sh update --channel "$CHANNEL" --environment "$CHANNEL" --message "$MESSAGE" --non-interactive
+# One update per platform, Android first. `--platform all` would also build for the web: Expo
+# counts web as a platform when react-dom is installed, and Banter has no web version.
+# (Declaring "platforms" in app.json would fix that, but it changes the runtime fingerprint,
+# so it waits for the next build.) The EAS environment of the same name gives the Supabase
+# address and key, as for the builds.
+for platform in android ios; do
+  bash scripts/eas.sh update --channel "$CHANNEL" --environment "$CHANNEL" --platform "$platform" \
+    --message "$MESSAGE" --non-interactive
+done

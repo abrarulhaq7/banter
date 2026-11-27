@@ -1397,9 +1397,19 @@ The first APK (2026-11-27):
   pinned footer, and the sheets. Android no longer shrinks the window for the keyboard
   (edge to edge) and `Screen` and `Sheet` handled it on iOS only. Fixed in both (checked
   on the emulator); to reach the phone as the first update over the air.
-- Emulator tip: started without a window it can fall back to software drawing
+- First update over the air (2026-11-27, group `7fe347f2`): the keyboard fix. On the
+  emulator with the real APK it downloaded on the first open and ran from the next one;
+  Settings showed "Banter 0.1.0 · updated 27 Nov, 09:47".
+- `npm run ota` publishes Android, then iOS, as two updates: `--platform all` also builds
+  for the web, because Expo counts web as a platform when react-dom is installed.
+  Declaring `"platforms": ["ios", "android"]` in `app.json` fixes that, but it changes the
+  runtime fingerprint (checked), so it waits for the next build.
+- Emulator tips: started without a window it can fall back to software drawing
   ("SwiftShader" in its log) and run about ten times slower (Android's own Settings took
-  16 s to open). Start it with `emulator -avd Pixel_8_Pro -gpu host`.
+  16 s to open). This office network also blocks outside DNS servers, which can leave the
+  emulator unable to look up any name (updates then fail with "Unable to resolve host").
+  Start it with `emulator -avd Pixel_8_Pro -gpu host -dns-server <the Mac's DNS server>`;
+  `scutil --dns` shows it.
 
 To build:
 
