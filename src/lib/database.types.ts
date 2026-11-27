@@ -161,6 +161,8 @@ export type LineRow = {
   result_at: string | null;
   /** Why the user did not like the line. Missing on databases without the column yet. */
   feedback?: LineFeedbackId | null;
+  /** When the user liked the line ("more like this"). Never set together with feedback. */
+  liked_at?: string | null;
   created_at: string;
 };
 
@@ -172,7 +174,9 @@ export type InteractionInsert = Omit<InteractionRow, 'user_id' | 'user_prompt_id
 };
 export type LineInsert = Pick<LineRow, 'id' | 'interaction_id' | 'position' | 'text' | 'hook'> &
   Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at'>>;
-export type LinePatch = Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at' | 'feedback'>>;
+export type LinePatch = Partial<
+  Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at' | 'feedback' | 'liked_at'>
+>;
 
 /** One row of the usage view: generations made with one key on one model. */
 export type UsageRow = {

@@ -116,6 +116,8 @@ export type GenerateController = SessionState & {
   setDirection: (direction: Direction) => void;
   /** Why the user did not like a line, or null to take it back. Saved with the line. */
   setFeedback: (lineId: string, reason: LineFeedback | null) => void;
+  /** Likes a line ("more like this"), or takes the like back. Liking clears a "not for me". */
+  toggleLike: (lineId: string) => void;
   setContext: (context: ContextId) => void;
   /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
   setUsername: (username: string) => string | null;
@@ -368,7 +370,16 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
 
     setFeedback: (lineId, reason) => {
       dispatch({ type: 'setFeedback', lineId, reason });
-      void history.save({ kind: 'linePatch', lineId, patch: { feedback: reason } });
+      // A line is liked or not for him, never both.
+      const patch = reason ? { feedback: reason, liked_at: null } : { feedback: null };
+      void history.save({ kind: 'linePatch', lineId, patch });
+    },
+
+    toggleLike: (lineId) => {
+      const liking = !state.liked[lineId];
+      dispatch({ type: 'toggleLike', lineId });
+      const patch = liking ? { liked_at: deps.now().toISOString(), feedback: null } : { liked_at: null };
+      void history.save({ kind: 'linePatch', lineId, patch });
     },
 
     setContext: (context) => {

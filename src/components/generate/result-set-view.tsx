@@ -16,6 +16,9 @@ type ResultSetViewProps = {
   /** Why the user did not like each line, by line id. */
   feedback: Readonly<Record<string, LineFeedback>>;
   onDislike: (lineId: string) => void;
+  /** The lines the user liked, by line id. */
+  liked: Readonly<Record<string, true>>;
+  onLike: (lineId: string) => void;
 };
 
 export const FEEDBACK_LABEL: Record<LineFeedback, string> = {
@@ -39,7 +42,17 @@ const INTEREST: Record<Interest, { label: string; color: ColorRole }> = {
  * Only one set is shown at a time, so the test ids carry no set number: `result-heading-0`,
  * `line-0-<position>` always mean the set being looked at.
  */
-export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep, feedback, onDislike }: ResultSetViewProps) {
+export function ResultSetView({
+  set,
+  copiedLineId,
+  keptIds,
+  onCopy,
+  onToggleKeep,
+  feedback,
+  onDislike,
+  liked,
+  onLike,
+}: ResultSetViewProps) {
   const { output } = set;
   const label = setLabel(set);
 
@@ -58,6 +71,8 @@ export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep
           onToggleKeep={() => onToggleKeep({ id, text, label })}
           feedbackLabel={feedback[id] ? FEEDBACK_LABEL[feedback[id]] : null}
           onDislike={() => onDislike(id)}
+          liked={Boolean(liked[id])}
+          onLike={() => onLike(id)}
         />
       </FadeIn>
     );

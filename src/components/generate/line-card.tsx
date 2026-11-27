@@ -17,6 +17,10 @@ type LineCardProps = {
   feedbackLabel?: string | null;
   /** Opens the reasons. Left out where a line cannot be marked (the Kept sheet). */
   onDislike?: () => void;
+  /** The user liked the line: more like this. */
+  liked?: boolean;
+  /** Likes the line, or takes the like back. Left out where a line cannot be marked. */
+  onLike?: () => void;
   /** Opens the screenshot the line was written for (People > Saved). */
   onOpen?: () => void;
 };
@@ -32,6 +36,8 @@ export function LineCard({
   onToggleKeep,
   feedbackLabel,
   onDislike,
+  liked = false,
+  onLike,
   onOpen,
 }: LineCardProps) {
   const { colors } = useTheme();
@@ -61,12 +67,25 @@ export function LineCard({
       <View style={styles.footer}>
         <View style={styles.status}>
           {copied ? <Icon name="check" size={14} color="success" /> : null}
-          <AppText testID={`line-status-${testKey}`} variant="caption" color={copied ? 'success' : feedbackLabel ? 'danger' : 'textMuted'}>
-            {copied ? 'Copied' : feedbackLabel ? `Not for me: ${feedbackLabel}` : 'Tap to copy'}
+          <AppText
+            testID={`line-status-${testKey}`}
+            variant="caption"
+            color={copied ? 'success' : liked ? 'accent' : feedbackLabel ? 'danger' : 'textMuted'}>
+            {copied ? 'Copied' : liked ? 'Liked' : feedbackLabel ? `Not for me: ${feedbackLabel}` : 'Tap to copy'}
           </AppText>
         </View>
         {onOpen ? (
           <IconButton testID={`open-${testKey}`} icon="open" label="Open where it came from" color="textMuted" onPress={onOpen} />
+        ) : null}
+        {onLike ? (
+          <IconButton
+            testID={`like-${testKey}`}
+            icon={liked ? 'liked' : 'like'}
+            label={liked ? 'Liked' : 'Like'}
+            color={liked ? 'accent' : 'textMuted'}
+            selected={liked}
+            onPress={onLike}
+          />
         ) : null}
         {onDislike ? (
           <IconButton

@@ -50,6 +50,18 @@ appId: com.banterlines.app
 - assertVisible: "Use at least 8 characters."
 - takeScreenshot: sign-up-short-password
 
+# The eye button shows the password that was typed, and hides it again.
+- tapOn:
+    id: "password-input-visibility"
+- assertVisible:
+    id: "password-input"
+    text: "short"
+- assertVisible: "Hide password"
+- takeScreenshot: sign-up-password-shown
+- tapOn:
+    id: "password-input-visibility"
+- assertVisible: "Show password"
+
 # And back.
 - tapOn:
     id: "auth-mode-signIn"

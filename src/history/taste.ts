@@ -4,7 +4,7 @@ import type { InteractionWithLines } from './history-repo';
 
 /** What the user's choices so far say about their taste, for the prompt. */
 export type Taste = {
-  /** Lines they chose to send, best first: answered ones before the rest. */
+  /** Lines they liked or chose to send, best first: liked, then answered, then copied. */
   liked: string[];
   /** Lines they marked as not for them, newest first, with the reason. */
   disliked: { text: string; reason: LineFeedbackId }[];
@@ -27,9 +27,9 @@ const DISLIKED_MAX = 3;
 
 /**
  * Picks, from the latest interactions with anyone (newest first), the lines that show the
- * user's taste. A line that got a reply counts most; a copied line that got no reply does
- * not count as liked. Sets made for the screenshot being worked on are left out: the prompt
- * already lists those.
+ * user's taste. A line they liked counts most (newest like first), then one that got a
+ * reply, then one they copied; a copied line that got no reply does not count. Sets made
+ * for the screenshot being worked on are left out: the prompt already lists those.
  */
 export function buildTaste(interactions: InteractionWithLines[], skip: ReadonlySet<string> = new Set()): Taste {
   const lines = interactions.filter((row) => !skip.has(row.id)).flatMap((row) => row.lines);
@@ -42,9 +42,12 @@ export function buildTaste(interactions: InteractionWithLines[], skip: ReadonlyS
     return true;
   };
 
+  const likedByHand = lines
+    .filter((line): line is typeof line & { liked_at: string } => Boolean(line.liked_at))
+    .sort((a, b) => b.liked_at.localeCompare(a.liked_at));
   const replied = lines.filter((line) => line.result === 'replied');
   const copied = lines.filter((line) => line.copied_at && line.result !== 'replied' && line.result !== 'no_reply');
-  const liked = [...replied, ...copied]
+  const liked = [...likedByHand, ...replied, ...copied]
     .map((line) => line.text)
     .filter(unique)
     .slice(0, LIKED_MAX);

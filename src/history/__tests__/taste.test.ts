@@ -16,6 +16,15 @@ describe('buildTaste', () => {
     expect(taste.liked).toEqual(['answered', 'copied one']);
   });
 
+  it('puts the lines the user liked first, newest like first', () => {
+    const taste = buildTaste([
+      set('a', [line('answered', { copied_at: 't', result: 'replied' }), line('liked earlier', { liked_at: '2026-11-26T10:00:00Z' })]),
+      set('b', [line('liked later', { liked_at: '2026-11-27T10:00:00Z' }), line('copied', { copied_at: 't' })]),
+    ]);
+
+    expect(taste.liked).toEqual(['liked later', 'liked earlier', 'answered', 'copied']);
+  });
+
   it('keeps at most five liked lines, without repeats', () => {
     const many = Array.from({ length: 8 }, (_, n) => line(`line ${n % 6}`, { copied_at: 't', id: `id-${n}` }));
 

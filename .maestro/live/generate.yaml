@@ -118,6 +118,14 @@ onFlowComplete:
 - assertVisible:
     id: "toast"
 
+# Like the third line: more like this.
+- tapOn:
+    id: "like-0-2"
+- assertVisible:
+    id: "line-status-0-2"
+    text: "Liked"
+- takeScreenshot: generate-line-liked
+
 # Keep the second line.
 - tapOn:
     id: "keep-0-1"

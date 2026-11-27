@@ -100,10 +100,17 @@ function isGeminiBadKey(body: unknown): boolean {
   );
 }
 
+/**
+ * A 429 that means the account has no credit (OpenAI sends no credit as a 429). Read from
+ * the error's type and code, and only a clear sentence in the message: Groq's ordinary
+ * rate-limit message links to its billing page, and that is not "no credit".
+ */
 function isOutOfCredit(body: unknown): boolean {
   const error = errorOf(body);
-  const text = [error?.type, error?.code, error?.message].filter((part) => typeof part === 'string').join(' ');
-  return /insufficient_quota|credit_balance|no credits? remaining|billing/i.test(text);
+  const codes = [error?.type, error?.code].filter((part) => typeof part === 'string').join(' ');
+  if (/rate_limit/i.test(codes)) return false;
+  const message = typeof error?.message === 'string' ? error.message : '';
+  return /insufficient_quota|credit_balance|billing_error/i.test(codes) || /no credits? remaining/i.test(message);
 }
 
 /** OpenRouter's own check flagged the request. That is a refusal, not a wrong key. */
@@ -156,6 +163,8 @@ export function limitHint({ body, retryAfter }: Posted): LimitHint {
   const said = delay ?? text.match(/(?:retry|try again) in ((?:\d+(?:\.\d+)?(?:ms|h|m|s))+)/i)?.[1];
   const ms = said ? parseDuration(said) : null;
   if (ms !== null) hint.retryAfterMs = ms;
+  // A per-minute limit with no time given ("output tokens per minute (OTPM)") clears within a minute.
+  else if (!hint.daily && /per[ _-]?minute|\b[IO]?[RT]PM\b/i.test(text)) hint.retryAfterMs = 60_000;
   return hint;
 }
 

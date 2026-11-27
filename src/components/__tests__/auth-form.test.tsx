@@ -25,6 +25,22 @@ describe('AuthForm: sign in', () => {
     expect(screen.queryByTestId('form-error')).toBeNull();
   });
 
+  it('hides the password, shows it with the eye button, and hides it again', async () => {
+    const fake = createFakeAuthClient();
+    await renderWithApp(<AuthForm />, { client: fake.client });
+    const user = await fill('', 'hunter22');
+    const password = () => screen.getByTestId('password-input');
+
+    expect(password()).toHaveProp('secureTextEntry', true);
+
+    await user.press(screen.getByRole('button', { name: 'Show password' }));
+    expect(password()).toHaveProp('secureTextEntry', false);
+    expect(password()).toHaveDisplayValue('hunter22');
+
+    await user.press(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password()).toHaveProp('secureTextEntry', true);
+  });
+
   it('shows what is missing and does not call the server', async () => {
     const fake = createFakeAuthClient();
     await renderWithApp(<AuthForm />, { client: fake.client });

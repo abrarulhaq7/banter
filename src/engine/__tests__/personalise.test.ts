@@ -58,6 +58,25 @@ describe('buildPersonalisePrompt', () => {
     expect(user).toContain('How he texts, in his own words: short, lowercase, dry');
   });
 
+  it('says which lines he liked', () => {
+    const { user } = buildPersonalisePrompt(
+      input({
+        history: [
+          {
+            toneLabel: 'Flirty',
+            modeLabel: 'Story reply',
+            lines: [
+              { text: 'liked only', copied: false, kept: false, result: null, liked: true },
+              { text: 'liked and answered', copied: true, kept: false, result: 'replied', liked: true },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(user).toContain('- "liked only" (he liked it)');
+    expect(user).toContain('- "liked and answered" (he liked it, sent it, she replied)');
+  });
+
   it('leaves out his name and city: style does not need them', () => {
     const { user, system } = buildPersonalisePrompt(input());
 

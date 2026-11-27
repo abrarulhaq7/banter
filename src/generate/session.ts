@@ -78,6 +78,8 @@ export type SessionState = {
   direction: Direction;
   /** Why the user did not like a line, by line id. */
   feedback: Record<string, LineFeedback>;
+  /** Lines the user liked, by line id. A line is liked or marked "not for me", never both. */
+  liked: Record<string, true>;
 };
 
 export type SessionAction =
@@ -99,6 +101,7 @@ export type SessionAction =
   | { type: 'dismissError' }
   | { type: 'setDirection'; direction: Direction }
   | { type: 'setFeedback'; lineId: string; reason: LineFeedback | null }
+  | { type: 'toggleLike'; lineId: string }
   /** Back to no screenshot. The chosen mode and tone stay: they are the user's habits. */
   | { type: 'clear' };
 
@@ -115,6 +118,7 @@ export const initialSession: SessionState = {
   copiedLineId: null,
   direction: 'keep_going',
   feedback: {},
+  liked: {},
 };
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -137,6 +141,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         // Turning up the heat is a choice about one conversation, not a habit.
         direction: 'keep_going',
         feedback: {},
+        liked: {},
       };
 
     case 'screenshotFailed':
@@ -192,9 +197,25 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, direction: action.direction };
     case 'setFeedback': {
       const feedback = { ...state.feedback };
-      if (action.reason) feedback[action.lineId] = action.reason;
-      else delete feedback[action.lineId];
-      return { ...state, feedback };
+      const liked = { ...state.liked };
+      if (action.reason) {
+        feedback[action.lineId] = action.reason;
+        delete liked[action.lineId];
+      } else {
+        delete feedback[action.lineId];
+      }
+      return { ...state, feedback, liked };
+    }
+    case 'toggleLike': {
+      const liked = { ...state.liked };
+      const feedback = { ...state.feedback };
+      if (liked[action.lineId]) {
+        delete liked[action.lineId];
+      } else {
+        liked[action.lineId] = true;
+        delete feedback[action.lineId];
+      }
+      return { ...state, liked, feedback };
     }
     case 'clear':
       // Nothing is lost: every set was saved to history when it arrived.

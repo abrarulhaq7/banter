@@ -25,6 +25,8 @@ export type UsedSet = {
     result: 'replied' | 'no_reply' | null;
     /** Why he marked it as not for him. */
     feedback?: string | null;
+    /** He liked it: more like this. */
+    liked?: boolean;
   }[];
 };
 
@@ -111,6 +113,7 @@ const FEEDBACK_WORDS: Record<string, string> = {
 
 function outcome(line: UsedSet['lines'][number]): string {
   if (line.feedback) return `he marked it not for him: ${FEEDBACK_WORDS[line.feedback] ?? line.feedback}`;
+  if (line.liked) return line.result === 'replied' ? 'he liked it, sent it, she replied' : 'he liked it';
   if (line.result === 'replied') return 'sent, she replied';
   if (line.result === 'no_reply') return 'sent, no reply';
   if (line.copied) return 'copied to send';

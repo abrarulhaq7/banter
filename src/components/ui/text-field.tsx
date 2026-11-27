@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
-import { radius, spacing, typography, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, radius, spacing, typography, useTheme } from '@/theme';
 
 import { AppText } from './app-text';
+import { IconButton } from './icon-button';
 
 export type TextFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   label: string;
@@ -13,6 +14,10 @@ export type TextFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColo
   helper?: string;
 };
 
+/**
+ * A labelled text input. A password field (`secureTextEntry`) gets an eye button that
+ * shows what was typed, and hides it again: typos in a hidden password are easy to make.
+ */
 export function TextField({
   label,
   error,
@@ -20,10 +25,13 @@ export function TextField({
   multiline,
   onFocus,
   onBlur,
+  secureTextEntry,
+  testID,
   ...rest
 }: TextFieldProps) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   const borderColor = error ? colors.danger : focused ? colors.accent : colors.border;
   const message = error ?? helper;
@@ -33,28 +41,44 @@ export function TextField({
       <AppText variant="label" color="textMuted">
         {label}
       </AppText>
-      <TextInput
-        {...rest}
-        multiline={multiline}
-        accessibilityLabel={label}
-        placeholderTextColor={colors.textMuted}
-        selectionColor={colors.accent}
-        cursorColor={colors.accent}
-        keyboardAppearance="dark"
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        style={[
-          styles.input,
-          multiline && styles.multiline,
-          { color: colors.text, backgroundColor: colors.surface, borderColor },
-        ]}
-      />
+      <View>
+        <TextInput
+          {...rest}
+          testID={testID}
+          secureTextEntry={secureTextEntry && !revealed}
+          multiline={multiline}
+          accessibilityLabel={label}
+          placeholderTextColor={colors.textMuted}
+          selectionColor={colors.accent}
+          cursorColor={colors.accent}
+          keyboardAppearance="dark"
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          style={[
+            styles.input,
+            multiline && styles.multiline,
+            secureTextEntry && styles.roomForEye,
+            { color: colors.text, backgroundColor: colors.surface, borderColor },
+          ]}
+        />
+        {secureTextEntry ? (
+          <View style={styles.eye}>
+            <IconButton
+              testID={testID ? `${testID}-visibility` : undefined}
+              icon={revealed ? 'hidden' : 'shown'}
+              label={revealed ? 'Hide password' : 'Show password'}
+              color="textMuted"
+              onPress={() => setRevealed((shown) => !shown)}
+            />
+          </View>
+        ) : null}
+      </View>
       {message ? (
         <AppText variant="caption" color={error ? 'danger' : 'textMuted'}>
           {message}
@@ -79,5 +103,13 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 110,
     textAlignVertical: 'top',
+  },
+  roomForEye: { paddingRight: spacing.lg + MIN_TOUCH_TARGET },
+  eye: {
+    position: 'absolute',
+    right: spacing.xs,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
 });

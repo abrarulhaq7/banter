@@ -55,6 +55,7 @@ export function usedSets(
         kept: line.kept_at !== null,
         result: line.result,
         feedback: line.feedback ?? null,
+        liked: Boolean(line.liked_at),
       })),
     }));
 }

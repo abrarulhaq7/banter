@@ -166,6 +166,29 @@ describe('sessionReducer', () => {
     expect(sessionReducer(marked, { type: 'setFeedback', lineId: 'l1', reason: null }).feedback).toEqual({});
   });
 
+  it('likes a line and takes the like back', () => {
+    const liked = play([{ type: 'toggleLike', lineId: 'l1' }]);
+    expect(liked.liked).toEqual({ l1: true });
+    expect(sessionReducer(liked, { type: 'toggleLike', lineId: 'l1' }).liked).toEqual({});
+  });
+
+  it('never keeps a like and a "not for me" on the same line: the newer one wins', () => {
+    const disliked = play([{ type: 'toggleLike', lineId: 'l1' }, { type: 'setFeedback', lineId: 'l1', reason: 'cringe' }]);
+    expect(disliked).toMatchObject({ liked: {}, feedback: { l1: 'cringe' } });
+
+    const likedAgain = sessionReducer(disliked, { type: 'toggleLike', lineId: 'l1' });
+    expect(likedAgain).toMatchObject({ liked: { l1: true }, feedback: {} });
+  });
+
+  it('starts each new screenshot with no likes', () => {
+    const state = play([
+      { type: 'screenshotReady', screenshot: screenshot('a') },
+      { type: 'toggleLike', lineId: 'l1' },
+      { type: 'screenshotReady', screenshot: screenshot('b') },
+    ]);
+    expect(state.liked).toEqual({});
+  });
+
   it('keeps the current screenshot and lines when choosing another one fails or is cancelled', () => {
     const before = play([
       { type: 'screenshotReady', screenshot: screenshot('a') },

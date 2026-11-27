@@ -184,6 +184,7 @@ select tests.ok(tests.changed($$update public.api_keys set model_limits = '{}'::
   'B: cannot change which of A''s models are resting');
 select tests.ok(tests.changed($$update public.people set notes = 'x'$$) = 0, 'B: cannot change A''s people');
 select tests.ok(tests.changed($$update public.lines set text = 'x'$$) = 0, 'B: cannot change A''s lines');
+select tests.ok(tests.changed($$update public.lines set liked_at = now()$$) = 0, 'B: cannot like A''s lines');
 select tests.ok(tests.changed($$update public.interactions set noticed = 'x'$$) = 0,
   'B: cannot change A''s interactions');
 select tests.ok(tests.changed($$update public.user_prompts set content = 'x'$$) = 0,
@@ -278,6 +279,10 @@ select tests.ok(
   'A: can mark why a line was not for them');
 select tests.refused($$update public.lines set feedback = 'boring' where position = 2$$,
   'lines: only the known feedback reasons are accepted');
+select tests.ok(tests.changed($$update public.lines set liked_at = now() where position = 2$$) = 1,
+  'A: can like a line');
+select tests.ok((select liked_at is not null from public.lines where position = 2),
+  'A: the liked line is saved as liked');
 select tests.ok(
   (select count(*) from public.usage_summary) = 1
   and (select provider = 'gemini' and model = 'gemini-3.5-flash-lite' and key_label = 'Main'

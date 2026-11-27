@@ -270,6 +270,11 @@ export function ResultsScreen() {
           setFeedbackLine(lineId);
           setSheet('feedback');
         }}
+        liked={session.liked}
+        onLike={(lineId) => {
+          if (!session.liked[lineId]) toast.show('Liked. Banter will write more like this.');
+          session.toggleLike(lineId);
+        }}
       />
 
       <Sheet

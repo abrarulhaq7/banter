@@ -1200,6 +1200,18 @@ samples: Claude Opus, Claude Sonnet, Gemini 4 Hydrogen, GPT-6 Luna, Gemini 3.8 F
 Claude Haiku, Gemini 3.6 Flash, Gemini 3.5 Flash-Lite, Groq Qwen 3.8, then OpenRouter's
 free models.
 
+Added on 2026-11-27, at your request, on the same branch:
+
+- **Show the password:** an eye button in the password field on sign in and sign up.
+- **Like a line (👍)** next to "Not for me" on Results: "Liked" on the card and a toast.
+  Liked lines go first among the examples of your taste in every prompt (then lines that
+  got a reply, then copied ones), and Personalise reads them. A line is liked or "not for
+  me", never both: the newer choice replaces the other. Needs
+  `20261128000800_line_likes.sql` (`lines.liked_at`).
+- Groq's free plan allows 1,000 output tokens a minute on Qwen (about one request a
+  minute). Its refusal links to its billing page, which Banter read as "no credit" and
+  would have set the whole key aside; it is now a one-minute rest for that model.
+
 ### Phase 8 — Phone builds
 
 Goal: Banter on your iPhone 16 and your Android 10 phone.

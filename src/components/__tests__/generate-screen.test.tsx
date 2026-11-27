@@ -1234,6 +1234,60 @@ describe('Generate: learning from what the user picks', () => {
   });
 });
 
+describe('Generate: liking a line', () => {
+  it('likes a line, saves it, and says so; a "not for me" afterwards replaces the like', async () => {
+    const { history, user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('like-0-1'));
+
+    expect(screen.getByTestId('like-0-1')).toHaveAccessibleName('Liked');
+    expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Liked');
+    expect(await screen.findByText('Liked. Banter will write more like this.')).toBeOnTheScreen();
+    await waitFor(() => expect(history.lines.find((line) => line.position === 2)?.liked_at).toEqual(expect.any(String)));
+
+    await user.press(screen.getByTestId('dislike-0-1'));
+    await user.press(screen.getByTestId('feedback-too_much'));
+    await user.press(screen.getByTestId('feedback-done'));
+
+    expect(screen.getByTestId('like-0-1')).toHaveAccessibleName('Like');
+    expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Not for me: too much');
+    await waitFor(() =>
+      expect(history.lines.find((line) => line.position === 2)).toMatchObject({ feedback: 'too_much', liked_at: null }),
+    );
+  });
+
+  it('takes a like back with a second tap', async () => {
+    const { history, user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('like-0-0'));
+    await user.press(screen.getByTestId('like-0-0'));
+
+    expect(screen.getByTestId('line-status-0-0')).toHaveTextContent('Tap to copy');
+    await waitFor(() => expect(history.lines.find((line) => line.position === 1)?.liked_at).toBeNull());
+  });
+
+  it('sends liked lines first among the lines the user chose before', async () => {
+    const history = createFakeHistoryRepo();
+    await history.repo.saveInteraction({
+      id: 'old', person_id: null, mode_id: 'story_reply', tone_id: 'casual', tone_label: 'Casual',
+      screenshot_path: 'user/old.jpg', provider: 'gemini', model: 'm', created_at: '2026-11-20T10:00:00Z',
+    } as Parameters<typeof history.repo.saveInteraction>[0]);
+    await history.repo.saveLines([
+      { id: 'o1', interaction_id: 'old', position: 1, text: 'answered one', hook: null },
+      { id: 'o2', interaction_id: 'old', position: 2, text: 'liked one', hook: null },
+    ]);
+    await history.repo.patchLine('o1', { copied_at: 't', result: 'replied' });
+    await history.repo.patchLine('o2', { liked_at: '2026-11-21T10:00:00Z' });
+
+    const { calls, user } = await setup({ history });
+    await firstLines(user);
+
+    expect(calls[0].prompt.likedLines).toEqual(['liked one', 'answered one']);
+  });
+});
+
 describe('Generate: fixing a line marked not for me', () => {
   it('offers to fix it for the reason given: too much becomes a softer set', async () => {
     const { calls, history, user } = await setup({ outputs: [lines('Casual'), lines('Soft')] });

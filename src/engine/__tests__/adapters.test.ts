@@ -431,6 +431,22 @@ describe('what a limit says about when to try again', () => {
     expect(limitHint({ status: 429, body })).toEqual({ daily: true, retryAfterMs: 86_400 });
   });
 
+  it('Groq: its per-minute token limit is a short limit, not "no credit", though it links to billing (its answer on 2026-11-27)', async () => {
+    const body = {
+      error: {
+        message:
+          'Request too large for model `qwen/qwen3.8-27b` in organization `org_x` service tier `on_demand` on output tokens per minute (OTPM): Limit 1000, Requested 1285. The request\'s expected output tokens exceed the enforced limit; reduce max_tokens (or the request\'s expected output) and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing',
+        type: 'tokens',
+        code: 'rate_limit_exceeded',
+      },
+    };
+    const { fetchImpl } = fakeFetch(429, body);
+    await expect(ADAPTERS.groq(request({ fetch: fetchImpl }))).rejects.toMatchObject({
+      kind: 'limit',
+      limit: { retryAfterMs: 60_000 },
+    });
+  });
+
   it('prefers a Retry-After header in seconds', () => {
     expect(limitHint({ status: 429, body: { error: { message: 'slow down' } }, retryAfter: '20' })).toEqual({
       retryAfterMs: 20_000,
