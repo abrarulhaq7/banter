@@ -68,3 +68,6 @@ keys.local.*
 # Banter: safety net for a misnamed samples folder. Real screenshots must never reach git.
 /sample/
 /supabase/paste-update.sql
+
+# Banter: the review account's email and password. Never in git.
+test-account.local.*
