@@ -66,6 +66,23 @@ export const PROFILE_FIELDS: Record<ProfileFieldId, FieldSpec> = {
   },
 };
 
+/**
+ * What the user wants from Banter. Kept with the profile's settings, not in a column of its
+ * own, and edited on About you only. It reaches the line prompts and Tune my tones.
+ */
+export const GOAL_FIELD: FieldSpec = {
+  title: 'What you want from Banter',
+  label: 'What you want from Banter',
+  icon: 'generate',
+  testID: 'profile-goal',
+  input: {
+    placeholder:
+      'Who you message, what you want to happen, how you want to come across. The more you say, the better your tones fit.',
+    multiline: true,
+    maxLength: 1000,
+  },
+};
+
 /** Onboarding asks for the facts first, then for how the user sounds. */
 export const FACT_FIELDS: readonly ProfileFieldId[] = ['name', 'age', 'city', 'work'];
 export const VOICE_FIELDS: readonly ProfileFieldId[] = ['interests', 'textingStyle'];

@@ -3,14 +3,24 @@ import { screen, userEvent, waitFor } from '@testing-library/react-native';
 import { FACT_FIELDS, VOICE_FIELDS } from '@/components/profile/profile-fields';
 import { ProfileScreen } from '@/components/profile/profile-screen';
 import { ProfileStepScreen } from '@/components/profile/profile-step-screen';
-import { createFakeProfileRepo, makeProfile, renderWithData } from '@/test-utils';
+import {
+  createFakeProfileRepo,
+  createFakePromptsRepo,
+  makeProfile,
+  makeUserPrompt,
+  renderWithData,
+} from '@/test-utils';
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, push: mockPush }),
 }));
 
-beforeEach(() => mockBack.mockClear());
+beforeEach(() => {
+  mockBack.mockClear();
+  mockPush.mockClear();
+});
 
 describe('ProfileStepScreen', () => {
   async function setup(fields = FACT_FIELDS, profile = makeProfile()) {
@@ -210,5 +220,65 @@ describe('ProfileScreen', () => {
     await user.press(screen.getByTestId('back-button'));
 
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ProfileScreen: what you want from Banter, and the tones', () => {
+  const LONG_GOAL =
+    'Mostly close friends I flirt with. I want to turn it into something more, sound bold and confident and never needy, short lines.';
+
+  async function setup(settings: Record<string, unknown> = {}, rows = [makeUserPrompt({ id: 'p-flirty', tone_id: 'flirty', content: 'Mine.' })]) {
+    const profile = createFakeProfileRepo(makeProfile({ display_name: 'Sam', settings }));
+    const prompts = createFakePromptsRepo([...rows, makeUserPrompt({ id: 'p-own', label: 'Dry', content: 'Deadpan.' })]);
+    await renderWithData(<ProfileScreen />, { profileRepo: profile.repo, promptsRepo: prompts.repo });
+    await waitFor(() => expect(screen.getByTestId('profile-row-name')).toHaveTextContent(/Sam/));
+    await waitFor(() => expect(prompts.repo.listUserPrompts).toHaveBeenCalled());
+    return { profile, prompts, user: userEvent.setup() };
+  }
+
+  it('asks what the user wants, counts the words, and keeps it with the settings', async () => {
+    const { profile, user } = await setup({ save_screenshots: false });
+    expect(screen.getByTestId('profile-row-goal')).toHaveTextContent(/at least 20 words/);
+
+    await user.press(screen.getByTestId('profile-row-goal'));
+    await user.type(screen.getByTestId('profile-goal'), 'close friends, flirty');
+    expect(screen.getByText('3 of at least 20 words needed to tune your tones.')).toBeOnTheScreen();
+    await user.clear(screen.getByTestId('profile-goal'));
+    await user.type(screen.getByTestId('profile-goal'), LONG_GOAL);
+    expect(screen.getByText('23 words. Enough to tune your tones.')).toBeOnTheScreen();
+    await user.press(screen.getByTestId('profile-save'));
+
+    await waitFor(() =>
+      expect(profile.repo.update).toHaveBeenCalledWith(expect.any(String), {
+        settings: { save_screenshots: false, goal: LONG_GOAL },
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId('profile-row-goal')).toHaveTextContent(/close friends I flirt with/));
+  });
+
+  it('opens Tune my tones', async () => {
+    const { user } = await setup();
+
+    await user.press(screen.getByTestId('tones-tune'));
+
+    expect(mockPush).toHaveBeenCalledWith('/tones/tune');
+  });
+
+  it('asks before resetting Banter\'s tones, and leaves the user\'s own tones alone', async () => {
+    const { prompts, user } = await setup();
+
+    await user.press(screen.getByTestId('tones-reset'));
+    expect(screen.getByText("Reset Banter's tones?")).toBeOnTheScreen();
+    await user.press(screen.getByTestId('dialog-confirm'));
+
+    await waitFor(() => expect(prompts.repo.remove).toHaveBeenCalledWith('p-flirty'));
+    expect(prompts.repo.remove).not.toHaveBeenCalledWith('p-own');
+    expect(prompts.rows().map((row) => row.id)).toEqual(['p-own']);
+  });
+
+  it('cannot reset when none of Banter\'s tones was changed', async () => {
+    await setup({}, []);
+
+    expect(screen.getByTestId('tones-reset')).toBeDisabled();
   });
 });

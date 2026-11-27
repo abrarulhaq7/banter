@@ -197,3 +197,11 @@ describe('buildPrompt', () => {
     expect(buildPrompt({ ...base, aboutHer: 'x' }).system).toBe(buildPrompt(base).system);
   });
 });
+
+describe('buildPrompt: what the sender wants', () => {
+  it('passes it on with the other facts about him', () => {
+    const { user } = buildPrompt({ ...base, profile: { goal: 'turn close friends into more' } });
+
+    expect(user).toContain('What he wants from these chats: turn close friends into more');
+  });
+});

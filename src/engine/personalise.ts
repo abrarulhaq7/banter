@@ -124,6 +124,7 @@ export function buildPersonalisePrompt(input: PersonaliseInput): { system: strin
 
   const profile = input.profile ?? {};
   const about = [
+    profile.goal ? `What he wants from the app, in his own words: ${profile.goal}` : null,
     profile.textingStyle ? `How he texts, in his own words: ${profile.textingStyle}` : null,
     profile.interests ? `Interests: ${profile.interests}` : null,
     profile.age ? `Age: ${profile.age}` : null,

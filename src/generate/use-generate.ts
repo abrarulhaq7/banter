@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useReducer, useRef } from 'react';
 
 import { useAuth } from '@/auth';
-import { savesScreenshots, useKeys, useProfile } from '@/data';
+import { profileGoal, savesScreenshots, useKeys, useProfile } from '@/data';
 import {
   EngineError,
   cleanUsername,
@@ -59,6 +59,7 @@ function senderProfile(profile: ProfileRow | null): SenderProfile | null {
     work: profile.work,
     interests: profile.interests,
     textingStyle: profile.texting_style,
+    goal: profileGoal(profile),
   };
 }
 

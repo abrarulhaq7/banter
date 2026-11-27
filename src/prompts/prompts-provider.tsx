@@ -17,6 +17,10 @@ type PromptsContextValue = ResolvedPrompts & {
   saveToneDefinition: (toneId: string, definition: string) => Promise<Result>;
   /** Back to Banter's definition. */
   resetTone: (toneId: string) => Promise<Result>;
+  /** Saves the user's own definitions of several of Banter's tones at once (Tune my tones). */
+  saveToneDefinitions: (entries: { toneId: string; definition: string }[]) => Promise<Result>;
+  /** Every one of Banter's tones back to Banter's wording. The user's own tones stay. */
+  resetBuiltInTones: () => Promise<Result>;
   addCustomTone: (label: string, definition: string) => Promise<Result>;
   updateCustomTone: (id: string, label: string, definition: string) => Promise<Result>;
   removeCustomTone: (id: string) => Promise<Result>;
@@ -122,6 +126,50 @@ export function PromptsProvider({ children, userId, repo, cache }: PromptsProvid
         return { ok: true };
       } catch (caught) {
         return failed(caught, 'save the tone');
+      }
+    },
+
+    async saveToneDefinitions(entries) {
+      // One change to the list at the end, so each save builds on the one before it.
+      let rows = data.userPrompts;
+      try {
+        for (const { toneId, definition } of entries) {
+          const content = definition.trim();
+          const tone = resolved.tones.find((item) => item.toneId === toneId);
+          const existing = rows.find((row) => row.tone_id === toneId);
+          if (tone && content === tone.defaultDefinition?.trim()) {
+            if (existing) {
+              await source.repo.remove(existing.id);
+              rows = rows.filter((row) => row.id !== existing.id);
+            }
+            continue;
+          }
+          const saved = existing
+            ? await source.repo.update(existing.id, { content })
+            : await source.repo.addToneVersion(toneId, content);
+          rows = [...rows.filter((row) => row.id !== saved.id), saved];
+        }
+        await apply({ ...data, userPrompts: rows });
+        return { ok: true };
+      } catch (caught) {
+        // What was saved before the failure stays saved, and shows.
+        await apply({ ...data, userPrompts: rows });
+        return failed(caught, 'save your tones');
+      }
+    },
+
+    async resetBuiltInTones() {
+      let rows = data.userPrompts;
+      try {
+        for (const row of data.userPrompts.filter((item) => item.tone_id !== null)) {
+          await source.repo.remove(row.id);
+          rows = rows.filter((item) => item.id !== row.id);
+        }
+        await apply({ ...data, userPrompts: rows });
+        return { ok: true };
+      } catch (caught) {
+        await apply({ ...data, userPrompts: rows });
+        return failed(caught, 'reset your tones');
       }
     },
 

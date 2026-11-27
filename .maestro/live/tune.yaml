@@ -1,0 +1,159 @@
+# Tune my tones, against the real Supabase project with real answers from Gemini:
+# write what you want from Banter, tune Banter's tones from it, save them all, see them
+# marked as edited in My tones, then reset them to Banter's wording.
+#
+#   npm run e2e:live -- .maestro/live/tune.yaml
+appId: com.banterlines.app
+# Runs however the flow ends, so a failed run never leaves the real key or test tones in
+# its account.
+onFlowComplete:
+  - runScript:
+      file: ../scripts/remove-prompts.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-keys.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "tune"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+# Restart, so the key is loaded.
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+
+# --- About you: nothing to tune by yet, and nothing to reset ------------------------------
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "edit-profile"
+- assertVisible:
+    id: "profile-row-goal"
+    text: ".*Not set.*"
+- assertVisible:
+    id: "tones-reset"
+    enabled: false
+- takeScreenshot: tune-about-you-empty
+
+# Too few words: Tune explains, and cannot run.
+- tapOn:
+    id: "tones-tune"
+- assertVisible:
+    id: "tune-need-goal"
+- assertVisible:
+    id: "tune-run"
+    enabled: false
+- tapOn:
+    id: "tune-write-goal"
+
+# --- What you want from Banter ------------------------------------------------------------
+- tapOn:
+    id: "profile-row-goal"
+- tapOn:
+    id: "profile-goal"
+- inputText: "Mostly close friends I already flirt with. I want to turn it into something more and make things hot, sound confident and bold, never needy or desperate."
+- assertVisible: ".*Enough to tune your tones.*"
+- takeScreenshot: tune-goal-sheet
+- runFlow:
+    file: ../common/tap-after-typing.yaml
+    env:
+      ID: "profile-save"
+- assertVisible:
+    id: "profile-row-goal"
+    text: ".*close friends I already flirt with.*"
+
+# --- Tune: only Banter's tones, from what was written -------------------------------------
+- tapOn:
+    id: "tones-tune"
+- assertVisible:
+    id: "tune-built-in"
+    text: "Casual, Funny, Flirty, Spicy, Confident, Safe"
+- assertVisible:
+    id: "tune-goal"
+- takeScreenshot: tune-before
+- tapOn:
+    id: "tune-run"
+- extendedWaitUntil:
+    visible:
+      id: "tune-save"
+    timeout: 90000
+- assertVisible:
+    id: "tuned-spicy"
+- takeScreenshot: tune-result
+- tapOn:
+    id: "tuned-spicy"
+- assertVisible:
+    id: "tuned-new"
+- takeScreenshot: tune-compare-spicy
+- tapOn:
+    id: "sheet-close"
+- tapOn:
+    id: "tune-save"
+- extendedWaitUntil:
+    visible:
+      id: "profile-screen"
+    timeout: 30000
+- assertVisible:
+    id: "tones-reset"
+    enabled: true
+
+# --- My tones: Banter's tones now read as edited ------------------------------------------
+- tapOn:
+    id: "back-button"
+- tapOn:
+    id: "tab-tones"
+- extendedWaitUntil:
+    visible:
+      id: "tone-row-spicy"
+      text: ".*Edited.*"
+    timeout: 15000
+- assertVisible:
+    id: "tone-row-casual"
+    text: ".*Edited.*"
+- takeScreenshot: tune-my-tones
+
+# --- Reset: back to Banter's wording, after asking ----------------------------------------
+- runFlow: ../common/go-to-settings.yaml
+- tapOn:
+    id: "edit-profile"
+- tapOn:
+    id: "tones-reset"
+- assertVisible: "Reset Banter's tones\\?"
+- takeScreenshot: tune-reset-dialog
+- tapOn:
+    id: "dialog-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "tones-reset"
+      enabled: false
+    timeout: 15000
+- tapOn:
+    id: "back-button"
+- tapOn:
+    id: "tab-tones"
+- assertVisible:
+    id: "tone-row-spicy"
+    text: "Spicy, Bold flirting.*"
+- assertNotVisible:
+    id: "tone-row-casual"
+    text: ".*Edited.*"
+
+# Leave the app signed out for the next flow.
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml

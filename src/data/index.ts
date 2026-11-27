@@ -16,7 +16,7 @@ export {
   type ProfileFields,
 } from './profile-form';
 export { ProfileProvider, useProfile } from './profile-provider';
-export { savesScreenshots } from './settings';
+export { profileGoal, profileSettings, savesScreenshots } from './settings';
 export type { KeyPatch, KeysRepo, NewKey, ProfilePatch, ProfileRepo } from './repos';
 export { dataErrorMessage, type Result } from './result';
 export { clearUserCaches, createUserCache, type UserCache } from './user-cache';

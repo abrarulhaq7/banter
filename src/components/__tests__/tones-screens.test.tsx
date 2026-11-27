@@ -1,6 +1,7 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 
 import { LearnToneScreen } from '@/components/tones/learn-tone-screen';
+import { TuneTonesScreen } from '@/components/tones/tune-tones-screen';
 import { PersonaliseScreen } from '@/components/tones/personalise-screen';
 import { ToneScreen } from '@/components/tones/tone-screen';
 import { TonesScreen } from '@/components/tones/tones-screen';
@@ -351,7 +352,7 @@ describe('PersonaliseScreen', () => {
 
     const { input } = calls[0];
     expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe', 'prompt-nerdy']);
-    expect(input.profile).toEqual({ age: null, work: null, interests: null, textingStyle: 'short, dry' });
+    expect(input.profile).toEqual({ age: null, work: null, interests: null, textingStyle: 'short, dry', goal: null });
     expect(input.history).toEqual([
       {
         toneLabel: 'Flirty',
@@ -645,5 +646,118 @@ describe('ToneScreen: started from an example', () => {
     await waitFor(() =>
       expect(prompts.repo.addToneVersion).toHaveBeenCalledWith('casual', `${DEFAULT_TONES.casual.definition} Guess her habits.`),
     );
+  });
+});
+
+describe('TuneTonesScreen', () => {
+  const GOAL =
+    'Mostly girls I already know, close friends I flirt with. I want to turn the flirting into something more and sound confident and bold, never needy.';
+  const TUNED = {
+    tones: [
+      { key: 'casual', definition: 'relaxed, short, lowercase.', change: 'Shorter and lowercase, like you text.' },
+      { key: 'spicy', definition: 'bold heat with close friends. never crude, never graphic.', change: 'Bolder with close friends.' },
+    ],
+    summary: 'Tuned to turn close friends into something more.',
+  };
+
+  async function setup({ goal = GOAL as string | undefined, answer = TUNED as unknown, keys = [makeKey()], rows = [FLIRTY, NERDY] } = {}) {
+    const prompts = createFakePromptsRepo(rows);
+    const tune = jest.fn(async () => {
+      if (answer instanceof EngineError) throw answer;
+      return { output: answer, usedKey: { id: 'key-1', label: 'Main', provider: 'gemini' as const, model: 'm' }, durationMs: 1 };
+    });
+    const keysRepo = createFakeKeysRepo(keys);
+    await renderWithData(<TuneTonesScreen deps={{ tune: tune as never }} />, {
+      promptsRepo: prompts.repo,
+      keysRepo: keysRepo.repo,
+      profileRepo: createFakeProfileRepo(
+        makeProfile({ texting_style: 'short, lowercase', settings: goal === undefined ? {} : { goal } }),
+      ).repo,
+    });
+    await waitFor(() => expect(keysRepo.repo.list).toHaveBeenCalled());
+    await waitFor(() => expect(prompts.repo.listUserPrompts).toHaveBeenCalled());
+    return { prompts, tune, user: userEvent.setup() };
+  }
+
+  it('says which tones will be rewritten, and which stay', async () => {
+    await setup();
+
+    expect(await screen.findByTestId('tune-built-in')).toHaveTextContent('Casual, Funny, Flirty, Spicy, Confident, Safe');
+    expect(screen.getByTestId('tune-own')).toHaveTextContent('Nerdy');
+    expect(screen.getByTestId('tune-goal')).toHaveTextContent(/close friends I flirt with/);
+    expect(screen.getByTestId('tune-run')).toHaveAccessibleName('Tune 6 tones');
+  });
+
+  it('asks for more words first, and sends nothing', async () => {
+    const { tune } = await setup({ goal: 'flirt more' });
+
+    expect(await screen.findByTestId('tune-need-goal')).toHaveTextContent(/You wrote 2 words/);
+    expect(screen.getByTestId('tune-run')).toBeDisabled();
+    await userEvent.setup().press(screen.getByTestId('tune-write-goal'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(tune).not.toHaveBeenCalled();
+  });
+
+  it('starts from Banter\'s own wording, even for a tone the user already changed', async () => {
+    const { tune, user } = await setup();
+    await screen.findByTestId('tune-goal');
+
+    await user.press(screen.getByTestId('tune-run'));
+
+    const { input } = (tune.mock.calls[0] as unknown as [{ input: { tones: { key: string; definition: string }[]; profile: object } }])[0];
+    expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe']);
+    expect(input.tones.find((tone) => tone.key === 'flirty')?.definition).toBe(DEFAULT_TONES.flirty.definition);
+    expect(input.profile).toEqual({ goal: GOAL, textingStyle: 'short, lowercase', interests: null, age: null });
+  });
+
+  it('shows each tuned tone, compares it with the current one, and saves nothing until Save all', async () => {
+    const { prompts, user } = await setup();
+    await screen.findByTestId('tune-goal');
+    await user.press(screen.getByTestId('tune-run'));
+
+    expect(await screen.findByTestId('tune-summary')).toHaveTextContent('Tuned to turn close friends into something more.');
+    await user.press(screen.getByTestId('tuned-spicy'));
+    expect(screen.getByTestId('tuned-current')).toHaveTextContent(DEFAULT_TONES.spicy.definition);
+    expect(screen.getByTestId('tuned-new')).toHaveTextContent('bold heat with close friends. never crude, never graphic.');
+    expect(prompts.repo.addToneVersion).not.toHaveBeenCalled();
+  });
+
+  it('saves every tuned tone, replacing the user\'s earlier version, and goes back', async () => {
+    const { prompts, user } = await setup({
+      answer: { ...TUNED, tones: [...TUNED.tones, { key: 'flirty', definition: 'warm, cool, lowercase.', change: 'c' }] },
+    });
+    await screen.findByTestId('tune-goal');
+    await user.press(screen.getByTestId('tune-run'));
+    await user.press(await screen.findByTestId('tune-save'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(prompts.repo.addToneVersion).toHaveBeenCalledWith('casual', 'relaxed, short, lowercase.');
+    expect(prompts.repo.addToneVersion).toHaveBeenCalledWith('spicy', 'bold heat with close friends. never crude, never graphic.');
+    expect(prompts.repo.update).toHaveBeenCalledWith('prompt-flirty', { content: 'warm, cool, lowercase.' });
+    // The user's own tone is untouched.
+    expect(prompts.rows().find((row) => row.id === 'prompt-nerdy')?.content).toBe('One small science reference.');
+  });
+
+  it('says why when saving fails, and stays', async () => {
+    const { prompts, user } = await setup();
+    await screen.findByTestId('tune-goal');
+    await user.press(screen.getByTestId('tune-run'));
+    await screen.findByTestId('tune-save');
+    prompts.failNext();
+
+    await user.press(screen.getByTestId('tune-save'));
+
+    expect(await screen.findByTestId('tune-error')).toHaveTextContent(/No connection/);
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('explains a failed request', async () => {
+    const { user } = await setup({ answer: new EngineError('no_internet') });
+    await screen.findByTestId('tune-goal');
+
+    await user.press(screen.getByTestId('tune-run'));
+
+    expect(await screen.findByTestId('tune-error')).toBeOnTheScreen();
+    expect(screen.getByTestId('tune-run')).toBeEnabled();
   });
 });

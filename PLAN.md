@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phases 7, 7.5 and 7.6 are done and pushed (2026-11-26): settings and polish, bolder flirting (Spicy, About her, Who is she), and learning a tone from an example.** Supabase is at prompt version 6 with Spicy. Next: Phase 8, phone builds.
+Status: **Phases 7 to 7.7 are done and pushed (2026-11-26): settings and polish, bolder flirting, learning a tone from an example, and Tune my tones.** Supabase is at prompt version 6 with Spicy. Next: Phase 8, phone builds.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -992,6 +992,34 @@ Tested:
 - Found on the way: the live flows assumed the app starts on a tab. If someone has used
   the simulator in between, it can open on any screen; `common/ensure-signed-out.yaml`
   now goes Back until the tabs show.
+
+### Phase 7.7 — Tune my tones
+
+Added on 2026-11-26 at your request: Banter asks what you want from it, and rewrites its
+own tones to fit.
+
+Built:
+
+- **About you > "What you want from Banter"**, the first row. Its sheet asks for who you
+  message, what you want to happen and how you want to come across, and counts the words:
+  20 or more are needed to tune. Kept in the profile's settings (no database change).
+- **It also goes into every line prompt** ("What he wants from these chats"), and into
+  Personalise for me.
+- **About you > Tune my tones** opens a screen that says exactly what will change: Banter's
+  six tones, by name, and that the tones you made stay as they are (listed by name). With
+  fewer than 20 words it says so and cannot run. The AI rewrites the six from Banter's own
+  wording every time (so tuning twice does not drift), keeping each tone's character and
+  every safeguard. Each result opens a sheet with "Now" against "Tuned"; nothing is saved
+  until **Save all**. A tone you had already changed is replaced.
+- **About you > Reset tones** (after a dialog) puts Banter's six tones back to Banter's
+  wording. Your own tones stay. Disabled when nothing is changed.
+- A tuned definition that runs long loses whole sentences from the end, never half a
+  word, so a safeguard is never cut in two (found in the first real run: Spicy was cut
+  mid-word in its last sentence).
+
+Tested: `npm run check` passes (692 unit tests). The new live flow `live/tune.yaml` passes
+against the real Supabase project with real Gemini answers: write a goal, tune, compare,
+save all, see Banter's tones marked Edited in My tones, reset, see them back.
 
 ### Phase 8 — Phone builds
 

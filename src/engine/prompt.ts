@@ -35,6 +35,7 @@ function profileText(profile: SenderProfile): string | null {
     profile.work ? `Work or study: ${profile.work}` : null,
     profile.interests ? `Interests: ${profile.interests}` : null,
     profile.textingStyle ? `How he texts: ${profile.textingStyle}` : null,
+    profile.goal ? `What he wants from these chats: ${profile.goal}` : null,
   ].filter((fact): fact is string => fact !== null);
 
   if (facts.length === 0) return null;

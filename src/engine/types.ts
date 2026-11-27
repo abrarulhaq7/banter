@@ -29,6 +29,8 @@ export type SenderProfile = {
   work?: string | null;
   interests?: string | null;
   textingStyle?: string | null;
+  /** What he wants from the app, in his own words. */
+  goal?: string | null;
 };
 
 /** One earlier interaction with the same person, newest first in the list. */

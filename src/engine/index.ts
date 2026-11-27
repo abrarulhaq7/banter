@@ -8,6 +8,19 @@ export {
 export { EngineError, isEngineError, type EngineErrorKind } from './errors';
 export { askWithKeys, generate, type AskOptions, type Asked, type GenerateOptions, type KeyProblem } from './generate';
 export {
+  GOAL_MIN_WORDS,
+  TUNED_DEFINITION_MAX,
+  buildTunePrompt,
+  fitSentences,
+  parseTuneOutput,
+  tuneTones,
+  wordCount,
+  type TuneInput,
+  type TuneOptions,
+  type TuneOutput,
+  type TunedTone,
+} from './tune-tones';
+export {
   LEARNED_DEFINITION_MAX,
   LEARNED_NAME_MAX,
   buildLearnPrompt,

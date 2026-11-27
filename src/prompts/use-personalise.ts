@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useKeys, useProfile } from '@/data';
+import { profileGoal, useKeys, useProfile } from '@/data';
 import {
   EngineError,
   evidenceCount,
@@ -76,6 +76,7 @@ export function usePersonalise(overrides: Partial<PersonaliseDeps> = {}): Person
     work: profile?.work,
     interests: profile?.interests,
     textingStyle: profile?.texting_style,
+    goal: profileGoal(profile),
   };
   const candidates = keyCandidates(keys, models, deps.now().getTime());
 
