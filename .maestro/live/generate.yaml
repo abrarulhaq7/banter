@@ -98,11 +98,46 @@ onFlowComplete:
       visible: "Allow Full Access"
     commands:
       - tapOn: "Allow Full Access"
+
+# --- Quick questions: they open by themselves once the screenshot is ready ----------------
+# (On iOS the screen behind an open sheet is not in the tree, so the preview is checked after.)
 - extendedWaitUntil:
     visible:
-      id: "screenshot-preview"
+      id: "quick-questions-sheet"
     timeout: 30000
+- takeScreenshot: generate-quick-questions
+# Turn up the heat is offered only for someone he knows.
+- assertNotVisible:
+    id: "quick-goal-heat"
+- tapOn:
+    id: "quick-context-know_her"
+- assertVisible:
+    id: "quick-goal-heat"
+- tapOn:
+    id: "quick-context-know_her"
+- assertNotVisible:
+    id: "quick-goal-heat"
+# Start talking, for a story: Casual, the tone the rest of this flow expects.
+- tapOn:
+    id: "quick-goal-start"
+- assertVisible: "Use Casual"
+- tapOn:
+    id: "quick-apply"
+- assertNotVisible:
+    id: "quick-questions-sheet"
+# Help me pick asks again at any time; closing it changes nothing.
+- tapOn:
+    id: "quick-questions-open"
+- assertVisible:
+    id: "quick-questions-sheet"
+- tapOn:
+    id: "sheet-close"
+- assertNotVisible:
+    id: "quick-questions-sheet"
+
 # Layout rule: everything on this tab, and its main button, is in reach without scrolling.
+- assertVisible:
+    id: "screenshot-preview"
 - assertVisible:
     id: "mode-story_reply"
 - assertVisible:

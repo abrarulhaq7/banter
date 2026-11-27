@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth';
 import {
   AppText,
   Banner,
   Button,
+  IconButton,
   ListRow,
   Screen,
   ScreenHeader,
@@ -17,13 +18,14 @@ import {
 } from '@/components/ui';
 import { dataErrorMessage } from '@/data';
 import { appInfo, type AppInfo } from '@/feedback/app-info';
-import { createFeedbackRepo, type FeedbackRepo } from '@/feedback/feedback-repo';
+import { createFeedbackRepo, MAX_PICTURES, type FeedbackRepo } from '@/feedback/feedback-repo';
 import { FEEDBACK_KINDS, includedItems, setForTicket, ticketContext } from '@/feedback/ticket';
 import { useGenerateSession } from '@/generate/generate-provider';
 import type { FeedbackKind } from '@/lib/database.types';
 import { getSupabase } from '@/lib/supabase';
 import { uuid } from '@/lib/uuid';
-import { spacing } from '@/theme';
+import { pickPictures, type PreparedScreenshot } from '@/screenshot';
+import { radius, spacing, useTheme } from '@/theme';
 
 type FeedbackScreenProps = {
   /** The set of lines the ticket is about, when it is sent from Results. */
@@ -31,20 +33,28 @@ type FeedbackScreenProps = {
   /** Tests pass fakes. */
   send?: FeedbackRepo['send'];
   app?: AppInfo;
+  pick?: (limit: number) => Promise<PreparedScreenshot[]>;
 };
 
-const defaultSend: FeedbackRepo['send'] = (ticket, screenshot) => {
+const defaultSend: FeedbackRepo['send'] = (ticket, files) => {
   const client = getSupabase();
   if (!client) throw new Error('Supabase is not connected');
-  return createFeedbackRepo(client).send(ticket, screenshot);
+  return createFeedbackRepo(client).send(ticket, files);
 };
 
 /**
  * Report a problem or send an idea. From Results the set of lines is attached, with the
  * options, the model, the marks on each line and the request as sent; the screenshot too,
- * if the user leaves it on. The user picks the kind and writes what is wrong.
+ * if the user leaves it on. The user picks the kind, writes what is wrong, and can add up to
+ * three pictures of their own (a screenshot of the problem).
  */
-export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: FeedbackScreenProps) {
+export function FeedbackScreen({
+  setId,
+  send = defaultSend,
+  app = appInfo(),
+  pick = pickPictures,
+}: FeedbackScreenProps) {
+  const { colors } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const { session: auth } = useAuth();
@@ -56,6 +66,7 @@ export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: F
   const [kind, setKind] = useState<FeedbackKind>(set ? 'lines' : 'bug');
   const [message, setMessage] = useState('');
   const [attach, setAttach] = useState(screenshot !== null);
+  const [pictures, setPictures] = useState<PreparedScreenshot[]>([]);
   const [showIncluded, setShowIncluded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +75,18 @@ export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: F
   // A reported set speaks for itself; anything else needs a few words.
   const noteOptional = set !== null && kind === 'lines';
   const withScreenshot = attach && screenshot !== null;
-  const included = includedItems(app, set, withScreenshot);
+  const included = includedItems(app, set, withScreenshot, pictures.length);
+  const roomLeft = MAX_PICTURES - pictures.length;
+
+  const addPictures = async () => {
+    setError(null);
+    try {
+      const picked = await pick(roomLeft);
+      if (picked.length > 0) setPictures((current) => [...current, ...picked].slice(0, MAX_PICTURES));
+    } catch {
+      setError('Could not open that picture. Try another one.');
+    }
+  };
 
   const submit = async () => {
     const note = message.trim();
@@ -86,7 +108,13 @@ export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: F
       const userId = auth?.user.id;
       await send(
         { id: uuid(), kind, message: note, context },
-        withScreenshot && userId ? { userId, base64: screenshot.image.base64 } : null,
+        userId
+          ? {
+              userId,
+              screenshot: withScreenshot ? screenshot.image.base64 : null,
+              pictures: pictures.map((picture) => picture.image.base64),
+            }
+          : null,
       );
       setBusy(false);
       toast.show('Sent. Thank you!');
@@ -160,7 +188,43 @@ export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: F
             disabled={busy}
           />
         ) : null}
+        <ListRow
+          testID="feedback-add-pictures"
+          icon="gallery"
+          title="Add pictures"
+          subtitle="A screenshot of the problem helps."
+          value={pictures.length > 0 ? `${pictures.length} of ${MAX_PICTURES}` : `Up to ${MAX_PICTURES}`}
+          onPress={addPictures}
+          disabled={busy || roomLeft === 0}
+        />
       </View>
+
+      {pictures.length > 0 ? (
+        <View testID="feedback-pictures" style={styles.pictures}>
+          {pictures.map((picture, index) => (
+            <View
+              key={picture.previewUri}
+              style={[styles.picture, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <Image
+                testID={`feedback-picture-${index}`}
+                source={{ uri: picture.previewUri }}
+                resizeMode="cover"
+                accessibilityLabel={`Picture ${index + 1}`}
+                style={styles.pictureImage}
+              />
+              <IconButton
+                testID={`feedback-picture-remove-${index}`}
+                icon="close"
+                label={`Remove picture ${index + 1}`}
+                variant="filled"
+                onPress={() => setPictures((current) => current.filter((_, at) => at !== index))}
+                disabled={busy}
+                style={styles.pictureRemove}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Sheet
         testID="feedback-included-sheet"
@@ -180,6 +244,18 @@ export function FeedbackScreen({ setId, send = defaultSend, app = appInfo() }: F
   );
 }
 
+const PICTURE_SIZE = 96;
+
 const styles = StyleSheet.create({
   rows: { gap: spacing.sm },
+  pictures: { flexDirection: 'row', gap: spacing.sm },
+  picture: {
+    width: PICTURE_SIZE,
+    height: PICTURE_SIZE,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  pictureImage: { flex: 1 },
+  pictureRemove: { position: 'absolute', top: spacing.xxs, right: spacing.xxs },
 });

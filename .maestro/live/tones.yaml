@@ -139,10 +139,7 @@ onFlowComplete:
       visible: "Allow Full Access"
     commands:
       - tapOn: "Allow Full Access"
-- extendedWaitUntil:
-    visible:
-      id: "screenshot-preview"
-    timeout: 30000
+- runFlow: ../common/skip-quick-questions.yaml
 - tapOn:
     id: "tone-flirty"
 - takeScreenshot: tones-generate-chips

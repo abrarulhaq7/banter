@@ -76,6 +76,25 @@ export async function pickFromGallery(): Promise<ScreenshotResult> {
   }
 }
 
+/**
+ * Pictures to add to a feedback ticket: the system photo picker, several at once, each
+ * resized like a screenshot. An empty list when the user closes the picker; throws when an
+ * image cannot be read. Older Android pickers ignore the limit, so it is applied here too.
+ */
+export async function pickPictures(limit: number): Promise<PreparedScreenshot[]> {
+  if (limit < 1) return [];
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsMultipleSelection: limit > 1,
+    selectionLimit: limit,
+    quality: 1,
+  });
+  if (result.canceled) return [];
+  return Promise.all(
+    result.assets.slice(0, limit).map((asset) => prepareImage(asset.uri, asset.width, asset.height)),
+  );
+}
+
 const newestFirst = { key: AssetField.CREATION_TIME, ascending: false } as const;
 
 /** The newest screenshot in the library, or the newest image if nothing is marked as one. */

@@ -336,6 +336,31 @@ select tests.refused($$insert into public.feedback (kind, status) values ('bug',
 select tests.refused(
   $$insert into public.feedback (kind, screenshot_path) values ('bug', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/x.jpg')$$,
   'feedback: the screenshot must be in the user''s own folder');
+
+-- Pictures the user adds: up to three, in their own folder.
+insert into storage.objects (bucket_id, name) values
+  ('screenshots', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-2-1.jpg'),
+  ('screenshots', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/history-1.jpg');
+insert into public.feedback (id, kind, message, pictures)
+  values ('f0000000-0000-4000-8000-000000000002', 'bug', 'The button is cut off.',
+          array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-2-1.jpg']);
+select tests.ok(
+  (select pictures from public.feedback where id = 'f0000000-0000-4000-8000-000000000002')
+    = array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-2-1.jpg'],
+  'feedback: a ticket can carry the user''s own pictures');
+select tests.refused(
+  $$insert into public.feedback (kind, pictures) values ('bug', array['bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/feedback-x.jpg'])$$,
+  'feedback: a picture must be in the user''s own folder');
+select tests.refused(
+  $$insert into public.feedback (kind, pictures) values ('bug', array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/history-1.jpg'])$$,
+  'feedback: a picture must be a feedback picture, not a saved screenshot');
+select tests.refused(
+  $$insert into public.feedback (kind, pictures) values ('bug', array[
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-2.jpg',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-3.jpg', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-4.jpg'])$$,
+  'feedback: at most three pictures');
+select tests.refused(
+  $$update public.feedback set pictures = '{}'$$, 'feedback: the pictures of a sent ticket cannot be changed');
 select tests.ok(tests.changed($$update public.feedback set status = 'resolved'$$) = 0,
   'feedback: a user cannot resolve tickets');
 select tests.refused($$update public.feedback set message = 'changed'$$, 'feedback: a sent ticket cannot be edited');
@@ -349,19 +374,22 @@ select tests.ok((select count(*) from public.feedback) = 0, 'B: cannot see A''s 
 
 select set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', false);
 select tests.ok(public.is_admin(), 'the admin is an admin');
-select tests.ok((select count(*) from public.feedback where email = 'a@example.com') = 1,
+select tests.ok((select count(*) from public.feedback where email = 'a@example.com') = 2,
   'admin: finds a user''s tickets by their email');
 select tests.ok(
-  (select count(*) from storage.objects) = 1
-  and (select name from storage.objects) = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg',
-  'admin: can open the reported screenshot, and no other');
+  (select array_agg(name order by name) from storage.objects) = array[
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-2-1.jpg'],
+  'admin: can open the reported screenshot and the ticket''s pictures, and no other file');
 select tests.ok(
-  tests.changed($$update public.feedback set status = 'resolved', resolution = 'Fixed in the rules.', resolved_at = now()$$) = 1,
+  tests.changed($$update public.feedback set status = 'resolved', resolution = 'Fixed in the rules.', resolved_at = now()
+    where id = 'f0000000-0000-4000-8000-000000000001'$$) = 1,
   'admin: can resolve a ticket');
 select tests.refused($$update public.feedback set message = 'x'$$, 'admin: cannot change what the user wrote');
 
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
-select tests.ok((select status = 'resolved' and resolution = 'Fixed in the rules.' from public.feedback),
+select tests.ok(
+  (select status = 'resolved' and resolution = 'Fixed in the rules.' from public.feedback
+    where id = 'f0000000-0000-4000-8000-000000000001'),
   'A: sees that the ticket was resolved, and how');
 
 reset role;

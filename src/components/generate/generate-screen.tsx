@@ -18,7 +18,8 @@ import {
   TextField,
   useToast,
 } from '@/components/ui';
-import { DEFAULT_MODES, type ContextId, type Direction, type ModeId } from '@/engine';
+import { DEFAULT_MODES, type ContextId, type Direction, type ModeId, type ToneId } from '@/engine';
+import type { Answers, QuickPick } from '@/generate/quick-questions';
 import { DIRECTION_LABEL } from '@/generate/session';
 import { useIncomingScreenshot } from '@/generate/use-incoming-screenshot';
 import { useGenerateSession } from '@/generate/generate-provider';
@@ -30,6 +31,8 @@ import { usePrompts } from '@/prompts';
 import { useToneVisibility } from '@/prompts/use-tone-visibility';
 import { ToneSheet } from '@/components/tones/tone-sheet';
 import { radius, spacing, useTheme } from '@/theme';
+
+import { QuickQuestionsSheet } from './quick-questions-sheet';
 
 const MODE_IDS = Object.keys(DEFAULT_MODES) as ModeId[];
 const CONTEXTS = (Object.keys(CONTEXT_LABELS) as ContextId[]).map((id) => ({ value: id, label: CONTEXT_LABELS[id] }));
@@ -111,6 +114,54 @@ export function GenerateScreen() {
   const busy = session.phase !== 'idle';
   const isAnalyse = session.mode === 'analyse';
   const setCount = session.sets.length;
+
+  // The quick questions pick the setup for the best reply. They open by themselves once for
+  // each new screenshot (unless turned off), and from "Help me pick" at any time.
+  const [pendingAsk, setPendingAsk] = useState<boolean | null>(null);
+  const askOnPick = (pendingAsk ?? profileSettings(profile).quick_questions) !== false;
+  const shotUri = session.screenshot?.previewUri ?? null;
+  /** The screenshot the questions were answered or skipped for, so they ask only once. */
+  const [quickDoneFor, setQuickDoneFor] = useState<string | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  /** Counts the times they were opened by hand, so each opening starts from the screen's choices. */
+  const [quickOpens, setQuickOpens] = useState(0);
+  const otherSheetOpen = contextOpen || toneOpen || directionOpen || personOpen;
+  const quickAuto =
+    askOnPick && shotUri !== null && quickDoneFor !== shotUri && !isAnalyse && !busy && setCount === 0 && !otherSheetOpen;
+  const openQuick = () => {
+    setQuickOpens((count) => count + 1);
+    setQuickOpen(true);
+  };
+  const closeQuick = () => {
+    setQuickOpen(false);
+    setQuickDoneFor(shotUri);
+  };
+  const toneLabel = (tone: ToneId) => prompts.tones.find((item) => item.key === tone)?.label ?? tone;
+  const applyQuick = (answers: Answers, pick: QuickPick) => {
+    if (pick.mode !== session.mode) session.setMode(pick.mode);
+    if (answers.context !== session.context) {
+      // Choosing the context that is already set clears it, so clearing is done that way.
+      const toggle = answers.context ?? session.context;
+      if (toggle) session.setContext(toggle);
+    }
+    // A built-in tone's key is its id.
+    if (prompts.tones.some((tone) => tone.key === pick.tone)) session.setTone(pick.tone);
+    if (pick.mode === 'reply') session.setDirection(pick.direction);
+    closeQuick();
+    haptics.tap();
+    const heading = pick.direction === 'keep_going' ? '' : ` · ${DIRECTION_LABEL[pick.direction]}`;
+    toast.show(`${toneLabel(pick.tone)}${heading}, from your answers. Tap a tone to change it.`, 'info');
+  };
+  const toggleAsk = () => {
+    const next = !askOnPick;
+    // The sheet stays open: turning the questions off is not an answer to them.
+    setQuickOpen(true);
+    setPendingAsk(next);
+    void saveProfile({ settings: { ...profileSettings(profile), quick_questions: next } }).then((result) => {
+      setPendingAsk(null);
+      if (!result.ok) toast.show('Could not save that. Check your internet.', 'danger');
+    });
+  };
 
   // Results opens at once and shows the wait, the lines, or what went wrong. Opening it
   // here, on the tap, matters: a screen the app opens by itself after a wait can lose the
@@ -267,6 +318,7 @@ export function GenerateScreen() {
       {!isAnalyse ? (
         <ChipRow testID="tone-row">
           <Chip testID="tone-all" icon="tone" label="Tones" onPress={() => setToneOpen(true)} disabled={busy} />
+          <Chip testID="quick-questions-open" icon="idea" label="Help me pick" onPress={openQuick} disabled={busy} />
           {chipTones.map((tone) => (
             <Chip
               key={tone.key}
@@ -338,6 +390,18 @@ export function GenerateScreen() {
           {screenshotError.message}
         </Banner>
       ) : null}
+
+      <QuickQuestionsSheet
+        key={`${shotUri ?? 'none'}:${quickOpens}`}
+        visible={quickOpen || quickAuto}
+        kind={session.mode === 'analyse' ? 'story_reply' : session.mode}
+        context={session.context}
+        toneLabel={toneLabel}
+        askOnPick={askOnPick}
+        onToggleAsk={toggleAsk}
+        onApply={applyQuick}
+        onClose={closeQuick}
+      />
 
       <Sheet
         testID="direction-sheet"

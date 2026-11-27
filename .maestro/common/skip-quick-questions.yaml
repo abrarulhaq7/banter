@@ -1,0 +1,23 @@
+# After "Use latest": waits for the screenshot. The quick questions open over it as soon as
+# it is ready, and on iOS the screen behind an open sheet is not in the tree, so this waits
+# for the questions, closes them (the mode, tone and options stay as they were), and then
+# for the screenshot itself.
+appId: com.banterlines.app
+---
+- extendedWaitUntil:
+    visible:
+      id: "quick-questions-sheet"
+    timeout: 30000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "quick-questions-sheet"
+    commands:
+      - tapOn:
+          id: "sheet-close"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000

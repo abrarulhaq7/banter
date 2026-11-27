@@ -107,10 +107,7 @@ onFlowComplete:
       visible: "Allow Full Access"
     commands:
       - tapOn: "Allow Full Access"
-- extendedWaitUntil:
-    visible:
-      id: "screenshot-preview"
-    timeout: 30000
+- runFlow: ../common/skip-quick-questions.yaml
 - tapOn:
     id: "generate-button"
 - runFlow:
@@ -145,10 +142,7 @@ onFlowComplete:
 # Choosing the screenshot again starts a new one.
 - tapOn:
     id: "use-latest"
-- extendedWaitUntil:
-    visible:
-      id: "screenshot-preview"
-    timeout: 30000
+- runFlow: ../common/skip-quick-questions.yaml
 - tapOn:
     id: "generate-button"
 - runFlow:
@@ -225,10 +219,7 @@ onFlowComplete:
     id: "generate-screen"
 - tapOn:
     id: "use-latest"
-- extendedWaitUntil:
-    visible:
-      id: "screenshot-preview"
-    timeout: 30000
+- runFlow: ../common/skip-quick-questions.yaml
 - tapOn:
     id: "generate-button"
 - runFlow:

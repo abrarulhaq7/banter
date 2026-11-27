@@ -142,6 +142,11 @@ describe('includedItems', () => {
     ]);
   });
 
+  it('counts the pictures the user added', () => {
+    expect(includedItems(APP, null, false, 1)).toContain('Your picture');
+    expect(includedItems(APP, null, false, 3)).toContain('Your 3 pictures');
+  });
+
   it('names the update sent over the air when the app runs one', () => {
     const update = {
       id: 'update-1',

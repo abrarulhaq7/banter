@@ -73,10 +73,7 @@ onFlowComplete:
       visible: "Allow Full Access"
     commands:
       - tapOn: "Allow Full Access"
-- extendedWaitUntil:
-    visible:
-      id: "screenshot-preview"
-    timeout: 30000
+- runFlow: ../common/skip-quick-questions.yaml
 - tapOn:
     id: "generate-button"
 - runFlow:
@@ -259,6 +256,7 @@ onFlowComplete:
     id: "tab-generate"
 - tapOn:
     id: "use-latest"
+- runFlow: ../common/skip-quick-questions.yaml
 - extendedWaitUntil:
     visible:
       id: "person-pick-row"

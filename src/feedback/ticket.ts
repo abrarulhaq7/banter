@@ -91,7 +91,7 @@ export function ticketContext(
 }
 
 /** What the screen says is attached, in plain words. */
-export function includedItems(app: AppInfo, set: ResultSet | null, withScreenshot: boolean): string[] {
+export function includedItems(app: AppInfo, set: ResultSet | null, withScreenshot: boolean, pictures = 0): string[] {
   const items: string[] = [];
   if (set) {
     const count = set.output.kind === 'lines' ? `${set.output.lines.length} lines` : set.output.kind;
@@ -103,6 +103,7 @@ export function includedItems(app: AppInfo, set: ResultSet | null, withScreensho
     items.push('What Banter noticed, and the request it sent');
   }
   if (withScreenshot) items.push('The screenshot');
+  if (pictures > 0) items.push(pictures === 1 ? 'Your picture' : `Your ${pictures} pictures`);
   const platform = ({ ios: 'iOS', android: 'Android' } as Record<string, string>)[app.platform] ?? app.platform;
   items.push(`Banter ${app.version} on ${platform} ${app.os}`);
   if (app.update) {

@@ -199,6 +199,8 @@ export type ProfileSettings = {
   goal?: string;
   /** Tones (by `Tone.key`) the user hid from the Generate screen. Everything else shows. */
   hidden_tones?: string[];
+  /** False when the user turned off the quick questions asked after choosing a screenshot. */
+  quick_questions?: boolean;
 };
 
 /** What a ticket is about. */
@@ -213,13 +215,15 @@ export type FeedbackRow = {
   message: string;
   context: Record<string, unknown>;
   screenshot_path: string | null;
+  /** Pictures the user added (at most three), in their own folder like the screenshot. */
+  pictures: string[];
   status: 'open' | 'resolved';
   resolution: string | null;
   resolved_at: string | null;
   created_at: string;
 };
 export type FeedbackInsert = Pick<FeedbackRow, 'kind' | 'message' | 'context'> &
-  Partial<Pick<FeedbackRow, 'id' | 'screenshot_path'>>;
+  Partial<Pick<FeedbackRow, 'id' | 'screenshot_path' | 'pictures'>>;
 
 type Table<Row, Insert, Update> = {
   Row: Row;

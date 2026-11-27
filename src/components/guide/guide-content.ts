@@ -196,8 +196,12 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     id: 'more',
     icon: 'info',
     title: 'More options',
-    subtitle: 'Language, Who is she, and the lines',
+    subtitle: 'Help me pick, language, Who is she, and the lines',
     items: [
+      {
+        name: 'Help me pick',
+        text: 'Three quick questions (what it is, how you know her, what you want) set Generate up the way these setups do. They open when you choose a screenshot; you can turn that off in them.',
+      },
       { name: 'English / Roman Urdu', text: 'One tap on Generate switches the language of the lines.' },
       {
         name: 'Who is she',

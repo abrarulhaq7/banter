@@ -8,7 +8,7 @@ import { ToastProvider } from '@/components/ui';
 import { EngineError, type GenerateOptions, type GenerationResult, type ModelOutput } from '@/engine';
 import { GenerateProvider, useGenerateSession } from '@/generate/generate-provider';
 import type { GenerateDeps } from '@/generate/use-generate';
-import type { ScreenshotResult } from '@/screenshot/types';
+import type { PreparedScreenshot, ScreenshotResult } from '@/screenshot/types';
 import {
   TEST_USER_ID,
   createFakeHistoryRepo,
@@ -35,6 +35,17 @@ const APP = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4'
 /** Lets a test hand the session an image shared from another app, as the share hook does. */
 const mockShare: { open: (uri: string) => Promise<void> } = { open: async () => {} };
 const mockSend = jest.fn(async (..._args: unknown[]) => {});
+const picture = (name: string): PreparedScreenshot => ({
+  previewUri: `file:///${name}.jpg`,
+  image: { base64: name.toUpperCase(), mediaType: 'image/jpeg' },
+  width: 100,
+  height: 200,
+});
+/** The photo picker of the feedback screen: two new pictures each time, or fewer if `limit` says so. */
+const mockPicked = { count: 0 };
+const mockPick = jest.fn(async (limit: number) =>
+  Array.from({ length: Math.min(2, limit) }, () => picture(`p${(mockPicked.count += 1)}`)),
+);
 
 type Showing = { name: 'generate' | 'results' } | { name: 'feedback'; setId?: string; from: 'generate' | 'results' };
 
@@ -53,7 +64,9 @@ function TwoScreens() {
       if (route === 'back') setShowing((now) => ({ name: now.name === 'feedback' ? now.from : 'generate' }));
     };
   }, []);
-  if (showing.name === 'feedback') return <FeedbackScreen setId={showing.setId} send={mockSend} app={APP} />;
+  if (showing.name === 'feedback') {
+    return <FeedbackScreen setId={showing.setId} send={mockSend} app={APP} pick={mockPick} />;
+  }
   return showing.name === 'results' ? <ResultsScreen /> : <GenerateScreen />;
 }
 
@@ -131,7 +144,18 @@ async function setup({
       keysRepo: keysRepo.repo,
       historyRepo: history.repo,
       promptsRepo: prompts.repo,
-      profileRepo: (profile ?? createFakeProfileRepo(makeProfile({ display_name: 'Sam', texting_style: 'short, dry', settings }))).repo,
+      // The quick questions open after each screenshot. Tests about other things turn them
+      // off; their own tests turn them on.
+      profileRepo: (
+        profile ??
+        createFakeProfileRepo(
+          makeProfile({
+            display_name: 'Sam',
+            texting_style: 'short, dry',
+            settings: { quick_questions: false, ...settings },
+          }),
+        )
+      ).repo,
     },
   );
   // Wait for the keys to load, so the screen knows whether there is one.
@@ -161,6 +185,8 @@ beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
   mockSend.mockReset();
+  mockPick.mockClear();
+  mockPicked.count = 0;
   mockSend.mockImplementation(async () => {});
 });
 
@@ -1456,6 +1482,115 @@ describe('Generate: choosing the screenshot', () => {
   });
 });
 
+describe('Generate: quick questions', () => {
+  const ASK = { quick_questions: true };
+  const OTHER: ScreenshotResult = {
+    ok: true,
+    screenshot: {
+      previewUri: 'file:///other.jpg',
+      image: { base64: 'REVG', mediaType: 'image/jpeg' },
+      width: 589,
+      height: 1280,
+    },
+  };
+
+  it('open by themselves after a screenshot is chosen, and set up Generate from the answers', async () => {
+    const { calls, user } = await setup({ settings: ASK });
+    await press(user, 'Use latest');
+    expect(await screen.findByTestId('quick-questions-sheet')).toBeOnTheScreen();
+    expect(screen.getByTestId('quick-apply')).toBeDisabled();
+    // Spicier lines are offered only for someone he knows.
+    expect(screen.queryByTestId('quick-goal-heat')).toBeNull();
+
+    await user.press(screen.getByTestId('quick-kind-reply'));
+    await user.press(screen.getByTestId('quick-context-already_talking'));
+    await user.press(screen.getByTestId('quick-goal-heat'));
+    expect(screen.getByTestId('quick-apply')).toHaveTextContent('Use Spicy');
+    await user.press(screen.getByTestId('quick-apply'));
+
+    expect(screen.queryByTestId('quick-questions-sheet')).toBeNull();
+    expect(screen.getByTestId('mode-reply')).toBeSelected();
+    expect(screen.getByTestId('tone-spicy')).toBeSelected();
+    expect(screen.getByTestId('context-row')).toHaveTextContent(/Already talking/);
+    expect(screen.getByTestId('direction-row')).toHaveTextContent(/Turn up the heat/);
+    expect(await screen.findByText(/Spicy · Turn up the heat, from your answers/)).toBeOnTheScreen();
+
+    await press(user, 'Get lines');
+    await screen.findByTestId('result-set-0');
+    expect(calls[0].prompt).toMatchObject({
+      mode: 'reply',
+      tone: { label: 'Spicy' },
+      context: 'already_talking',
+      direction: 'heat_up',
+    });
+  });
+
+  it('take Turn up the heat away again when she is a stranger after all', async () => {
+    const { user } = await setup({ settings: ASK });
+    await press(user, 'Use latest');
+    await screen.findByTestId('quick-questions-sheet');
+
+    await user.press(screen.getByTestId('quick-context-know_her'));
+    await user.press(screen.getByTestId('quick-goal-heat'));
+    expect(screen.getByTestId('quick-apply')).toHaveTextContent('Use Spicy');
+    await user.press(screen.getByTestId('quick-context-stranger'));
+
+    expect(screen.queryByTestId('quick-goal-heat')).toBeNull();
+    expect(screen.getByTestId('quick-apply')).toBeDisabled();
+  });
+
+  it('ask once for each screenshot; closing keeps the choices, and Help me pick asks again', async () => {
+    const { user } = await setup({ settings: ASK, latest: OTHER });
+    await press(user, 'Use latest');
+    await screen.findByTestId('quick-questions-sheet');
+    await user.press(screen.getByTestId('sheet-close'));
+    expect(screen.queryByTestId('quick-questions-sheet')).toBeNull();
+    expect(screen.getByTestId('tone-casual')).toBeSelected();
+
+    // Not again for the same screenshot…
+    await press(user, 'Flirty');
+    expect(screen.queryByTestId('quick-questions-sheet')).toBeNull();
+    // …but any time from Help me pick, starting from what is chosen on the screen.
+    await user.press(screen.getByTestId('quick-questions-open'));
+    expect(screen.getByTestId('quick-questions-sheet')).toBeOnTheScreen();
+    expect(screen.getByTestId('quick-kind-story_reply')).toBeSelected();
+    await user.press(screen.getByTestId('sheet-close'));
+
+    // A new screenshot asks again.
+    await press(user, 'From gallery');
+    expect(await screen.findByTestId('quick-questions-sheet')).toBeOnTheScreen();
+  });
+
+  it('can be turned off for next time, and Help me pick still asks', async () => {
+    const profile = createFakeProfileRepo(makeProfile({ settings: ASK }));
+    const { user } = await setup({ profile, latest: OTHER });
+    await press(user, 'Use latest');
+    await screen.findByTestId('quick-questions-sheet');
+
+    await user.press(screen.getByTestId('quick-ask-toggle'));
+    await waitFor(() => expect(profile.row().settings).toMatchObject({ quick_questions: false }));
+    // Still open: turning them off is not an answer to them.
+    expect(screen.getByTestId('quick-ask-toggle')).toHaveTextContent('Ask when I choose a screenshot');
+    await user.press(screen.getByTestId('sheet-close'));
+
+    await press(user, 'From gallery');
+    await waitFor(() => expect(screen.getByTestId('screenshot-preview')).toHaveProp('source', { uri: 'file:///shot.jpg' }));
+    expect(screen.queryByTestId('quick-questions-sheet')).toBeNull();
+
+    await user.press(screen.getByTestId('quick-questions-open'));
+    expect(screen.getByTestId('quick-questions-sheet')).toBeOnTheScreen();
+  });
+
+  it('are not asked for Analyse, which has no tone', async () => {
+    const { user } = await setup({ settings: ASK });
+    await press(user, 'Analyse');
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+
+    expect(screen.queryByTestId('quick-questions-sheet')).toBeNull();
+  });
+});
+
 describe('Generate: an image shared from another app', () => {
   it('becomes the screenshot', async () => {
     const { deps } = await setup();
@@ -1500,7 +1635,7 @@ describe('Feedback: reporting lines', () => {
         ],
       },
     });
-    expect(shot).toEqual({ userId: TEST_USER_ID, base64: 'QUJD' });
+    expect(shot).toEqual({ userId: TEST_USER_ID, screenshot: 'QUJD', pictures: [] });
 
     // Back on the lines, with a thank you.
     expect(await screen.findByText('Sent. Thank you!')).toBeOnTheScreen();
@@ -1518,7 +1653,7 @@ describe('Feedback: reporting lines', () => {
 
     await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
     expect(mockSend.mock.calls[0][0]).toMatchObject({ kind: 'lines', message: '' });
-    expect(mockSend.mock.calls[0][1]).toBeNull();
+    expect(mockSend.mock.calls[0][1]).toEqual({ userId: TEST_USER_ID, screenshot: null, pictures: [] });
   });
 
   it('asks for a few words for anything but the lines themselves', async () => {
@@ -1582,6 +1717,47 @@ describe('Feedback: from Settings', () => {
       context: { where: 'settings', app: APP },
     });
     expect((mockSend.mock.calls[0][0] as { context: object }).context).not.toHaveProperty('set');
-    expect(mockSend.mock.calls[0][1]).toBeNull();
+    expect(mockSend.mock.calls[0][1]).toEqual({ userId: TEST_USER_ID, screenshot: null, pictures: [] });
+  });
+
+  it('adds up to three pictures, can take one out again, and sends them', async () => {
+    const { user } = await setup();
+    await act(async () => mockNav.go({ pathname: '/feedback' }));
+    expect(screen.queryByTestId('feedback-pictures')).toBeNull();
+
+    await user.press(screen.getByTestId('feedback-add-pictures'));
+    expect(mockPick).toHaveBeenLastCalledWith(3);
+    expect(screen.getByTestId('feedback-picture-0')).toBeOnTheScreen();
+    expect(screen.getByTestId('feedback-picture-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('feedback-add-pictures')).toHaveTextContent(/2 of 3/);
+
+    // Only the room that is left is offered, and then the row is done.
+    await user.press(screen.getByTestId('feedback-add-pictures'));
+    expect(mockPick).toHaveBeenLastCalledWith(1);
+    expect(screen.getByTestId('feedback-add-pictures')).toHaveTextContent(/3 of 3/);
+    expect(screen.getByTestId('feedback-add-pictures')).toBeDisabled();
+
+    await user.press(screen.getByTestId('feedback-picture-remove-0'));
+    expect(screen.getByTestId('feedback-add-pictures')).toHaveTextContent(/2 of 3/);
+
+    await user.press(screen.getByTestId('feedback-included'));
+    expect(within(screen.getByTestId('feedback-included-sheet')).getByText(/Your 2 pictures/)).toBeOnTheScreen();
+    await user.press(screen.getByTestId('sheet-close'));
+
+    await user.type(screen.getByTestId('feedback-message'), 'The Get lines button is cut off');
+    await user.press(screen.getByTestId('feedback-send'));
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    expect(mockSend.mock.calls[0][1]).toEqual({ userId: TEST_USER_ID, screenshot: null, pictures: ['P2', 'P3'] });
+  });
+
+  it('says so when a picture cannot be opened', async () => {
+    mockPick.mockRejectedValueOnce(new Error('unreadable'));
+    const { user } = await setup();
+    await act(async () => mockNav.go({ pathname: '/feedback' }));
+
+    await user.press(screen.getByTestId('feedback-add-pictures'));
+
+    expect(screen.getByTestId('feedback-error')).toHaveTextContent('Could not open that picture. Try another one.');
+    expect(screen.queryByTestId('feedback-pictures')).toBeNull();
   });
 });

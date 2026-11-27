@@ -1411,6 +1411,21 @@ The first APK (2026-11-27):
   Start it with `emulator -avd Pixel_8_Pro -gpu host -dns-server <the Mac's DNS server>`;
   `scutil --dns` shows it.
 
+After the first APK (2026-11-27, asked for from the phone, sent over the air):
+
+- Quick questions on Generate: when a screenshot is chosen, a sheet asks what it is (her
+  story, her profile, your chat), how he knows her, and what he wants (start talking, make
+  her laugh, flirt, turn up the heat, be confident or ask her out, keep her curious, be
+  sweet, play it safe). The answers set the mode, the tone and, for a chat, where to take it,
+  following the Guide's best setups (`src/generate/quick-questions.ts`); "Turn up the heat"
+  only for Know her or Already talking. Once per screenshot, never in Analyse or once lines
+  exist; "Help me pick" in the tone row opens it any time; it can be turned off from inside
+  (saved as `quick_questions` in the profile settings).
+- Feedback pictures: up to three of the user's own pictures with a ticket (a screenshot of
+  the problem), next to the reported set's screenshot. Column `feedback.pictures`, checked to
+  be in the sender's own folder (migration `20261128001100`); admins can open them, and
+  `npm run tickets` saves them as `<ticket>-1.jpg`… in `tickets.local/`.
+
 To build:
 
 1. ~~Token in `expo-token.local`~~ and ~~`npm run eas:setup`~~: done 2026-11-27.

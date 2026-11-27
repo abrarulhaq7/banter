@@ -58,12 +58,13 @@ type Ticket = {
   message: string;
   context: Record<string, any>;
   screenshot_path: string | null;
+  pictures: string[];
   status: string;
   resolution: string | null;
   created_at: string;
 };
 
-const columns = 'id, email, kind, message, context, screenshot_path, status, resolution, created_at';
+const columns = 'id, email, kind, message, context, screenshot_path, pictures, status, resolution, created_at';
 
 async function resolveTicket(idOrStart: string, note: string) {
   const { data, error } = await supabase.from('feedback').select('id').order('created_at', { ascending: false });
@@ -78,15 +79,27 @@ async function resolveTicket(idOrStart: string, note: string) {
   console.log(`Resolved ${matches[0].id}: ${note}`);
 }
 
-async function saveScreenshot(ticket: Ticket): Promise<string | null> {
-  if (!ticket.screenshot_path) return null;
-  const { data, error } = await supabase.storage.from('screenshots').download(ticket.screenshot_path);
+/** Saves one of a ticket's files in tickets.local/ and says where, or why it could not. */
+async function saveFile(path: string, name: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('screenshots').download(path);
   if (error || !data) return `(could not download: ${error?.message ?? 'no data'})`;
   const folder = join(root, 'tickets.local');
   mkdirSync(folder, { recursive: true });
-  const file = join(folder, `${ticket.id.slice(0, 8)}.jpg`);
+  const file = join(folder, name);
   writeFileSync(file, Buffer.from(await data.arrayBuffer()));
   return file;
+}
+
+async function saveScreenshot(ticket: Ticket): Promise<string | null> {
+  if (!ticket.screenshot_path) return null;
+  return saveFile(ticket.screenshot_path, `${ticket.id.slice(0, 8)}.jpg`);
+}
+
+/** The pictures the user added, saved as <ticket>-1.jpg, <ticket>-2.jpg… */
+async function savePictures(ticket: Ticket): Promise<string[]> {
+  return Promise.all(
+    (ticket.pictures ?? []).map((path, index) => saveFile(path, `${ticket.id.slice(0, 8)}-${index + 1}.jpg`)),
+  );
 }
 
 function describeSet(set: Record<string, any>) {
@@ -135,6 +148,7 @@ async function show(tickets: Ticket[]) {
     if (ticket.context.set) describeSet(ticket.context.set);
     const shot = await saveScreenshot(ticket);
     if (shot) console.log(`screenshot: ${shot}`);
+    for (const picture of await savePictures(ticket)) console.log(`picture:  ${picture}`);
     if (ticket.status === 'resolved') console.log(`resolved: ${ticket.resolution ?? ''}`);
     if (json) console.log(JSON.stringify(ticket.context, null, 2));
   }
