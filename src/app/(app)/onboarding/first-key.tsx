@@ -24,7 +24,7 @@ export default function OnboardingFirstKeyRoute() {
     <AddKeyScreen
       testID="onboarding-key-screen"
       title="Your AI key"
-      subtitle="Step 3 of 3. Banter uses your own key from Gemini, OpenAI or Claude, so you pay only for what you use."
+      subtitle="Step 3 of 3. Banter uses your own AI key. Gemini, Groq and OpenRouter have free tiers."
       onBack={() => router.back()}
       onSaved={finish}
       error={error}

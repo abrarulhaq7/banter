@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { profileGoal, useKeys, useProfile } from '@/data';
 import { EngineError, GOAL_MIN_WORDS, isEngineError, tuneTones, wordCount, type TuneOutput } from '@/engine';
 import { keyCandidates } from '@/generate/key-candidates';
+import { keyProblemSaver } from '@/generate/key-problems';
 
 import { usePrompts } from './prompts-provider';
 import type { Tone } from './types';
@@ -76,13 +77,7 @@ export function useTuneTones(overrides: Partial<TuneDeps> = {}): TuneState {
               age: profile?.age,
             },
           },
-          onKeyProblem: async ({ keyId, status, message }) => {
-            await updateKey(keyId, {
-              status,
-              last_error: message,
-              limited_at: status === 'limited' ? deps.now().toISOString() : null,
-            });
-          },
+          onKeyProblem: keyProblemSaver(keys, updateKey, deps.now),
         });
         setResult(asked.output);
         setPhase('done');

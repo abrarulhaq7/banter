@@ -5,7 +5,7 @@ export {
   DEFAULT_TONES,
   type ToneId,
 } from './default-prompts';
-export { EngineError, isEngineError, type EngineErrorKind } from './errors';
+export { EngineError, isEngineError, type EngineErrorKind, type LimitHint } from './errors';
 export { askWithKeys, generate, type AskOptions, type Asked, type GenerateOptions, type KeyProblem } from './generate';
 export {
   GOAL_MIN_WORDS,

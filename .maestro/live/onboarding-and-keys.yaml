@@ -172,16 +172,32 @@ appId: com.banterlines.app
 - tapOn:
     id: "key-input"
 - inputText: "sk-fake-openai-key-for-banter-tests"
-# The provider follows what the key looks like.
+# The provider follows what the key looks like. It is one row; the choices are in a sheet.
+- assertVisible:
+    id: "key-provider"
+    text: ".*OpenAI.*"
+- runFlow: ../common/close-keyboard.yaml
+- tapOn:
+    id: "key-provider"
+- assertVisible:
+    id: "key-provider-sheet"
 - assertVisible:
     id: "provider-openai"
     selected: true
-- runFlow: ../common/close-keyboard.yaml
-# The model is one row; its choices are in a sheet.
+- takeScreenshot: add-key-provider-sheet
+- tapOn:
+    id: "sheet-close"
+# The model is one row too, on Automatic until one is picked.
+- assertVisible:
+    id: "key-model"
+    text: ".*Automatic.*"
 - tapOn:
     id: "key-model"
 - assertVisible:
     id: "key-model-sheet"
+- assertVisible:
+    id: "model-automatic"
+    selected: true
 - takeScreenshot: add-key-model-sheet
 - tapOn:
     id: "sheet-close"

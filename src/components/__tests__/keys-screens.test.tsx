@@ -18,7 +18,13 @@ beforeEach(() => {
 });
 
 const accepted = (modelIds: string[]): KeyCheckResult => ({ ok: true, modelIds });
-const ALL_MODELS = ['gemini-3.5-flash-lite', 'gpt-6-luna', 'claude-haiku-5-5', 'claude-sonnet-5-5'];
+const ALL_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gpt-6-luna',
+  'claude-haiku-5-5',
+  'claude-sonnet-5-5',
+  'qwen/qwen3.8-27b',
+];
 
 describe('AddKeyScreen', () => {
   async function setup(
@@ -102,35 +108,57 @@ describe('AddKeyScreen', () => {
     expect(check).not.toHaveBeenCalled();
   });
 
-  it('switches the provider and the model to match the key that was pasted', async () => {
+  it('switches the provider to match the key that was pasted, with the model on automatic', async () => {
     const { check, user } = await setup();
 
     await user.type(screen.getByLabelText('API key'), 'sk-ant-api03-test0001');
 
-    expect(screen.getByRole('button', { name: 'Claude' })).toBeSelected();
-    expect(screen.getByTestId('key-model')).toHaveTextContent(/Claude Haiku 5\.5/);
+    expect(screen.getByTestId('key-provider')).toHaveTextContent(/Claude/);
+    expect(screen.getByTestId('key-model')).toHaveTextContent(/Automatic/);
 
     await submit(user);
     await waitFor(() => expect(check).toHaveBeenCalledWith('claude', 'sk-ant-api03-test0001'));
   });
 
-  it('keeps the provider the user picked, and warns when the key looks like another', async () => {
-    const { user } = await setup();
+  it.each([
+    ['sk-or-v1-test0001', 'OpenRouter', 'openrouter'],
+    ['gsk_test0001', 'Groq', 'groq'],
+  ])('knows a %s key belongs to %s', async (key, name, provider) => {
+    const { check, user } = await setup();
 
-    await user.press(screen.getByRole('button', { name: 'OpenAI' }));
-    await user.type(screen.getByLabelText('API key'), 'AIzaTestKey0001');
+    await user.type(screen.getByLabelText('API key'), key);
 
-    expect(screen.getByRole('button', { name: 'OpenAI' })).toBeSelected();
-    expect(screen.getByText('This looks like a Gemini key. Check the provider above.')).toBeOnTheScreen();
+    expect(screen.getByTestId('key-provider')).toHaveTextContent(new RegExp(name));
+    await submit(user);
+    await waitFor(() => expect(check).toHaveBeenCalledWith(provider, key));
   });
 
-  it('picks the model in a sheet, and saves it when it is not the default', async () => {
+  it('picks the provider in a sheet that says what each costs, keeps it, and warns when the key looks like another', async () => {
+    const { user } = await setup();
+
+    await user.press(screen.getByTestId('key-provider'));
+    expect(screen.getByTestId('provider-gemini')).toBeSelected();
+    expect(screen.getByTestId('provider-openrouter')).toHaveTextContent(/Free models/);
+    expect(screen.getByTestId('provider-claude')).toHaveTextContent(/Paid/);
+    await user.press(screen.getByTestId('provider-openai'));
+
+    // The sheet closes and the row shows the choice.
+    expect(screen.queryByTestId('provider-openai')).toBeNull();
+    await user.type(screen.getByLabelText('API key'), 'AIzaTestKey0001');
+
+    expect(screen.getByTestId('key-provider')).toHaveTextContent(/OpenAI/);
+    expect(screen.getByText('This looks like a Gemini key. Check the provider.')).toBeOnTheScreen();
+  });
+
+  it('picks one model in a sheet, instead of automatic', async () => {
     const { fake, onSaved, user } = await setup();
 
-    await user.press(screen.getByRole('button', { name: 'Claude' }));
+    await user.press(screen.getByTestId('key-provider'));
+    await user.press(screen.getByTestId('provider-claude'));
     expect(screen.queryByTestId('model-claude-sonnet-5-5')).toBeNull();
     await user.press(screen.getByTestId('key-model'));
-    expect(screen.getByTestId('model-claude-haiku-5-5')).toBeSelected();
+    expect(screen.getByTestId('model-automatic')).toBeSelected();
+    expect(screen.getByTestId('model-automatic')).toHaveTextContent(/best model first/i);
     await user.press(screen.getByTestId('model-claude-sonnet-5-5'));
 
     // The sheet closes and the row shows the choice.
@@ -149,6 +177,8 @@ describe('AddKeyScreen', () => {
   it('does not save when the key works but cannot use the chosen model', async () => {
     const { fake, user } = await setup(accepted(['some-other-model']));
 
+    await user.press(screen.getByTestId('key-model'));
+    await user.press(screen.getByTestId('model-gemini-3.5-flash-lite'));
     await user.type(screen.getByLabelText('API key'), 'AIzaTestKey0001');
     await submit(user);
 
@@ -156,6 +186,28 @@ describe('AddKeyScreen', () => {
       'The key works, but it cannot use Gemini 3.5 Flash-Lite. Pick another model.',
     );
     expect(fake.repo.add).not.toHaveBeenCalled();
+  });
+
+  it('does not save an automatic key that can use none of the provider\'s models', async () => {
+    const { fake, user } = await setup(accepted(['some-other-model']));
+
+    await user.type(screen.getByLabelText('API key'), 'AIzaTestKey0001');
+    await submit(user);
+
+    expect(await screen.findByTestId('key-error')).toHaveTextContent(
+      'The key works, but it cannot use any of the Gemini models Banter offers.',
+    );
+    expect(fake.repo.add).not.toHaveBeenCalled();
+  });
+
+  it('saves an OpenRouter key without a model check: every key may use every model', async () => {
+    const { fake, onSaved, user } = await setup({ ok: true, modelIds: null });
+
+    await user.type(screen.getByLabelText('API key'), 'sk-or-v1-test0001');
+    await submit(user);
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(fake.repo.add).toHaveBeenCalledWith(expect.objectContaining({ provider: 'openrouter', model: null }));
   });
 
   it('reports a save that fails after the key was accepted', async () => {
@@ -193,6 +245,7 @@ const TWO_KEYS = [
     id: 'key-b',
     label: 'Backup',
     provider: 'claude',
+    model: 'claude-haiku-5-5',
     key: 'test-claude-key-0002',
     sort_order: 1,
     status: 'invalid',
@@ -212,9 +265,9 @@ describe('KeysScreen', () => {
     await setup();
 
     expect(screen.getByTestId('key-card-0')).toHaveTextContent(/Personal/);
-    expect(screen.getByTestId('key-card-0')).toHaveTextContent(/Active · Gemini 3\.5 Flash-Lite/);
+    expect(screen.getByTestId('key-card-0')).toHaveTextContent(/Active · Gemini · Automatic/);
     expect(screen.getByTestId('key-card-1')).toHaveTextContent(/Backup/);
-    expect(screen.getByTestId('key-card-1')).toHaveTextContent(/Rejected · Claude Haiku 5\.5/);
+    expect(screen.getByTestId('key-card-1')).toHaveTextContent(/Rejected · Claude · Claude Haiku 5\.5/);
     // The provider's message is on the key's own screen, not in the list.
     expect(screen.queryByText('Claude rejected this key.')).toBeNull();
   });
@@ -280,7 +333,8 @@ describe('KeyScreen', () => {
 
     expect(screen.getByTestId('edit-key-title')).toHaveTextContent('Personal');
     expect(screen.getByTestId('edit-key-name')).toHaveTextContent(/Personal/);
-    expect(screen.getByTestId('edit-key-model')).toHaveTextContent(/Gemini 3\.5 Flash-Lite/);
+    expect(screen.getByTestId('edit-key-model')).toHaveTextContent(/Automatic/);
+    expect(screen.getByTestId('edit-key-model')).not.toHaveTextContent(/At its limit/);
     expect(screen.getByTestId('edit-key-toggle')).toHaveTextContent(/Turn this key off/);
     expect(screen.getByTestId('edit-key-toggle')).toHaveTextContent(/Now: Active/);
     // Nothing to edit until a row is tapped.
@@ -318,17 +372,35 @@ describe('KeyScreen', () => {
     expect(fake.repo.update).not.toHaveBeenCalled();
   });
 
-  it('changes the model in a sheet; the default is saved as "follow the default"', async () => {
+  it('changes the model in a sheet; Automatic is saved as no model', async () => {
     const { fake, user } = await setup('key-b');
 
     await user.press(screen.getByTestId('edit-key-model'));
+    expect(screen.getByTestId('model-claude-haiku-5-5')).toBeSelected();
     await user.press(screen.getByTestId('model-claude-sonnet-5-5'));
     await waitFor(() => expect(fake.repo.update).toHaveBeenCalledWith('key-b', { model: 'claude-sonnet-5-5' }));
     await waitFor(() => expect(screen.getByTestId('edit-key-model')).toHaveTextContent(/Claude Sonnet 5\.5/));
 
     await user.press(screen.getByTestId('edit-key-model'));
-    await user.press(screen.getByTestId('model-claude-haiku-5-5'));
+    await user.press(screen.getByTestId('model-automatic'));
     await waitFor(() => expect(fake.repo.update).toHaveBeenCalledWith('key-b', { model: null }));
+    await waitFor(() => expect(screen.getByTestId('edit-key-model')).toHaveTextContent(/Automatic/));
+  });
+
+  it('shows which models are at their limit, and until when', async () => {
+    const now = new Date('2026-11-26T12:00:00Z').getTime();
+    const fake = createFakeKeysRepo([
+      makeKey({
+        id: 'key-a',
+        model_limits: { 'gemini-3.5-flash-lite': '2026-11-26T13:00:00Z', 'gone-model': '2026-11-26T13:00:00Z' },
+      }),
+    ]);
+    await renderWithData(<KeyScreen id="key-a" check={jest.fn()} now={() => now} />, { keysRepo: fake.repo });
+
+    const row = await screen.findByTestId('edit-key-model');
+    expect(row).toHaveTextContent(/At its limit: Gemini 3\.5 Flash-Lite until/);
+    // Only the key's own models are named, not a rest left from a model no longer offered.
+    expect(row).not.toHaveTextContent(/gone-model/);
   });
 
   it('checks a rejected key again and marks it active when the provider accepts it', async () => {

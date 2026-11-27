@@ -12,6 +12,7 @@ import {
   type UsedSet,
 } from '@/engine';
 import { keyCandidates } from '@/generate/key-candidates';
+import { keyProblemSaver } from '@/generate/key-problems';
 import { useHistory, type InteractionWithLines } from '@/history';
 
 import { usePrompts } from './prompts-provider';
@@ -126,13 +127,7 @@ export function usePersonalise(overrides: Partial<PersonaliseDeps> = {}): Person
             profile: sender,
             history: sets,
           },
-          onKeyProblem: async ({ keyId, status, message }) => {
-            await updateKey(keyId, {
-              status,
-              last_error: message,
-              limited_at: status === 'limited' ? deps.now().toISOString() : null,
-            });
-          },
+          onKeyProblem: keyProblemSaver(keys, updateKey, deps.now),
         });
         setResult(asked.output);
         setPhase('done');

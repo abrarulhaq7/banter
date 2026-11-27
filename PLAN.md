@@ -15,8 +15,8 @@ next message in a chat, or a read of how the chat is going.
 - Banter remembers each person by their Instagram username, so the next line fits
   what you already said to them.
 
-The app uses the user's own AI key (Gemini, OpenAI or Claude). Each user pays for
-their own usage.
+The app uses the user's own AI key (Gemini, Groq, OpenRouter, OpenAI or Claude). Each
+user pays for their own usage; Gemini, Groq and OpenRouter have free tiers.
 
 ## 2. Decisions already made
 
@@ -26,9 +26,9 @@ their own usage.
 | Framework | Expo SDK 58 (React Native 0.88), TypeScript, Expo Router, development builds (not Expo Go) |
 | Backend | Supabase: login, database, screenshot storage, remote prompts |
 | Login | Required. Email and password. Email confirmation off during testing |
-| AI providers | Gemini, OpenAI, Claude. User adds own keys and picks the provider for each |
+| AI providers | Gemini, Groq, OpenRouter, OpenAI, Claude. User adds own keys; the provider follows from the key |
 | Key storage | In Supabase (each user sees only their own keys), cached on the phone |
-| Key limits | Several keys per user. When one hits its limit, the app moves to the next |
+| Key limits | Several keys per user. The best model any key can use goes first; when it hits its limit, the app moves to the next |
 | Prompts | Stored in Supabase. You change them without a new build |
 | Personal prompts | Each user can change what each tone means to them, and reset it |
 | History | Everything saved: screenshot, mode, tone, provider, model, key used, lines, chosen line, result |
@@ -128,15 +128,18 @@ the output format.
 
 ## 7. AI providers and keys
 
-- One common interface with three small adapters (Gemini, OpenAI, Claude). Each sends
-  the image and prompt and returns the same structure.
+- One common interface with small adapters (Gemini, OpenAI, Claude, and one for the
+  Chat Completions format that Groq and OpenRouter share). Each sends the image and
+  prompt and returns the same structure.
 - The phone calls the provider directly. Screenshots do not pass through our server.
 - Errors are mapped to plain cases: wrong key, limit reached, no internet, model
   refused, answer unreadable.
-- On "limit reached", the key is marked `limited`, the app tries the next key, and
-  refreshes the key list from Supabase. If you replace a key in the database, the app
-  picks it up.
-- Model names live in the `models` table, so a new model needs no new build.
+- The best model any key can use goes first (`models.rank`). On "limit reached", only
+  that model rests (`api_keys.model_limits`) and the app moves to the next model at once.
+  A key is marked `limited` only when the whole key has no credit. If you replace a key
+  in the database, the app picks it up.
+- Model names and their order live in the `models` table, so a new model needs no new
+  build.
 
 ## 8. Phases
 
@@ -1120,6 +1123,82 @@ Tested:
 - In Reply mode with Who is she, Where to take it and How you know her all showing, the
   screenshot area on Generate gets small, and on a phone smaller than the iPhone 17, or
   with the no-key notice showing, the screen scrolls a little.
+
+### More providers, best model first (branch `more-providers`, 2026-11-26)
+
+Asked for on 2026-11-26: the Gemini free tier was hitting its limits ("You have reached a
+rate limit" on Gemini 4 Hydrogen, 5 a minute and 20 a day). Find free providers, add
+them, and "always start with the best model; when it is finished, move to the next one
+automatically".
+
+What was found (each provider's own docs, read 2026-11-26):
+
+| Provider | Free | Reads a screenshot, keeps to a JSON schema | Added |
+|---|---|---|---|
+| Gemini | Per model: Hydrogen, 3.8 Flash, 3.6 Flash 20 a day each, Flash-Lite 500 | Yes | 2 more models |
+| Groq | Free plan, very fast; limits per model | Qwen 3.8 27B (preview). Llama 4 Scout was shut down 2026-07-17 | Yes |
+| OpenRouter | Free models: 50 a day for the account, 1,000 after a one-off $10 top-up | Nemotron 3.5 Super VL, Ling 3.2 Flash | Yes |
+| xAI (Grok) | No free credit in its docs: credit must be bought first | Grok 4.7 | No |
+| NVIDIA (build.nvidia.com) | Trial credits; amount, key check and image limits not in its docs | Nemotron VL, Kimi | Not yet: needs a key to test with |
+| GitHub Models | Shut down 2026-07-30 | | No |
+| Mistral | Free API access ended around 2026-11 | | No |
+
+Built:
+
+- **Best model first, by itself.** Each model has a place in one order across all
+  providers (`models.rank`, editable in the dashboard). A key with no model chosen is
+  now **Automatic**: it offers every model of its provider. Banter tries the best model
+  any of your keys can use first. With one Gemini key that means Hydrogen, then 3.8 Flash,
+  3.6 Flash and Flash-Lite: about 560 free requests a day instead of 500, best first.
+  Picking one model for a key still works (to keep a paid key on a cheap model).
+- **A limit rests only that model.** When a model hits its limit, Banter moves straight to
+  the next and remembers the rest on the key (`api_keys.model_limits`): as long as the
+  provider says (Gemini's retry time, Groq's "try again in", a Retry-After header), an hour
+  for a daily limit (tried again every hour, because providers reset at different times),
+  five minutes when it says nothing. Resting models are still tried last, so a request
+  never fails while something might answer. The key's own status changes only when the
+  whole key is affected: rejected, or out of credit.
+- **A busy model is passed over at once** (Gemini's "high demand" 503), and waited for only
+  when nothing else answers. **A model that takes too long** is passed over too (60
+  seconds while another waits in line, 90 for the last) and rests 10 minutes, instead of
+  ending the request as "no connection".
+- **Groq and OpenRouter keys.** One new adapter for both (OpenAI's Chat Completions format,
+  `src/engine/adapters/chat-completions.ts`). OpenRouter requests go only to hosts that
+  keep to the schema (`require_parameters`); Groq's Qwen is told to keep its thinking out
+  of the answer. A key is checked before it is saved: Groq by its model list, OpenRouter by
+  the key's own details (its model list is public and would accept any key). Keys starting
+  `gsk_` and `sk-or-` are recognised.
+- **Add key:** the provider is one row that opens a sheet saying what each costs (five
+  providers no longer fit side by side), filled in from how the key starts. The model row
+  starts on Automatic. The key's screen shows which models are at their limit and until
+  when.
+
+Tested:
+
+- `npm run check` passes (808 unit tests); `npm run test:db` passes (100 checks).
+- Live, with your Gemini key: Hydrogen answered "high demand", Banter moved on at once,
+  and Gemini 3.6 Flash wrote the lines. Asked alone, 3.8 Flash gave no answer within 90
+  seconds, which used to end the request.
+- With your Groq and OpenRouter keys (2026-11-26): both pass the key check (OpenRouter:
+  free tier, 50 free requests a day). One real story each: Groq's Qwen answered in 2.3
+  seconds, OpenRouter's Nemotron in 25 seconds, both with good lines in the right format.
+  Ling's free host answered "temporarily rate-limited upstream": now told apart from the
+  key's own limit ("OpenRouter's free model is busy right now"), rested one minute.
+- The whole order live, every free key in one request: Hydrogen "high demand" (2 s), 3.8
+  Flash no answer for 90 s, 3.6 Flash answered (110 s in all). So: a model now gets 60
+  seconds while another waits in line (the last one still 90), and one that took too long
+  rests 10 minutes, so only one request waits for it.
+- Qwen filled in "Where it stands" without being asked; a read is now dropped unless
+  "Where to take it" asked for one.
+
+Database (`supabase/paste-update.sql`, pasted by you on 2026-11-26 and checked: 11 models
+in order, `model_limits` on keys): `20261128000700_more_providers.sql` allows the two
+providers, adds `models.rank` and `api_keys.model_limits`, and adds the five models.
+
+The order (`rank`, 1 is best) is a first guess, to be checked with your keys on your own
+samples: Claude Opus, Claude Sonnet, Gemini 4 Hydrogen, GPT-6 Luna, Gemini 3.8 Flash,
+Claude Haiku, Gemini 3.6 Flash, Gemini 3.5 Flash-Lite, Groq Qwen 3.8, then OpenRouter's
+free models.
 
 ### Phase 8 — Phone builds
 

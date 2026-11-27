@@ -10,6 +10,7 @@ import {
   type KeyProblem,
   type PromptInput,
 } from '@/engine';
+import { SLOW_MODEL_REST_MS, TIMEOUT_WITH_NEXT_MS } from '@/engine/generate';
 
 const prompt: PromptInput = {
   core: DEFAULT_CORE,
@@ -31,12 +32,12 @@ const GOOD = JSON.stringify({
   ],
 });
 
-const key = (id: string, provider: KeyCandidate['provider'] = 'gemini'): KeyCandidate => ({
+const key = (id: string, provider: KeyCandidate['provider'] = 'gemini', model = `${provider}-model`): KeyCandidate => ({
   id,
   label: `Key ${id}`,
   provider,
   key: `secret-${id}`,
-  model: `${provider}-model`,
+  model,
 });
 
 /** An adapter that plays back the given outcomes, one per call. */
@@ -93,7 +94,50 @@ describe('generate', () => {
 
     expect(result.usedKey.id).toBe('b');
     expect(calls.map((call) => call.key)).toEqual(['secret-a', 'secret-b']);
-    expect(problems).toEqual([{ keyId: 'a', status: 'limited', message: 'This key has reached its limit.' }]);
+    expect(problems).toEqual([
+      { keyId: 'a', model: 'gemini-model', scope: 'model', status: 'limited', message: 'This key has reached its limit.' },
+    ]);
+  });
+
+  it('moves to the next model of the same key when one model hits its limit, and passes the hint on', async () => {
+    const { adapter, calls } = scripted(new EngineError('limit', { limit: { daily: true } }), GOOD);
+    const problems: KeyProblem[] = [];
+
+    const result = await run(
+      [key('a', 'gemini', 'best-model'), key('a', 'gemini', 'next-model')],
+      adapter,
+      (problem) => problems.push(problem),
+    );
+
+    expect(result.usedKey).toMatchObject({ id: 'a', model: 'next-model' });
+    expect(calls.map((call) => call.model)).toEqual(['best-model', 'next-model']);
+    expect(problems).toEqual([
+      expect.objectContaining({ keyId: 'a', model: 'best-model', scope: 'model', limit: { daily: true } }),
+    ]);
+  });
+
+  it('skips the other models of a key that has no credit', async () => {
+    const { adapter, calls } = scripted(new EngineError('no_credit'), GOOD);
+    const problems: KeyProblem[] = [];
+
+    const result = await run(
+      [key('a', 'gemini', 'best-model'), key('a', 'gemini', 'next-model'), key('b')],
+      adapter,
+      (problem) => problems.push(problem),
+    );
+
+    expect(result.usedKey.id).toBe('b');
+    expect(calls.map((call) => call.key)).toEqual(['secret-a', 'secret-b']);
+    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', scope: 'key', status: 'limited' })]);
+  });
+
+  it('skips the other models of a key that was rejected', async () => {
+    const { adapter, calls } = scripted(new EngineError('wrong_key'), GOOD);
+
+    const result = await run([key('a', 'gemini', 'one'), key('a', 'gemini', 'two'), key('b')], adapter);
+
+    expect(result.usedKey.id).toBe('b');
+    expect(calls).toHaveLength(2);
   });
 
   it('moves to the next key when one is rejected, and reports it as invalid', async () => {
@@ -103,7 +147,7 @@ describe('generate', () => {
     const result = await run([key('a'), key('b')], adapter, (problem) => problems.push(problem));
 
     expect(result.usedKey.id).toBe('b');
-    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', status: 'invalid' })]);
+    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', scope: 'key', status: 'invalid' })]);
   });
 
   it('says every key is at its limit when all of them are', async () => {
@@ -125,7 +169,7 @@ describe('generate', () => {
       kind: 'no_credit',
       message: 'This key has no credit left. Add credit with the provider, then try again.',
     });
-    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', status: 'limited' })]);
+    expect(problems).toEqual([expect.objectContaining({ keyId: 'a', scope: 'key', status: 'limited' })]);
   });
 
   it('moves on from a key with no credit to one that works', async () => {
@@ -137,6 +181,27 @@ describe('generate', () => {
   it('words the limit message for a single key', async () => {
     const { adapter } = scripted(new EngineError('limit'));
     await expect(run([key('a')], adapter)).rejects.toMatchObject({ message: 'Your key has reached its limit.' });
+  });
+
+  it('keeps the provider\'s own explanation of a limit for a single key', async () => {
+    const busy = "OpenRouter's free model is busy right now. Try again in a minute.";
+    const { adapter } = scripted(new EngineError('limit', { message: busy }));
+    await expect(run([key('a')], adapter)).rejects.toMatchObject({ kind: 'limit', message: busy });
+  });
+
+  it('drops a read of the chat that nobody asked for, and keeps one that was asked for', async () => {
+    const withRead = JSON.stringify({ ...JSON.parse(GOOD), read: 'She is keeping it light.' });
+
+    const plain = await run([key('a')], scripted(withRead).adapter);
+    expect(plain.output).not.toHaveProperty('read');
+
+    const heat = await generate({
+      keys: [key('a')],
+      prompt: { ...prompt, mode: 'reply', modeInstruction: DEFAULT_MODES.reply.instruction, direction: 'heat_up' },
+      image,
+      adapters: { gemini: scripted(withRead).adapter },
+    });
+    expect(heat.output).toMatchObject({ kind: 'lines', read: 'She is keeping it light.' });
   });
 
   it('asks once more when the answer comes back in the wrong shape', async () => {
@@ -195,10 +260,11 @@ describe('generate', () => {
     expect(waits).toEqual([1500, 4000]);
   });
 
-  it('tries another provider when one is down, without marking the key', async () => {
+  it('passes over a busy model at once for the next one, without marking the key', async () => {
     const down = scripted(new EngineError('provider_down'));
     const up = scripted(GOOD);
     const problems: KeyProblem[] = [];
+    const waits: number[] = [];
 
     const result = await generate({
       keys: [key('a', 'gemini'), key('b', 'openai')],
@@ -206,13 +272,75 @@ describe('generate', () => {
       image,
       onKeyProblem: (problem) => void problems.push(problem),
       adapters: { gemini: down.adapter, openai: up.adapter },
-      sleep: noWait,
+      sleep: async (ms) => void waits.push(ms),
     });
 
-    expect(down.calls).toHaveLength(3);
-
+    expect(down.calls).toHaveLength(1);
+    expect(waits).toEqual([]);
     expect(result.usedKey).toMatchObject({ id: 'b', provider: 'openai' });
     expect(problems).toEqual([]);
+  });
+
+  it('passes over a model that took too long, rests it, and does not wait for it again', async () => {
+    const slow = scripted(new EngineError('timeout'));
+    const quick = scripted(GOOD);
+    const waits: number[] = [];
+    const problems: KeyProblem[] = [];
+
+    const result = await generate({
+      keys: [key('a', 'gemini'), key('b', 'openai')],
+      prompt,
+      image,
+      onKeyProblem: (problem) => void problems.push(problem),
+      adapters: { gemini: slow.adapter, openai: quick.adapter },
+      sleep: async (ms) => void waits.push(ms),
+    });
+
+    expect(result.usedKey.id).toBe('b');
+    expect(slow.calls).toHaveLength(1);
+    expect(waits).toEqual([]);
+    expect(problems).toEqual([
+      expect.objectContaining({ keyId: 'a', scope: 'model', limit: { retryAfterMs: SLOW_MODEL_REST_MS } }),
+    ]);
+  });
+
+  it('gives a model less time while another waits in line, and the last one the full time', async () => {
+    const { adapter, calls } = scripted(new EngineError('provider_down'), new EngineError('provider_down'), GOOD);
+
+    await generate({ keys: [key('a'), key('b')], prompt, image, adapters: { gemini: adapter }, sleep: noWait });
+
+    expect(calls[0].timeoutMs).toBe(TIMEOUT_WITH_NEXT_MS);
+    // Undefined: the adapter's own 90 seconds.
+    expect(calls[1].timeoutMs).toBeUndefined();
+  });
+
+  it('says the AI took too long when every model did', async () => {
+    const { adapter, calls } = scripted(new EngineError('timeout'));
+
+    await expect(run([key('a', 'gemini', 'one'), key('a', 'gemini', 'two')], adapter)).rejects.toMatchObject({
+      kind: 'timeout',
+      message: 'The AI took too long to answer. Try again.',
+    });
+    expect(calls).toHaveLength(2);
+  });
+
+  it('waits for a busy model only when nothing else answers', async () => {
+    const busy = scripted(new EngineError('provider_down'), new EngineError('provider_down'), GOOD);
+    const limited = scripted(new EngineError('limit'));
+    const waits: number[] = [];
+
+    const result = await generate({
+      keys: [key('a', 'gemini'), key('b', 'openai')],
+      prompt,
+      image,
+      adapters: { gemini: busy.adapter, openai: limited.adapter },
+      sleep: async (ms) => void waits.push(ms),
+    });
+
+    expect(limited.calls).toHaveLength(1);
+    expect(busy.calls).toHaveLength(3);
+    expect(waits).toEqual([1500, 4000]);
+    expect(result.usedKey).toMatchObject({ id: 'a', provider: 'gemini' });
   });
 
   it('reports the provider problem when no key could get through', async () => {

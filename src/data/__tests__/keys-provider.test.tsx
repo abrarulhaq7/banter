@@ -51,7 +51,7 @@ describe('KeysProvider', () => {
     await renderWithData(<Probe />, { keysRepo: fake.repo, keysCache: memory.cache });
 
     await waitFor(() => expect(labels()).toHaveTextContent('A,B'));
-    expect(screen.getByTestId('models')).toHaveTextContent('4');
+    expect(screen.getByTestId('models')).toHaveTextContent('6');
     await waitFor(() => expect(memory.current()?.keys.map((key) => key.id)).toEqual(['a', 'b']));
   });
 
@@ -128,6 +128,21 @@ describe('KeysProvider', () => {
     expect(labels()).toHaveTextContent('B');
     expect(fake.rows().map((row) => row.id)).toEqual(['b']);
     expect(memory.current()?.keys.map((key) => key.id)).toEqual(['b']);
+  });
+
+  it('keeps every change when several keys are changed one after another, before the screen redraws', async () => {
+    // One request can save a limit on two keys in a row; the second must not undo the first.
+    const fake = createFakeKeysRepo([A, B]);
+    await renderWithData(<Probe />, { keysRepo: fake.repo });
+    await waitFor(() => expect(labels()).toHaveTextContent('A,B'));
+
+    const { updateKey } = api();
+    await act(async () => {
+      await updateKey('a', { label: 'First' });
+      await updateKey('b', { label: 'Second' });
+    });
+
+    expect(labels()).toHaveTextContent('First,Second');
   });
 
   it('moves a key up and saves the new order', async () => {

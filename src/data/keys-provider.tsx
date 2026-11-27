@@ -1,4 +1,4 @@
-import { createContext, use, useEffect, useState, type ReactNode } from 'react';
+import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { ApiKeyRow, ModelRow, ProviderId } from '@/lib/database.types';
 import { getSupabase } from '@/lib/supabase';
@@ -56,9 +56,16 @@ export function KeysProvider({ children, userId, repo, cache }: KeysProviderProp
     repo: repo ?? defaultRepo(),
     cache: cache ?? createUserCache<CachedKeys>('keys', userId),
   }));
-  const [data, setData] = useState<CachedKeys>({ keys: [], models: [] });
+  const [data, setDataState] = useState<CachedKeys>({ keys: [], models: [] });
   const [status, setStatus] = useState<KeysContextValue['status']>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The newest list, for changes made one after another before the screen redraws: one
+  // request can save a limit on several keys, and each change must build on the last.
+  const latest = useRef(data);
+  const setData = (next: CachedKeys) => {
+    latest.current = next;
+    setDataState(next);
+  };
 
   /** Shows the new list and saves it on the phone. */
   const apply = async (next: CachedKeys) => {
@@ -107,8 +114,8 @@ export function KeysProvider({ children, userId, repo, cache }: KeysProviderProp
 
     async addKey(input) {
       try {
-        const added = await source.repo.add({ ...input, sort_order: nextSortOrder(data.keys) });
-        await apply({ ...data, keys: [...data.keys, added] });
+        const added = await source.repo.add({ ...input, sort_order: nextSortOrder(latest.current.keys) });
+        await apply({ ...latest.current, keys: [...latest.current.keys, added] });
         return { ok: true };
       } catch (caught) {
         return failure(caught, 'save the key');
@@ -118,7 +125,7 @@ export function KeysProvider({ children, userId, repo, cache }: KeysProviderProp
     async updateKey(id, patch) {
       try {
         const updated = await source.repo.update(id, patch);
-        await apply({ ...data, keys: data.keys.map((key) => (key.id === id ? updated : key)) });
+        await apply({ ...latest.current, keys: latest.current.keys.map((key) => (key.id === id ? updated : key)) });
         return { ok: true };
       } catch (caught) {
         return failure(caught, 'save the change');
@@ -128,7 +135,7 @@ export function KeysProvider({ children, userId, repo, cache }: KeysProviderProp
     async removeKey(id) {
       try {
         await source.repo.remove(id);
-        await apply({ ...data, keys: data.keys.filter((key) => key.id !== id) });
+        await apply({ ...latest.current, keys: latest.current.keys.filter((key) => key.id !== id) });
         return { ok: true };
       } catch (caught) {
         return failure(caught, 'delete the key');
@@ -136,20 +143,20 @@ export function KeysProvider({ children, userId, repo, cache }: KeysProviderProp
     },
 
     async moveKey(id, direction) {
-      const before = data.keys.map((key) => key.id);
+      const before = latest.current.keys.map((key) => key.id);
       const after = moveInOrder(before, id, direction);
       if (after === before) return { ok: true };
 
-      const previous = data;
+      const previous = latest.current;
       const reordered = after.map((keyId, index) => ({
-        ...data.keys.find((key) => key.id === keyId)!,
+        ...latest.current.keys.find((key) => key.id === keyId)!,
         sort_order: index,
       }));
       // Show the new order at once; put the old one back if saving fails.
-      setData({ ...data, keys: reordered });
+      setData({ ...latest.current, keys: reordered });
       try {
         await source.repo.setOrder(after);
-        await source.cache.write({ ...data, keys: reordered });
+        await source.cache.write({ ...latest.current, keys: reordered });
         return { ok: true };
       } catch (caught) {
         setData(previous);

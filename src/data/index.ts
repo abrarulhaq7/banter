@@ -1,9 +1,11 @@
 export {
-  defaultModelFor,
-  effectiveModel,
+  byRank,
+  keyModelLabel,
+  keyModels,
   modelsFor,
   moveInOrder,
   nextSortOrder,
+  restingUntil,
   usableKeys,
 } from './key-list';
 export { KeysProvider, useKeys, type CachedKeys, type NewKeyInput } from './keys-provider';

@@ -3,9 +3,10 @@ import type { ProviderId } from '@/lib/database.types';
 import { PROVIDERS } from './providers';
 
 /**
- * Checks an API key by asking the provider for its list of models.
+ * Checks an API key by asking the provider for its list of models (OpenRouter: for the
+ * key's own details, since its model list is public and would accept any key).
  *
- * That request is free on all three providers and uses none of the key's generation
+ * That request is free on every provider and uses none of the key's generation
  * allowance. The phone calls the provider directly; the key is sent nowhere else.
  *
  * The providers' own SDKs are not used: they do not support React Native, and one small
@@ -24,7 +25,8 @@ export type KeyCheckFailure =
   | 'unexpected';
 
 export type KeyCheckResult =
-  | { ok: true; modelIds: string[] }
+  /** `modelIds` is null when the provider does not say which models a key may use. */
+  | { ok: true; modelIds: string[] | null }
   | { ok: false; reason: KeyCheckFailure; message: string };
 
 type Options = {
@@ -48,12 +50,35 @@ const REQUESTS: Record<ProviderId, (key: string) => Request> = {
     url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
     headers: { 'x-goog-api-key': key },
   }),
+  groq: (key) => ({
+    url: 'https://api.groq.com/openai/v1/models',
+    headers: { Authorization: `Bearer ${key}` },
+  }),
+  openrouter: (key) => ({
+    url: 'https://openrouter.ai/api/v1/key',
+    headers: { Authorization: `Bearer ${key}` },
+  }),
 };
 
-/** Pulls the model ids out of each provider's own list format. Null if it is not one. */
-function readModelIds(provider: ProviderId, body: unknown): string[] | null {
+type ModelIds = { modelIds: string[] | null };
+
+/**
+ * Pulls the model ids out of each provider's own list format. Null if the answer is not
+ * what that provider sends.
+ */
+function readModelIds(provider: ProviderId, body: unknown): ModelIds | null {
   if (typeof body !== 'object' || body === null) return null;
 
+  if (provider === 'openrouter') {
+    // The key's details. Every OpenRouter key may use every model.
+    const data = (body as { data?: unknown }).data;
+    return typeof data === 'object' && data !== null ? { modelIds: null } : null;
+  }
+  const ids = readListedIds(provider, body);
+  return ids ? { modelIds: ids } : null;
+}
+
+function readListedIds(provider: ProviderId, body: object): string[] | null {
   if (provider === 'gemini') {
     const models = (body as { models?: unknown }).models;
     if (!Array.isArray(models)) return null;
@@ -153,13 +178,13 @@ export async function checkKey(
     };
   }
 
-  const modelIds = response.ok ? readModelIds(provider, body) : null;
-  if (!modelIds) {
+  const read = response.ok ? readModelIds(provider, body) : null;
+  if (!read) {
     return {
       ok: false,
       reason: 'unexpected',
       message: `${name} gave an answer Banter did not understand. Try again.`,
     };
   }
-  return { ok: true, modelIds };
+  return { ok: true, modelIds: read.modelIds };
 }

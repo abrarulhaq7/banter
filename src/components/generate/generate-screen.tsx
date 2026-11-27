@@ -166,7 +166,7 @@ export function GenerateScreen() {
           tone="warning"
           title="Add an AI key to start"
           action={{ testID: 'no-key-add', label: 'Add a key', onPress: () => router.push('/keys/add') }}>
-          Banter writes lines with your own key from Gemini, OpenAI or Claude.
+          Banter writes lines with your own AI key. Gemini, Groq and OpenRouter have free tiers.
         </Banner>
       ) : null}
 

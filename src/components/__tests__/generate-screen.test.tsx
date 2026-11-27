@@ -583,11 +583,43 @@ describe('Generate: problems', () => {
     expect(screen.queryByTestId('generate-error')).toBeNull();
   });
 
-  it('saves a key that hit its limit, so it is skipped and shown on the Keys screen', async () => {
+  it('saves a model that hit its limit, so the next request starts with another', async () => {
     const { deps, keysRepo, user } = await setup();
     (deps.runEngine as jest.Mock).mockImplementationOnce(async (options: GenerateOptions) => {
-      await options.onKeyProblem?.({ keyId: 'key-1', status: 'limited', message: 'This key has reached its limit.' });
+      await options.onKeyProblem?.({
+        keyId: 'key-1',
+        model: 'gemini-3.5-flash-lite',
+        scope: 'model',
+        status: 'limited',
+        message: 'This key has reached its limit.',
+        limit: { retryAfterMs: 30_000 },
+      });
       throw new EngineError('limit');
+    });
+    await press(user, 'Use latest');
+    await press(user, 'Get lines');
+    await screen.findByTestId('generate-error');
+    await press(user, 'Back');
+
+    expect(keysRepo.repo.update).toHaveBeenCalledWith('key-1', {
+      model_limits: { 'gemini-3.5-flash-lite': expect.any(String) },
+    });
+    // The key itself is fine: it stays usable, its other models (and this one later) answer.
+    expect(keysRepo.rows()[0].status).toBe('active');
+    expect(screen.queryByTestId('no-key-notice')).toBeNull();
+  });
+
+  it('saves a key that ran out of credit, so it is skipped and shown on the Keys screen', async () => {
+    const { deps, keysRepo, user } = await setup();
+    (deps.runEngine as jest.Mock).mockImplementationOnce(async (options: GenerateOptions) => {
+      await options.onKeyProblem?.({
+        keyId: 'key-1',
+        model: 'gemini-3.5-flash-lite',
+        scope: 'key',
+        status: 'limited',
+        message: 'This key has no credit left.',
+      });
+      throw new EngineError('no_credit');
     });
     await press(user, 'Use latest');
     await press(user, 'Get lines');
@@ -596,7 +628,7 @@ describe('Generate: problems', () => {
 
     expect(keysRepo.repo.update).toHaveBeenCalledWith(
       'key-1',
-      expect.objectContaining({ status: 'limited', last_error: 'This key has reached its limit.' }),
+      expect.objectContaining({ status: 'limited', last_error: 'This key has no credit left.' }),
     );
     expect(keysRepo.rows()[0].limited_at).toEqual(expect.any(String));
     // With its only key resting, the screen now says there is no usable key.

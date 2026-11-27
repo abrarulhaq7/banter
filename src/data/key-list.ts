@@ -16,19 +16,37 @@ export function nextSortOrder(keys: ApiKeyRow[]): number {
   return keys.reduce((highest, key) => Math.max(highest, key.sort_order), -1) + 1;
 }
 
+/** Best first: by rank across all providers. A model without a rank goes last. */
+export function byRank(a: ModelRow, b: ModelRow): number {
+  return (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER) || a.sort_order - b.sort_order;
+}
+
+/** One provider's models, best first. */
 export function modelsFor(models: ModelRow[], provider: ProviderId): ModelRow[] {
-  return models.filter((model) => model.provider === provider);
+  return models.filter((model) => model.provider === provider).sort(byRank);
 }
 
-export function defaultModelFor(models: ModelRow[], provider: ProviderId): ModelRow | undefined {
-  const own = modelsFor(models, provider);
-  return own.find((model) => model.is_default) ?? own[0];
-}
-
-/** The model a key will actually use: its own choice, or the provider's default. */
-export function effectiveModel(key: ApiKeyRow, models: ModelRow[]): ModelRow | undefined {
+/**
+ * The models a key uses, best first: the one model chosen for it, or else (automatic)
+ * all of its provider's. A chosen model that is no longer offered counts as automatic.
+ */
+export function keyModels(key: ApiKeyRow, models: ModelRow[]): ModelRow[] {
   const own = modelsFor(models, key.provider);
-  return own.find((model) => model.model_id === key.model) ?? defaultModelFor(models, key.provider);
+  const chosen = key.model ? own.find((model) => model.model_id === key.model) : undefined;
+  return chosen ? [chosen] : own;
+}
+
+/** How a key's model reads in a list: the chosen model's name, or "Automatic". */
+export function keyModelLabel(key: ApiKeyRow, models: ModelRow[]): string {
+  const chosen = key.model ? modelsFor(models, key.provider).find((model) => model.model_id === key.model) : undefined;
+  return chosen?.label ?? 'Automatic';
+}
+
+/** Until when a key leaves a model alone after it hit its limit. Null when it is not resting. */
+export function restingUntil(key: ApiKeyRow, modelId: string, now: number): number | null {
+  const until = key.model_limits?.[modelId];
+  const time = until ? new Date(until).getTime() : NaN;
+  return Number.isFinite(time) && time > now ? time : null;
 }
 
 /** The keys generation may use, in the order they are tried. */

@@ -19,9 +19,17 @@ select tests.ok(
   and (select count(*) from public.prompt_core) >= 2,
   'prompts: syncing from the app''s code adds a new version, makes it the active one and keeps the old one');
 select tests.ok(
-  (select count(*) from public.models where is_default) = 3
-  and (select count(distinct provider) from public.models where is_default) = 3,
-  'seed: one default model for each of the three providers');
+  (select count(*) from public.models where is_default) = 5
+  and (select count(distinct provider) from public.models where is_default) = 5,
+  'seed: one default model for each of the five providers');
+select tests.ok(
+  (select count(*) from public.models where rank is null) = 0
+  and (select count(distinct rank) from public.models) = (select count(*) from public.models),
+  'seed: every model has its own place in the best-first order');
+select tests.ok(
+  (select array_agg(model_id order by rank) from public.models where provider = 'gemini')
+    = array['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'],
+  'seed: a Gemini key goes from its best free model down to Flash-Lite');
 select tests.ok((select not public from storage.buckets where id = 'screenshots'),
   'storage: the screenshots bucket exists and is private');
 
@@ -120,6 +128,25 @@ select tests.refused(
   $$insert into public.api_keys (provider, label, key, model) values ('gemini', 'x', 'test-key-0000', 'no-such-model')$$,
   'api_keys: a model that is not in the models list is rejected');
 select tests.refused($$update public.api_keys set status = 'broken'$$, 'api_keys: unknown status is rejected');
+select tests.ok(
+  tests.changed($$insert into public.api_keys (provider, label, key, model)
+    values ('groq', 'Fast', 'test-key-not-real-0002', 'qwen/qwen3.8-27b'),
+           ('openrouter', 'Free', 'test-key-not-real-0003', null)$$) = 2,
+  'api_keys: Groq and OpenRouter keys can be added, with a model or automatic');
+select tests.ok(
+  tests.changed($$delete from public.api_keys where provider in ('groq', 'openrouter')$$) = 2,
+  'api_keys: and deleted again');
+select tests.ok(
+  (select model_limits = '{}'::jsonb from public.api_keys),
+  'api_keys: a new key has no models resting');
+select tests.ok(
+  tests.changed($$update public.api_keys
+    set model_limits = '{"gemini-4-hydrogen": "2026-11-26T13:00:00Z"}'::jsonb$$) = 1,
+  'A: can save that a model of own key hit its limit');
+select tests.refused($$update public.api_keys set model_limits = '[]'::jsonb$$,
+  'api_keys: model_limits must be an object');
+select tests.refused($$update public.api_keys set model_limits = null$$,
+  'api_keys: model_limits cannot be null');
 select tests.refused(
   $$insert into public.interactions (mode_id, provider, model, screenshot_path)
     values ('opener', 'gemini', 'm', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/x.jpg')$$,
@@ -153,6 +180,8 @@ select tests.ok(
 
 select tests.ok(tests.changed($$update public.api_keys set key = 'stolen-key-000000'$$) = 0,
   'B: cannot change A''s API keys');
+select tests.ok(tests.changed($$update public.api_keys set model_limits = '{}'::jsonb$$) = 0,
+  'B: cannot change which of A''s models are resting');
 select tests.ok(tests.changed($$update public.people set notes = 'x'$$) = 0, 'B: cannot change A''s people');
 select tests.ok(tests.changed($$update public.lines set text = 'x'$$) = 0, 'B: cannot change A''s lines');
 select tests.ok(tests.changed($$update public.interactions set noticed = 'x'$$) = 0,

@@ -9,7 +9,7 @@
  *   npm run lines -- samples/story1.png --show-prompt
  *
  * Options
- *   --provider gemini|openai|claude   default: the first provider with a key
+ *   --provider gemini|groq|openrouter|openai|claude   default: the first provider with a key
  *   --model <id>                      default: the provider's default model
  *   --mode story_reply|opener|reply|analyse|auto
  *                                     default: auto (from the file name, else story_reply)
@@ -25,7 +25,7 @@
  *   --json                            print the raw result as JSON
  *
  * Keys are read from keys.local.json (not in git):
- *   { "gemini": "...", "openai": "...", "claude": "..." }
+ *   { "gemini": "...", "groq": "...", "openrouter": "...", "openai": "...", "claude": "..." }
  *
  * Screenshots are resized to 1280 px on the longest side before sending, like the app will.
  */
@@ -51,13 +51,15 @@ import {
 } from '../src/engine';
 import type { ProviderId } from '../src/lib/database.types';
 
-/** The low-cost model for each provider. Same as the defaults in the `models` table. */
+/** The default model for each provider. Same as the defaults in the `models` table. */
 const DEFAULT_MODEL: Record<ProviderId, string> = {
   gemini: 'gemini-3.5-flash-lite',
+  groq: 'qwen/qwen3.8-27b',
+  openrouter: 'nvidia/nemotron-3.5-super-vl:free',
   openai: 'gpt-6-luna',
   claude: 'claude-haiku-5-5',
 };
-const PROVIDERS: ProviderId[] = ['gemini', 'openai', 'claude'];
+const PROVIDERS: ProviderId[] = ['gemini', 'groq', 'openrouter', 'openai', 'claude'];
 const MODES = Object.keys(DEFAULT_MODES) as ModeId[];
 const TONES = Object.keys(DEFAULT_TONES) as ToneId[];
 const CONTEXTS: ContextId[] = ['stranger', 'mutual_follow', 'know_her', 'already_talking'];

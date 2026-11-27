@@ -26,6 +26,7 @@ import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
 import type { ScreenshotResult } from '@/screenshot/types';
 
 import { keyCandidates } from './key-candidates';
+import { keyProblemSaver } from './key-problems';
 import {
   adjustableLines,
   initialSession,
@@ -234,14 +235,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           language: replyLanguage(profile),
           adjustment,
         },
-        // Save what was learned about a key, so the Keys screen shows it and it is skipped.
-        onKeyProblem: async ({ keyId, status, message }) => {
-          await updateKey(keyId, {
-            status,
-            last_error: message,
-            limited_at: status === 'limited' ? deps.now().toISOString() : null,
-          });
-        },
+        // Save what was learned about a key or a model, so the next request skips it.
+        onKeyProblem: keyProblemSaver(keys, updateKey, deps.now),
       });
 
       // A key that had been resting after a limit worked again: it is active once more.

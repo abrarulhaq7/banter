@@ -84,7 +84,8 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 - "Tune my tones" (`src/engine/tune-tones.ts`) rewrites only Banter's built-in tones, always from Banter's own wording (`Tone.defaultDefinition`), never the user's own tones. Save several tones with `saveToneDefinitions` (one state update), not `saveToneDefinition` in a loop.
 - "Turn up the heat" (`src/engine/prompt.ts`, `DIRECTION`) escalates one step at a time and reads her first; keep its limits: suggestive not explicit unless she went further, back off when she is cold, clean with a stranger.
 - "Personalise for me" (`src/engine/personalise.ts`) sends text only: no screenshot, no usernames, not the user's name or city. Keep it that way.
-- Provider requests must keep `store: false` (OpenAI, Gemini). Never send temperature or other sampling settings to Claude.
+- Provider requests must keep `store: false` (OpenAI, Gemini). Never send temperature or other sampling settings to Claude. Groq and OpenRouter (`src/engine/adapters/chat-completions.ts`) reject fields they do not know: send only what that file sends.
+- Which model goes first is `models.rank` (1 is best), across all providers. A key with no model is Automatic: all its provider's models, best first. A limit rests one model (`api_keys.model_limits`); only no credit or a rejected key changes the key's status.
 
 ## Maestro on iOS: things that cost time
 

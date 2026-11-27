@@ -103,21 +103,31 @@ export function createFakeAuthClient(savedSession: Session | null = null) {
 // --- Phase 2: keys and profile -------------------------------------------------------------
 
 export function makeModels(): ModelRow[] {
-  const row = (provider: ProviderId, model_id: string, label: string, is_default: boolean, sort_order: number) => ({
+  const row = (
+    provider: ProviderId,
+    model_id: string,
+    label: string,
+    is_default: boolean,
+    sort_order: number,
+    rank: number,
+  ) => ({
     provider,
     model_id,
     label,
     is_default,
     is_active: true,
     sort_order,
+    rank,
     created_at: '2026-11-25T00:00:00Z',
     updated_at: '2026-11-25T00:00:00Z',
   });
   return [
-    row('claude', 'claude-haiku-5-5', 'Claude Haiku 5.5', true, 1),
-    row('claude', 'claude-sonnet-5-5', 'Claude Sonnet 5.5', false, 2),
-    row('gemini', 'gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite', true, 1),
-    row('openai', 'gpt-6-luna', 'GPT-6 Luna', true, 1),
+    row('claude', 'claude-haiku-5-5', 'Claude Haiku 5.5', true, 1, 55),
+    row('claude', 'claude-sonnet-5-5', 'Claude Sonnet 5.5', false, 2, 20),
+    row('gemini', 'gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite', true, 1, 80),
+    row('openai', 'gpt-6-luna', 'GPT-6 Luna', true, 1, 40),
+    row('groq', 'qwen/qwen3.8-27b', 'Qwen 3.8 27B', true, 1, 90),
+    row('openrouter', 'nvidia/nemotron-3.5-super-vl:free', 'Nemotron 3.5 Super VL (free)', true, 1, 100),
   ];
 }
 
@@ -133,6 +143,7 @@ export function makeKey(overrides: Partial<ApiKeyRow> = {}): ApiKeyRow {
     status: 'active',
     last_error: null,
     limited_at: null,
+    model_limits: {},
     last_used_at: null,
     created_at: '2026-11-25T00:00:00Z',
     updated_at: '2026-11-25T00:00:00Z',

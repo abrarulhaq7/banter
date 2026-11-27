@@ -6,6 +6,8 @@ describe('guessProvider', () => {
     ['sk-proj-abc', 'openai'],
     ['  sk-abc', 'openai'],
     ['AIzaSyAbc', 'gemini'],
+    ['sk-or-v1-abc', 'openrouter'],
+    ['gsk_abc', 'groq'],
   ])('%s looks like %s', (key, provider) => {
     expect(guessProvider(key)).toBe(provider);
   });

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useKeys } from '@/data';
 import { EngineError, isEngineError, learnTone, type LearnInput, type LearnOutput } from '@/engine';
 import { keyCandidates } from '@/generate/key-candidates';
+import { keyProblemSaver } from '@/generate/key-problems';
 import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
 import type { PreparedScreenshot, ScreenshotResult } from '@/screenshot/types';
 
@@ -88,13 +89,7 @@ export function useLearnTone(overrides: Partial<LearnDeps> = {}): LearnState {
         const asked = await deps.learn({
           keys: candidates,
           input,
-          onKeyProblem: async ({ keyId, status, message }) => {
-            await updateKey(keyId, {
-              status,
-              last_error: message,
-              limited_at: status === 'limited' ? deps.now().toISOString() : null,
-            });
-          },
+          onKeyProblem: keyProblemSaver(keys, updateKey, deps.now),
         });
         setResult(asked.output);
         setPhase('done');

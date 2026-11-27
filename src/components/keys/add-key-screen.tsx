@@ -1,23 +1,14 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import {
-  AppText,
-  Banner,
-  Button,
-  ListRow,
-  OptionList,
-  Screen,
-  ScreenHeader,
-  SegmentedControl,
-  Sheet,
-  TextField,
-} from '@/components/ui';
-import { defaultModelFor, modelsFor, useKeys } from '@/data';
+import { AppText, Banner, Button, ListRow, OptionList, Screen, ScreenHeader, Sheet, TextField } from '@/components/ui';
+import { modelsFor, useKeys } from '@/data';
 import type { ProviderId } from '@/lib/database.types';
 import { checkKey } from '@/providers/check-key';
 import { PROVIDER_IDS, PROVIDERS, guessProvider } from '@/providers/providers';
 import { spacing } from '@/theme';
+
+import { AUTOMATIC, modelOptions } from './model-options';
 
 type AddKeyScreenProps = {
   testID: string;
@@ -34,11 +25,15 @@ type AddKeyScreenProps = {
   check?: typeof checkKey;
 };
 
-const PROVIDER_OPTIONS = PROVIDER_IDS.map((id) => ({ value: id, label: PROVIDERS[id].label }));
+const PROVIDER_OPTIONS = PROVIDER_IDS.map((id) => ({
+  value: id,
+  label: PROVIDERS[id].label,
+  subtitle: PROVIDERS[id].cost,
+}));
 
 /**
- * Add a key: pick the provider, paste the key. It is checked before it is saved.
- * Used in Settings and as the last step of onboarding.
+ * Add a key: paste it, and the provider follows from how it starts (or pick it). It is
+ * checked before it is saved. Used in Settings and as the last step of onboarding.
  */
 export function AddKeyScreen({
   testID,
@@ -56,16 +51,15 @@ export function AddKeyScreen({
   const [providerPicked, setProviderPicked] = useState(false);
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
+  /** Null is automatic: the best model first. */
   const [modelId, setModelId] = useState<string | null>(null);
-  const [choosingModel, setChoosingModel] = useState(false);
+  const [sheet, setSheet] = useState<null | 'provider' | 'model'>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const info = PROVIDERS[provider];
   const providerModels = modelsFor(models, provider);
-  const defaultModel = defaultModelFor(models, provider);
-  const selectedModelId = modelId ?? defaultModel?.model_id ?? null;
-  const selectedModel = providerModels.find((model) => model.model_id === selectedModelId);
+  const selectedModel = providerModels.find((model) => model.model_id === modelId);
 
   const guessed = guessProvider(key);
   const looksLikeAnother = guessed !== null && guessed !== provider;
@@ -74,6 +68,7 @@ export function AddKeyScreen({
     setProvider(next);
     setProviderPicked(true);
     setModelId(null);
+    setSheet(null);
     setError(null);
   };
 
@@ -89,10 +84,8 @@ export function AddKeyScreen({
   };
 
   const pickModel = (next: string) => {
-    const model = providerModels.find((item) => item.model_id === next);
-    // Null keeps the key on the provider's default, even if the default changes later.
-    setModelId(model?.is_default ? null : next);
-    setChoosingModel(false);
+    setModelId(next === AUTOMATIC ? null : next);
+    setSheet(null);
     setError(null);
   };
 
@@ -111,11 +104,15 @@ export function AddKeyScreen({
       setBusy(false);
       return setError(checked.message);
     }
-    if (selectedModelId && !checked.modelIds.includes(selectedModelId)) {
+    // Providers that list the models a key may use: make sure this key can use ours.
+    const allowed = checked.modelIds;
+    if (allowed && modelId && !allowed.includes(modelId)) {
       setBusy(false);
-      return setError(
-        `The key works, but it cannot use ${selectedModel?.label ?? selectedModelId}. Pick another model.`,
-      );
+      return setError(`The key works, but it cannot use ${selectedModel?.label ?? modelId}. Pick another model.`);
+    }
+    if (allowed && !modelId && providerModels.length > 0 && !providerModels.some((model) => allowed.includes(model.model_id))) {
+      setBusy(false);
+      return setError(`The key works, but it cannot use any of the ${info.label} models Banter offers.`);
     }
 
     const saved = await addKey({
@@ -152,11 +149,12 @@ export function AddKeyScreen({
       }>
       <ScreenHeader title={title} subtitle={subtitle} onBack={onBack} />
 
-      <SegmentedControl
-        testIDPrefix="provider"
-        options={PROVIDER_OPTIONS}
-        value={provider}
-        onChange={pickProvider}
+      <ListRow
+        testID="key-provider"
+        icon="key"
+        title="Provider"
+        value={info.label}
+        onPress={() => setSheet('provider')}
         disabled={busy}
       />
 
@@ -166,7 +164,7 @@ export function AddKeyScreen({
         placeholder={`Paste your ${info.label} key`}
         helper={
           looksLikeAnother
-            ? `This looks like a ${PROVIDERS[guessed].label} key. Check the provider above.`
+            ? `This looks like a ${PROVIDERS[guessed].label} key. Check the provider.`
             : `Create one at ${info.keyPage}`
         }
         value={key}
@@ -191,8 +189,8 @@ export function AddKeyScreen({
             testID="key-model"
             icon="model"
             title="Model"
-            value={selectedModel?.label ?? 'Default'}
-            onPress={() => setChoosingModel(true)}
+            value={selectedModel?.label ?? 'Automatic'}
+            onPress={() => setSheet('model')}
             disabled={busy}
           />
         ) : null}
@@ -213,19 +211,24 @@ export function AddKeyScreen({
       </AppText>
 
       <Sheet
+        testID="key-provider-sheet"
+        visible={sheet === 'provider'}
+        title="Provider"
+        subtitle="Who made the key. Banter fills this in from how the key starts."
+        onClose={() => setSheet(null)}>
+        <OptionList testIDPrefix="provider" options={PROVIDER_OPTIONS} value={provider} onSelect={pickProvider} />
+      </Sheet>
+
+      <Sheet
         testID="key-model-sheet"
-        visible={choosingModel}
+        visible={sheet === 'model'}
         title="Model"
         subtitle={`Which ${info.label} model writes your lines with this key.`}
-        onClose={() => setChoosingModel(false)}>
+        onClose={() => setSheet(null)}>
         <OptionList
           testIDPrefix="model"
-          options={providerModels.map((model) => ({
-            value: model.model_id,
-            label: model.label,
-            subtitle: model.is_default ? 'Recommended' : undefined,
-          }))}
-          value={selectedModelId}
+          options={modelOptions(providerModels)}
+          value={modelId ?? AUTOMATIC}
           onSelect={pickModel}
         />
       </Sheet>

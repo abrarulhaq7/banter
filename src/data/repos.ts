@@ -15,7 +15,9 @@ export type NewKey = {
   sort_order: number;
 };
 
-export type KeyPatch = Partial<Pick<ApiKeyRow, 'label' | 'model' | 'status' | 'last_error' | 'limited_at'>>;
+export type KeyPatch = Partial<
+  Pick<ApiKeyRow, 'label' | 'model' | 'status' | 'last_error' | 'limited_at' | 'model_limits'>
+>;
 
 export type ProfilePatch = Partial<
   Pick<
@@ -37,7 +39,7 @@ export type KeysRepo = {
   add: (input: NewKey) => Promise<ApiKeyRow>;
   update: (id: string, patch: KeyPatch) => Promise<ApiKeyRow>;
   remove: (id: string) => Promise<void>;
-  /** Saves the order of the keys: the first id is tried first. */
+  /** Saves the order of the keys: of two keys with the same model, the first is tried first. */
   setOrder: (ids: string[]) => Promise<void>;
   listModels: () => Promise<ModelRow[]>;
 };

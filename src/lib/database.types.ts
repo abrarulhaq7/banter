@@ -3,7 +3,7 @@
  * supabase/migrations; update both together. Tables are added here as phases need them.
  */
 
-export type ProviderId = 'gemini' | 'openai' | 'claude';
+export type ProviderId = 'gemini' | 'groq' | 'openrouter' | 'openai' | 'claude';
 export type KeyStatus = 'active' | 'limited' | 'invalid' | 'disabled';
 export type ThemeId = 'midnightPlum' | 'ember' | 'deepSea';
 
@@ -28,16 +28,23 @@ export type ApiKeyRow = {
   provider: ProviderId;
   label: string;
   key: string;
-  /** Null means "use the provider's default model". */
+  /** Null means automatic: the provider's best model first, then the next. */
   model: string | null;
   sort_order: number;
   status: KeyStatus;
   last_error: string | null;
   limited_at: string | null;
+  /**
+   * Models of this key that hit their limit, and until when to leave them alone:
+   * `{ "model id": "ISO time" }`. Missing in copies saved before it existed.
+   */
+  model_limits?: ModelLimits;
   last_used_at: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type ModelLimits = Record<string, string>;
 
 export type ModelRow = {
   provider: ProviderId;
@@ -46,6 +53,11 @@ export type ModelRow = {
   is_default: boolean;
   is_active: boolean;
   sort_order: number;
+  /**
+   * Quality order across all providers: 1 is the best. Banter tries the best model first.
+   * Null (or missing in an old saved copy) goes last.
+   */
+  rank?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -207,7 +219,14 @@ export type Database = {
         Partial<
           Pick<
             ApiKeyRow,
-            'label' | 'model' | 'sort_order' | 'status' | 'last_error' | 'limited_at' | 'last_used_at'
+            | 'label'
+            | 'model'
+            | 'sort_order'
+            | 'status'
+            | 'last_error'
+            | 'limited_at'
+            | 'last_used_at'
+            | 'model_limits'
           >
         >
       >;

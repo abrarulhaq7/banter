@@ -80,8 +80,31 @@ describe('checkKey: a working key', () => {
     expect(calls[0].init.headers).toEqual({ 'x-goog-api-key': 'AIzaTest' });
   });
 
+  it('accepts a Groq key and lists its models', async () => {
+    const { fetchImpl, calls } = fakeFetch(200, { object: 'list', data: [{ id: 'qwen/qwen3.8-27b' }] });
+
+    const result = await checkKey('groq', 'gsk_test', { fetch: fetchImpl });
+
+    expect(result).toEqual({ ok: true, modelIds: ['qwen/qwen3.8-27b'] });
+    expect(calls[0].url).toBe('https://api.groq.com/openai/v1/models');
+    expect(calls[0].init.headers).toEqual({ Authorization: 'Bearer gsk_test' });
+  });
+
+  it('checks an OpenRouter key against the key itself: its model list is public and takes any key', async () => {
+    const { fetchImpl, calls } = fakeFetch(200, {
+      data: { label: 'sk-or-v1-abc...', usage: 0, is_free_tier: true, free_model_daily_requests: { limit: 50 } },
+    });
+
+    const result = await checkKey('openrouter', 'sk-or-test', { fetch: fetchImpl });
+
+    // Every OpenRouter key may use every model, so there is no list to check against.
+    expect(result).toEqual({ ok: true, modelIds: null });
+    expect(calls[0].url).toBe('https://openrouter.ai/api/v1/key');
+    expect(calls[0].init.headers).toEqual({ Authorization: 'Bearer sk-or-test' });
+  });
+
   it('never puts the key in the address, where it could end up in logs', async () => {
-    for (const provider of ['claude', 'openai', 'gemini'] as const) {
+    for (const provider of ['claude', 'openai', 'gemini', 'groq', 'openrouter'] as const) {
       const { fetchImpl, calls } = fakeFetch(200, { data: [], models: [] });
       await checkKey(provider, 'SECRET-KEY-VALUE', { fetch: fetchImpl });
       expect(calls[0].url).not.toContain('SECRET-KEY-VALUE');
@@ -101,6 +124,8 @@ describe('checkKey: a wrong key', () => {
     ['claude', 401, CLAUDE_BAD_KEY, 'Claude'],
     ['openai', 401, OPENAI_BAD_KEY, 'OpenAI'],
     ['gemini', 400, GEMINI_BAD_KEY, 'Gemini'],
+    ['groq', 401, { error: { message: 'Invalid API Key', type: 'invalid_request_error' } }, 'Groq'],
+    ['openrouter', 401, { error: { code: 401, message: 'User not found.' } }, 'OpenRouter'],
   ] as const)('%s rejects it', async (provider, status, body, name) => {
     const result = await checkKey(provider, 'wrong-key', { fetch: fakeFetch(status, body).fetchImpl });
 

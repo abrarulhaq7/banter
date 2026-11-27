@@ -14,23 +14,28 @@ import {
   TextField,
   useToast,
 } from '@/components/ui';
-import { defaultModelFor, modelsFor, useKeys, type Result } from '@/data';
+import { keyModels, modelsFor, restingUntil, useKeys, type Result } from '@/data';
 import { checkKey } from '@/providers/check-key';
 import { PROVIDERS, maskKey } from '@/providers/providers';
 import { spacing } from '@/theme';
 
 import { KEY_STATUS } from './key-status';
+import { AUTOMATIC, modelOptions } from './model-options';
 
 type KeyScreenProps = {
   id: string;
   /** Tests pass a fake checker. */
   check?: typeof checkKey;
+  /** Tests pass a fixed time. */
+  now?: () => number;
 };
+
+const clock = (time: number) => new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 type Job = 'save' | 'check' | 'toggle' | 'delete';
 
 /** One key: a short menu. Rename and model open a sheet; delete asks first. */
-export function KeyScreen({ id, check = checkKey }: KeyScreenProps) {
+export function KeyScreen({ id, check = checkKey, now = Date.now }: KeyScreenProps) {
   const router = useRouter();
   const toast = useToast();
   const { keys, models, updateKey, removeKey } = useKeys();
@@ -54,8 +59,13 @@ export function KeyScreen({ id, check = checkKey }: KeyScreenProps) {
   const info = PROVIDERS[key.provider];
   const state = KEY_STATUS[key.status];
   const providerModels = modelsFor(models, key.provider);
-  const selectedModelId = key.model ?? defaultModelFor(models, key.provider)?.model_id ?? null;
-  const selectedModel = providerModels.find((model) => model.model_id === selectedModelId);
+  const selectedModel = providerModels.find((model) => model.model_id === key.model);
+  const selectedValue = selectedModel ? selectedModel.model_id : AUTOMATIC;
+  // Models of this key that hit their limit a moment ago, and when they are back.
+  const resting = keyModels(key, models).flatMap((model) => {
+    const until = restingUntil(key, model.model_id, now());
+    return until ? [`${model.label} until ${clock(until)}`] : [];
+  });
   const off = key.status === 'disabled';
 
   const run = async (job: Job, action: () => Promise<Result>, done?: string) => {
@@ -81,12 +91,11 @@ export function KeyScreen({ id, check = checkKey }: KeyScreenProps) {
     if (next !== key.label) await run('save', () => updateKey(key.id, { label: next }), 'Saved');
   };
 
-  const pickModel = async (modelId: string) => {
+  const pickModel = async (value: string) => {
     setSheet(null);
-    if (modelId === selectedModelId) return;
-    const model = providerModels.find((item) => item.model_id === modelId);
-    // Null keeps the key on the provider's default, even if the default changes later.
-    await run('save', () => updateKey(key.id, { model: model?.is_default ? null : modelId }), 'Saved');
+    if (value === selectedValue) return;
+    // Null is automatic: the best model first.
+    await run('save', () => updateKey(key.id, { model: value === AUTOMATIC ? null : value }), 'Saved');
   };
 
   const checkAgain = () =>
@@ -150,7 +159,8 @@ export function KeyScreen({ id, check = checkKey }: KeyScreenProps) {
             testID="edit-key-model"
             icon="model"
             title="Model"
-            value={selectedModel?.label ?? 'Default'}
+            value={selectedModel?.label ?? 'Automatic'}
+            subtitle={resting.length > 0 ? `At its limit: ${resting.join(', ')}` : undefined}
             onPress={() => setSheet('model')}
             disabled={!idle}
           />
@@ -215,12 +225,8 @@ export function KeyScreen({ id, check = checkKey }: KeyScreenProps) {
         onClose={() => setSheet(null)}>
         <OptionList
           testIDPrefix="model"
-          options={providerModels.map((model) => ({
-            value: model.model_id,
-            label: model.label,
-            subtitle: model.is_default ? 'Recommended' : undefined,
-          }))}
-          value={selectedModelId}
+          options={modelOptions(providerModels)}
+          value={selectedValue}
           onSelect={pickModel}
         />
       </Sheet>
