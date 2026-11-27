@@ -201,6 +201,26 @@ export type ProfileSettings = {
   hidden_tones?: string[];
 };
 
+/** What a ticket is about. */
+export type FeedbackKind = 'lines' | 'wording' | 'bug' | 'idea';
+
+/** A ticket sent from the app. The email is filled in by the database from the login. */
+export type FeedbackRow = {
+  id: string;
+  user_id: string;
+  email: string | null;
+  kind: FeedbackKind;
+  message: string;
+  context: Record<string, unknown>;
+  screenshot_path: string | null;
+  status: 'open' | 'resolved';
+  resolution: string | null;
+  resolved_at: string | null;
+  created_at: string;
+};
+export type FeedbackInsert = Pick<FeedbackRow, 'kind' | 'message' | 'context'> &
+  Partial<Pick<FeedbackRow, 'id' | 'screenshot_path'>>;
+
 type Table<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;
@@ -250,6 +270,8 @@ export type Database = {
       >;
       interactions: Table<InteractionRow, InteractionInsert, Partial<InteractionInsert>>;
       lines: Table<LineRow, LineInsert, LinePatch>;
+      feedback: Table<FeedbackRow, FeedbackInsert, Partial<Pick<FeedbackRow, 'status' | 'resolution' | 'resolved_at'>>>;
+      admins: Table<{ user_id: string; created_at: string }, never, never>;
     };
     Views: {
       usage_summary: { Row: UsageRow & { user_id: string }; Relationships: [] };

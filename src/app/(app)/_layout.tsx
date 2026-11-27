@@ -90,6 +90,7 @@ function AppNavigator() {
         <Stack.Screen name="keys/[id]" />
         <Stack.Screen name="guide/index" />
         <Stack.Screen name="guide/[id]" />
+        <Stack.Screen name="feedback" />
       </Stack.Protected>
 
       <Stack.Protected guard={!onboarded}>

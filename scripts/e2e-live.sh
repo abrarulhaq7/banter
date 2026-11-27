@@ -46,7 +46,9 @@ running() { curl -s -m 2 "localhost:$PORT/status" 2>/dev/null | grep -q running;
 if ! running; then
   echo "Starting a production-mode server on port $PORT. The first run builds the app's code, which takes a minute."
   mkdir -p .maestro/artifacts
-  npx expo start --dev-client --no-dev --minify --port "$PORT" > .maestro/artifacts/live-server.log 2>&1 &
+  # --offline: no calls to Expo's web service, which a local test server does not need. When
+  # that service had an outage (2026-11-27) the app could not load at all.
+  npx expo start --dev-client --no-dev --minify --offline --port "$PORT" > .maestro/artifacts/live-server.log 2>&1 &
   STARTED_SERVER=1
   for _ in $(seq 1 90); do running && break; sleep 1; done
   if ! running; then

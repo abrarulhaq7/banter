@@ -74,6 +74,8 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 5. A rarely changed choice is one `ListRow` showing its value, and opens a `Sheet`.
 6. Small edits and confirmations happen in a `Sheet` or a `Dialog`. Deleting and signing out always ask first.
 - Never commit keys, `.env` files or anything in `samples/`.
+- **EAS only through `npm run eas -- <command>`** (`scripts/eas.sh`), never `eas` or `npx eas-cli` directly: this Mac's own Expo login is the user's work account and must never be used for Banter. The wrapper uses the personal token in `expo-token.local`, a separate settings folder (`.expo-home`), and stops if the token is the work login. `npm run eas:setup` links the project and sets the Supabase values once.
+- Feedback tickets: when the user gives an email, run `npm run tickets -- <email>` (add `--json` for the request as sent) and read the saved screenshots in `tickets.local/`; resolve with `npm run tickets -- --resolve <id> "what was done"`. The admin login lives only in `admin-account.local.json`. A new table needs `revoke all ... from anon, authenticated` before its grants: Supabase gives new tables every right by default, so column grants alone restrict nothing.
 - Made-up keys in tests and flows must look fake (`fake-gemini-key-for-tests`), never like a real key. GitHub flags key-shaped strings even when they are invented; `scripts/__tests__/no-key-shaped-strings.test.js` fails the check if one appears.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.
 - Only the Supabase publishable key belongs in the app. Never a secret key.

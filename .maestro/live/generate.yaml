@@ -159,6 +159,36 @@ onFlowComplete:
     text: "Liked"
 - takeScreenshot: generate-line-liked
 
+# Report these lines: the set is attached. Not sent, so test runs leave no tickets.
+- scrollUntilVisible:
+    element:
+      id: "report-set"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "report-set"
+- assertVisible:
+    id: "feedback-screen"
+- assertVisible:
+    id: "feedback-kind-lines"
+    selected: true
+- assertVisible:
+    id: "feedback-screenshot"
+    text: ".*On.*"
+- takeScreenshot: feedback-report-lines
+- tapOn:
+    id: "feedback-included"
+- assertVisible:
+    id: "feedback-included-sheet"
+- takeScreenshot: feedback-included
+- tapOn:
+    id: "sheet-close"
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "results-screen"
+- runFlow: ../common/scroll-to-top.yaml
+
 # Keep the second line.
 - tapOn:
     id: "keep-0-1"

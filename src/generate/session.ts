@@ -41,6 +41,9 @@ export type ResultSet = {
   output: ModelOutput;
   usedKey: GenerationResult['usedKey'];
   durationMs: number;
+  /** The core rules' version, and the request as sent: attached when the set is reported. */
+  promptVersion?: number;
+  request?: string;
 };
 
 export type KeptLine = {

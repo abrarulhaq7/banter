@@ -1305,9 +1305,70 @@ each option does: what you screenshot, tones, how you know her, where to take it
 rest. The words live in one file (`src/components/guide/guide-content.ts`); a test fails if
 the guide names an option or a tone that Generate does not have.
 
+### Feedback tickets (2026-11-27)
+
+Asked for before the phone builds: one tap to report a problem, with everything needed to
+fix it attached, plus a note; later, find the tickets by email and resolve them.
+
+- **Report these lines** (under the lines on Results) and **Send feedback** (Settings). The
+  kind: Lines, Wording, Bug or Idea, and a note (optional for a reported set). From Results
+  the app attaches the set: mode, tone, how you know her, direction, fix, the model and the
+  rules version, what it noticed, every line with its hook, move and what you did with it
+  (liked, not for me and why, copied, saved), and the request exactly as sent. The
+  screenshot too, unless switched off. Always: where it was sent from, the app version, the
+  phone. "What's attached" lists it in plain words before sending.
+- **Supabase** (`20261128001000_feedback.sql`): `feedback` and `admins`. A user adds tickets
+  and sees only their own; the email is set by the database from the login; a sent ticket
+  cannot be edited; only admins resolve, and an admin may open only reported screenshots.
+  Nobody can make themselves an admin. 120 database checks.
+- **Finding and resolving:** `npm run tickets -- someone@example.com` (or `--open`) signs in
+  as the admin account (`admin-account.local.json`, not in git), prints each ticket with
+  its set and lines, and saves the screenshot in `tickets.local/`. `npm run tickets --
+  --resolve <id> "what was done"` resolves one; the user sees the resolution.
+- The admin account is made with `npm run admin:setup`, which writes
+  `supabase/paste-admin.sql` to paste once.
+
+### Android share menu (2026-11-27)
+
+Share a screenshot from Instagram or Photos straight to Banter: it opens Generate with the
+image as the screenshot. Built on Expo's own `expo-sharing` (receiving is new and marked
+experimental in SDK 58): its config plugin adds Android's share target for images, Expo
+Router's `+native-intent` sends the share to Generate, and a hook hands the image to the
+session once Generate is idle (a share that arrives while lines are being written waits).
+Android only: an iOS share extension needs the paid Apple account. The module is loaded
+only on Android, so builds made before it was added keep working.
+
 ### Phase 8 — Phone builds
 
 Goal: Banter on your iPhone 16 and your Android 10 phone.
+
+Decided 2026-11-27: Android first, with an APK made by EAS in the cloud; iPhone later (free
+Apple ID from this Mac, or the paid account at Phase 9).
+
+Ready (2026-11-27):
+
+- `eas.json`: `preview` makes an internal APK (version code raised by EAS each build);
+  `production` for later. Builds read the Supabase address and publishable key from EAS
+  variables (plaintext: they ship inside the app); `.env.local` is never uploaded.
+- **Never the work Expo account.** This Mac is signed in to Expo for work (a company
+  account). EAS runs only through `npm run eas -- …` (`scripts/eas.sh`): the personal token
+  from `expo-token.local` (not in git), a separate settings folder, and a stop if the token
+  is the work login. Tested: no token stops it; a fake token is refused and the work login
+  is not used in its place.
+- Permissions: Banter does not need "display over other apps" or biometrics, which Expo's
+  template and the secure-store module add; `android.blockedPermissions` removes them.
+- The whole app ran on the Android emulator for the first time: sign-in, Generate, the
+  Guide button, the new tones, and the share menu (a real share from Google Photos).
+
+To build, when you say so:
+
+1. Put a token from your personal Expo account in `expo-token.local`
+   (https://expo.dev/settings/access-tokens).
+2. `npm run eas:setup` once: makes the EAS project under your account (its id goes into
+   `app.json`, to commit) and sets the two Supabase values.
+3. `npm run eas -- build -p android --profile preview`, then open the link on the phone.
+4. On the phone: opening Banter from a share while it is closed (a development build
+   cannot show this), the share menu from Instagram, Use latest, and sign-in.
 
 1. iPhone: build from this Mac with your free Apple ID. It needs reinstalling every
    7 days with one command.

@@ -80,6 +80,13 @@ export function SettingsScreen() {
           subtitle="Screenshots, usage, deleting."
           onPress={() => router.push('/data')}
         />
+        <ListRow
+          testID="send-feedback"
+          icon="report"
+          title="Send feedback"
+          subtitle="Report a problem or share an idea."
+          onPress={() => router.push('/feedback')}
+        />
       </View>
 
       {error ? <Banner tone="danger">{error}</Banner> : null}

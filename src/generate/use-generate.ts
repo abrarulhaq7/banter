@@ -23,7 +23,7 @@ import { marksFor, useHistory, type GenerationEntry } from '@/history';
 import type { LineInsert, PersonRow, ProfileRow } from '@/lib/database.types';
 import { uuid } from '@/lib/uuid';
 import { toneFor, usePrompts } from '@/prompts';
-import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
+import { getLatestScreenshot, pickFromGallery, prepareSharedImage } from '@/screenshot';
 import type { ScreenshotResult } from '@/screenshot/types';
 
 import { keyCandidates } from './key-candidates';
@@ -41,6 +41,8 @@ import {
 export type GenerateDeps = {
   getLatestScreenshot: () => Promise<ScreenshotResult>;
   pickFromGallery: () => Promise<ScreenshotResult>;
+  /** An image shared to Banter from another app. */
+  prepareShared: (uri: string) => Promise<ScreenshotResult>;
   runEngine: (options: GenerateOptions) => Promise<GenerationResult>;
   copy: (text: string) => Promise<unknown>;
   now: () => Date;
@@ -49,6 +51,7 @@ export type GenerateDeps = {
 const realDeps: GenerateDeps = {
   getLatestScreenshot,
   pickFromGallery,
+  prepareShared: prepareSharedImage,
   runEngine,
   copy: (text) => Clipboard.setStringAsync(text),
   now: () => new Date(),
@@ -110,6 +113,8 @@ export type GenerateController = SessionState & {
   hasUsableKey: boolean;
   useLatestScreenshot: () => Promise<void>;
   pickScreenshot: () => Promise<void>;
+  /** Uses an image shared to Banter from another app as the screenshot. */
+  openSharedScreenshot: (uri: string) => Promise<void>;
   setMode: (mode: ModeId) => void;
   /** Takes a tone's key (see `Tone.key`). */
   setTone: (tone: string) => void;
@@ -332,6 +337,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           output,
           usedKey: result.usedKey,
           durationMs: result.durationMs,
+          promptVersion: result.promptVersion,
+          request: result.request,
         },
       });
       return true;
@@ -374,6 +381,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     hasUsableKey: keysStatus === 'loading' || candidates.length > 0,
     useLatestScreenshot: () => loadScreenshot(deps.getLatestScreenshot),
     pickScreenshot: () => loadScreenshot(deps.pickFromGallery),
+    openSharedScreenshot: (uri) => loadScreenshot(() => deps.prepareShared(uri)),
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
     setTone: (tone) => dispatch({ type: 'setTone', tone }),
     setDirection: (direction) => dispatch({ type: 'setDirection', direction }),

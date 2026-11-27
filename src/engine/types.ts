@@ -161,4 +161,6 @@ export type GenerationResult = {
   usedKey: Pick<KeyCandidate, 'id' | 'label' | 'provider' | 'model'>;
   promptVersion: number;
   durationMs: number;
+  /** The request part of the prompt, exactly as sent (the core rules are known by version). */
+  request?: string;
 };

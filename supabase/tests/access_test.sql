@@ -308,6 +308,67 @@ select tests.ok(
   (select count(*) from public.interactions) = 0 and (select count(*) from public.lines) = 0,
   'deleting a person deletes their interactions and lines');
 
+-- =========================================================================================
+-- Feedback: users send and see their own tickets; admins see and resolve all of them
+-- =========================================================================================
+reset role;
+insert into auth.users (id, email) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'admin@example.com');
+insert into public.admins (user_id) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+
+insert into storage.objects (bucket_id, name)
+  values ('screenshots', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg');
+-- The app never sends an email; even a made-up one is replaced by the login's.
+insert into public.feedback (id, kind, message, context, email, screenshot_path)
+  values ('f0000000-0000-4000-8000-000000000001', 'lines', 'Too cheesy.', '{"where": "results"}',
+          'someone@else.com', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg');
+select tests.ok((select email from public.feedback) = 'a@example.com',
+  'feedback: the email comes from the login, not from the app');
+select tests.ok((select status = 'open' and resolution is null from public.feedback),
+  'feedback: a new ticket is open');
+select tests.refused($$insert into public.feedback (kind) values ('rant')$$, 'feedback: unknown kind is rejected');
+select tests.refused(
+  $$insert into public.feedback (kind, user_id) values ('bug', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')$$,
+  'feedback: cannot send a ticket as someone else');
+select tests.refused($$insert into public.feedback (kind, status) values ('bug', 'resolved')$$,
+  'feedback: cannot send a ticket that is already resolved');
+select tests.refused(
+  $$insert into public.feedback (kind, screenshot_path) values ('bug', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/x.jpg')$$,
+  'feedback: the screenshot must be in the user''s own folder');
+select tests.ok(tests.changed($$update public.feedback set status = 'resolved'$$) = 0,
+  'feedback: a user cannot resolve tickets');
+select tests.refused($$update public.feedback set message = 'changed'$$, 'feedback: a sent ticket cannot be edited');
+select tests.refused(
+  $$insert into public.admins (user_id) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')$$,
+  'admins: a user cannot make themselves an admin');
+select tests.ok(not public.is_admin(), 'A is not an admin');
+
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', false);
+select tests.ok((select count(*) from public.feedback) = 0, 'B: cannot see A''s tickets');
+
+select set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', false);
+select tests.ok(public.is_admin(), 'the admin is an admin');
+select tests.ok((select count(*) from public.feedback where email = 'a@example.com') = 1,
+  'admin: finds a user''s tickets by their email');
+select tests.ok(
+  (select count(*) from storage.objects) = 1
+  and (select name from storage.objects) = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/feedback-1.jpg',
+  'admin: can open the reported screenshot, and no other');
+select tests.ok(
+  tests.changed($$update public.feedback set status = 'resolved', resolution = 'Fixed in the rules.', resolved_at = now()$$) = 1,
+  'admin: can resolve a ticket');
+select tests.refused($$update public.feedback set message = 'x'$$, 'admin: cannot change what the user wrote');
+
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+select tests.ok((select status = 'resolved' and resolution = 'Fixed in the rules.' from public.feedback),
+  'A: sees that the ticket was resolved, and how');
+
+reset role;
+delete from auth.users where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+
 -- Deleting the account removes every row the user owns, and nothing of anyone else's.
 -- A does it themselves, through the one function that is allowed to.
 select tests.refused($$delete from auth.users$$, 'A: cannot delete from auth.users directly');
@@ -319,8 +380,9 @@ select tests.ok(
   'delete_my_account removes the caller''s login and nobody else''s');
 select tests.ok(
   (select count(*) from public.profiles where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0
-  and (select count(*) from public.user_prompts where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
-  'deleting an account deletes its profile and remaining rows');
+  and (select count(*) from public.user_prompts where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0
+  and (select count(*) from public.feedback where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'deleting an account deletes its profile and remaining rows, tickets too');
 select tests.ok(
   (select count(*) from public.profiles) = 1 and (select count(*) from public.people) = 1,
   'deleting an account leaves other users'' data alone');

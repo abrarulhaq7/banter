@@ -71,3 +71,13 @@ keys.local.*
 
 # Banter: the review account's email and password. Never in git.
 test-account.local.*
+
+# The admin login for feedback tickets, and tickets' screenshots saved by npm run tickets.
+admin-account.local.*
+tickets.local/
+supabase/paste-*.sql
+
+# The personal Expo token, and the separate EAS settings folder (scripts/eas.sh). This Mac's
+# own Expo login is for work and must never be used for Banter.
+expo-token.local
+.expo-home/

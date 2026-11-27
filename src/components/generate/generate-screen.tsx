@@ -20,6 +20,7 @@ import {
 } from '@/components/ui';
 import { DEFAULT_MODES, type ContextId, type Direction, type ModeId } from '@/engine';
 import { DIRECTION_LABEL } from '@/generate/session';
+import { useIncomingScreenshot } from '@/generate/use-incoming-screenshot';
 import { useGenerateSession } from '@/generate/generate-provider';
 import { profileSettings, replyLanguage, useProfile } from '@/data';
 import { useHistory } from '@/history';
@@ -55,6 +56,8 @@ export function GenerateScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const session = useGenerateSession();
+  // An image shared to Banter from another app (Android's share menu) becomes the screenshot.
+  useIncomingScreenshot(session.openSharedScreenshot, session.phase === 'idle');
   const toast = useToast();
   const prompts = usePrompts();
   const modes = MODE_IDS.map((mode) => ({ value: mode, label: prompts.modes[mode].label }));

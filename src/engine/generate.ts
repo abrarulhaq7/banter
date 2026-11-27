@@ -224,5 +224,5 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
       return withoutRead;
     },
   );
-  return { ...asked, promptVersion: prompt.core.version };
+  return { ...asked, promptVersion: prompt.core.version, request: built.user };
 }

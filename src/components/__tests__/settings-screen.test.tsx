@@ -40,8 +40,9 @@ describe('SettingsScreen', () => {
     await user.press(screen.getByTestId('open-theme'));
 
     await user.press(screen.getByTestId('open-data'));
+    await user.press(screen.getByTestId('send-feedback'));
 
-    expect(mockPush.mock.calls.map(([route]) => route)).toEqual(['/profile', '/keys', '/theme', '/data']);
+    expect(mockPush.mock.calls.map(([route]) => route)).toEqual(['/profile', '/keys', '/theme', '/data', '/feedback']);
     expect(screen.getByTestId('open-theme')).toHaveTextContent(/Midnight Plum/);
   });
 

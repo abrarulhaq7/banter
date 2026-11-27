@@ -1,11 +1,12 @@
 import { act, screen, userEvent, waitFor, within } from '@testing-library/react-native';
 import { useEffect, useState } from 'react';
 
+import { FeedbackScreen } from '@/components/feedback/feedback-screen';
 import { GenerateScreen } from '@/components/generate/generate-screen';
 import { ResultsScreen } from '@/components/generate/results-screen';
 import { ToastProvider } from '@/components/ui';
 import { EngineError, type GenerateOptions, type GenerationResult, type ModelOutput } from '@/engine';
-import { GenerateProvider } from '@/generate/generate-provider';
+import { GenerateProvider, useGenerateSession } from '@/generate/generate-provider';
 import type { GenerateDeps } from '@/generate/use-generate';
 import type { ScreenshotResult } from '@/screenshot/types';
 import {
@@ -20,24 +21,40 @@ import {
   renderWithData,
 } from '@/test-utils';
 
-// A stand-in for the navigator: Generate and Results are two screens, and the tests move
+// A stand-in for the navigator: Generate, Results and the Report screen, and the tests move
 // between them the way the app does.
-const mockNav = { go: (_route: string) => {} };
-const mockPush = jest.fn((route: string) => mockNav.go(route));
+type Route = string | { pathname: string; params?: Record<string, string> };
+const mockNav = { go: (_route: Route) => {} };
+const mockPush = jest.fn((route: Route) => mockNav.go(route));
 const mockBack = jest.fn(() => mockNav.go('back'));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
+const APP = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4' };
+/** Lets a test hand the session an image shared from another app, as the share hook does. */
+const mockShare: { open: (uri: string) => Promise<void> } = { open: async () => {} };
+const mockSend = jest.fn(async (..._args: unknown[]) => {});
+
+type Showing = { name: 'generate' | 'results' } | { name: 'feedback'; setId?: string; from: 'generate' | 'results' };
+
 function TwoScreens() {
-  const [onResults, setOnResults] = useState(false);
+  const [showing, setShowing] = useState<Showing>({ name: 'generate' });
+  const generate = useGenerateSession();
+  useEffect(() => {
+    mockShare.open = generate.openSharedScreenshot;
+  });
   useEffect(() => {
     mockNav.go = (route) => {
-      if (route === '/results') setOnResults(true);
-      if (route === 'back') setOnResults(false);
+      if (route === '/results') setShowing({ name: 'results' });
+      if (typeof route === 'object' && route.pathname === '/feedback') {
+        setShowing((now) => ({ name: 'feedback', setId: route.params?.setId, from: now.name === 'results' ? 'results' : 'generate' }));
+      }
+      if (route === 'back') setShowing((now) => ({ name: now.name === 'feedback' ? now.from : 'generate' }));
     };
   }, []);
-  return onResults ? <ResultsScreen /> : <GenerateScreen />;
+  if (showing.name === 'feedback') return <FeedbackScreen setId={showing.setId} send={mockSend} app={APP} />;
+  return showing.name === 'results' ? <ResultsScreen /> : <GenerateScreen />;
 }
 
 const SCREENSHOT: ScreenshotResult = {
@@ -94,6 +111,7 @@ async function setup({
   const deps: GenerateDeps = {
     getLatestScreenshot: jest.fn(async () => latest),
     pickFromGallery: jest.fn(async () => SCREENSHOT),
+    prepareShared: jest.fn(async () => SCREENSHOT),
     copy: jest.fn(async () => true),
     now: () => new Date('2026-11-25T12:00:00Z'),
     runEngine: jest.fn(async (options: GenerateOptions) => {
@@ -142,6 +160,8 @@ async function anotherTone(user: User, tone: string) {
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockSend.mockReset();
+  mockSend.mockImplementation(async () => {});
 });
 
 describe('Generate: getting lines', () => {
@@ -1433,5 +1453,135 @@ describe('Generate: choosing the screenshot', () => {
 
     expect(deps.pickFromGallery).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('screenshot-preview')).toBeOnTheScreen();
+  });
+});
+
+describe('Generate: an image shared from another app', () => {
+  it('becomes the screenshot', async () => {
+    const { deps } = await setup();
+
+    await act(async () => mockShare.open('content://media/external/images/1'));
+
+    expect(deps.prepareShared).toHaveBeenCalledWith('content://media/external/images/1');
+    expect(await screen.findByTestId('screenshot-preview')).toBeOnTheScreen();
+  });
+});
+
+describe('Feedback: reporting lines', () => {
+  it('sends a ticket with the set, its options, the model, the marks, the request and the screenshot', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+    await user.press(screen.getByTestId('like-0-1'));
+
+    await user.press(screen.getByTestId('report-set'));
+    expect(screen.getByTestId('feedback-screen')).toHaveTextContent(/Report these lines/);
+    expect(screen.getByTestId('feedback-kind-lines')).toBeSelected();
+    expect(screen.getByTestId('feedback-screenshot')).toHaveTextContent(/On/);
+    await user.type(screen.getByTestId('feedback-message'), 'Line one is cheesy');
+    await user.press(screen.getByTestId('feedback-send'));
+
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    const [ticket, shot] = mockSend.mock.calls[0] as [Record<string, any>, Record<string, string> | null];
+    expect(ticket).toMatchObject({ kind: 'lines', message: 'Line one is cheesy' });
+    expect(ticket.id).toEqual(expect.any(String));
+    expect(ticket.context).toMatchObject({
+      where: 'results',
+      app: APP,
+      set: {
+        mode: 'Story reply',
+        tone: 'Casual',
+        model: 'gemini / gemini-3.5-flash-lite',
+        promptVersion: 4,
+        noticed: 'A bowl of pho.',
+        lines: [
+          expect.objectContaining({ text: 'Casual one', liked: false }),
+          expect.objectContaining({ text: 'Casual two', liked: true }),
+          expect.objectContaining({ text: 'Casual three' }),
+        ],
+      },
+    });
+    expect(shot).toEqual({ userId: TEST_USER_ID, base64: 'QUJD' });
+
+    // Back on the lines, with a thank you.
+    expect(await screen.findByText('Sent. Thank you!')).toBeOnTheScreen();
+    expect(screen.getByTestId('results-screen')).toBeOnTheScreen();
+  });
+
+  it('sends a set without a note, or without the screenshot when it is switched off', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+    await user.press(screen.getByTestId('report-set'));
+
+    await user.press(screen.getByTestId('feedback-screenshot'));
+    expect(screen.getByTestId('feedback-screenshot')).toHaveTextContent(/Off/);
+    await user.press(screen.getByTestId('feedback-send'));
+
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    expect(mockSend.mock.calls[0][0]).toMatchObject({ kind: 'lines', message: '' });
+    expect(mockSend.mock.calls[0][1]).toBeNull();
+  });
+
+  it('asks for a few words for anything but the lines themselves', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+    await user.press(screen.getByTestId('report-set'));
+
+    await user.press(screen.getByTestId('feedback-kind-wording'));
+    await user.press(screen.getByTestId('feedback-send'));
+
+    expect(screen.getByTestId('feedback-error')).toHaveTextContent('Write a few words about it.');
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('shows what is attached before sending', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+    await user.press(screen.getByTestId('report-set'));
+
+    await user.press(screen.getByTestId('feedback-included'));
+    const sheet = screen.getByTestId('feedback-included-sheet');
+    expect(within(sheet).getByText(/This set: Casual · Story reply, 3 lines/)).toBeOnTheScreen();
+    expect(within(sheet).getByText(/The screenshot/)).toBeOnTheScreen();
+    expect(within(sheet).getByText(/Your email, from your login/)).toBeOnTheScreen();
+  });
+
+  it('keeps the note and says so when sending fails', async () => {
+    mockSend.mockImplementation(async () => {
+      throw new Error('Network request failed');
+    });
+    const { user } = await setup();
+    await firstLines(user);
+    await user.press(screen.getByTestId('report-set'));
+    await user.type(screen.getByTestId('feedback-message'), 'Line one is cheesy');
+    await user.press(screen.getByTestId('feedback-send'));
+
+    expect(await screen.findByTestId('feedback-error')).toBeOnTheScreen();
+    expect(screen.getByTestId('feedback-message')).toHaveDisplayValue('Line one is cheesy');
+    expect(screen.getByTestId('feedback-screen')).toBeOnTheScreen();
+  });
+});
+
+describe('Feedback: from Settings', () => {
+  it('sends a note with the app and phone, and no set or screenshot', async () => {
+    const { user } = await setup();
+    await act(async () => mockNav.go({ pathname: '/feedback' }));
+
+    expect(screen.getByTestId('feedback-screen')).toHaveTextContent(/Send feedback/);
+    expect(screen.getByTestId('feedback-kind-bug')).toBeSelected();
+    expect(screen.queryByTestId('feedback-screenshot')).toBeNull();
+
+    await user.press(screen.getByTestId('feedback-send'));
+    expect(screen.getByTestId('feedback-error')).toHaveTextContent('Write a few words about it.');
+
+    await user.type(screen.getByTestId('feedback-message'), 'The Tones chip is cut off');
+    await user.press(screen.getByTestId('feedback-send'));
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    expect(mockSend.mock.calls[0][0]).toMatchObject({
+      kind: 'bug',
+      message: 'The Tones chip is cut off',
+      context: { where: 'settings', app: APP },
+    });
+    expect((mockSend.mock.calls[0][0] as { context: object }).context).not.toHaveProperty('set');
+    expect(mockSend.mock.calls[0][1]).toBeNull();
   });
 });

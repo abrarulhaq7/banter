@@ -277,6 +277,15 @@ export function ResultsScreen() {
         }}
       />
 
+      {/* Something off? A ticket with this set and all its details attached. */}
+      <Button
+        testID="report-set"
+        variant="ghost"
+        icon="report"
+        label="Report these lines"
+        onPress={() => router.push({ pathname: '/feedback', params: { setId: shown.id } })}
+      />
+
       <Sheet
         testID="feedback-sheet"
         visible={sheet === 'feedback'}

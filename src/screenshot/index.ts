@@ -45,6 +45,19 @@ export async function prepareImage(uri: string, width: number, height: number): 
   };
 }
 
+/**
+ * An image shared to Banter from another app (Android's share menu). It arrives without its
+ * size, so it is rendered once to learn it, then prepared like any other screenshot.
+ */
+export async function prepareSharedImage(uri: string): Promise<ScreenshotResult> {
+  try {
+    const probe = await ImageManipulator.manipulate(uri).renderAsync();
+    return { ok: true, screenshot: await prepareImage(uri, probe.width, probe.height) };
+  } catch {
+    return fail('failed');
+  }
+}
+
 /** Opens the system photo picker. Needs no photo permission: the user hands over one image. */
 export async function pickFromGallery(): Promise<ScreenshotResult> {
   try {
