@@ -36,6 +36,8 @@ export type ResultSet = {
   adjustment: Adjustment | null;
   /** Reply only: where the user asked to take the chat. Null for the usual. */
   direction?: Direction | null;
+  /** When the set fixes a line the user marked: why they marked it. */
+  fix?: LineFeedback | null;
   output: ModelOutput;
   usedKey: GenerationResult['usedKey'];
   durationMs: number;
@@ -219,14 +221,29 @@ export const DIRECTION_LABEL: Record<Direction, string> = {
 };
 const DIRECTION_SHORT: Record<Direction, string | null> = { keep_going: null, heat_up: 'Heat', ask_out: 'Ask out' };
 
-type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction'>;
+/** What a set that fixes a marked line is called, when it is not simply Shorter or Bolder. */
+export const FIX_LABEL: Record<LineFeedback, string> = {
+  too_much: 'Softer',
+  too_tame: 'Bolder',
+  cringe: 'Less cringe',
+  not_me: 'More like me',
+  too_long: 'Shorter',
+  generic: 'More specific',
+};
+
+type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction' | 'fix'>;
+
+function adjustmentLabel(set: Named): string | null {
+  if (!set.adjustment) return null;
+  return set.fix && set.adjustment === 'new_lines' ? FIX_LABEL[set.fix] : ADJUSTMENT_LABEL[set.adjustment];
+}
 
 /** The full name of a set: "Flirty · Story reply · Shorter", "Spicy · Reply · Turn up the heat". */
 export function setHeading(set: Named): string {
   return [
     setLabel(set),
     set.direction && set.direction !== 'keep_going' ? DIRECTION_LABEL[set.direction] : null,
-    set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null,
+    adjustmentLabel(set),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -237,7 +254,7 @@ export function setChipLabel(set: Named): string {
   return [
     set.toneLabel ?? set.modeLabel,
     set.direction ? DIRECTION_SHORT[set.direction] : null,
-    set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null,
+    adjustmentLabel(set),
   ]
     .filter(Boolean)
     .join(' · ');

@@ -59,6 +59,29 @@ const FEEDBACK: Record<LineFeedback, string> = {
   generic: 'too generic',
 };
 
+/** What fixing a marked line asks for. */
+const FIX: Record<LineFeedback, string> = {
+  too_much: 'Write three lines in the same spirit that are clearly softer: less forward, less heat.',
+  too_tame: 'Write three lines that are clearly bolder and more direct, without breaking any rule above.',
+  cringe: 'Write three new lines that avoid what made it cringe: no cheesy phrasing, nothing that tries too hard.',
+  not_me: 'Write three new lines that sound more like how he texts.',
+  too_long: 'Write three lines in the same spirit, each clearly shorter.',
+  generic: 'Write three new lines that are more specific: each hooks to something only this screenshot shows.',
+};
+
+/** What a run of the same reason on one tone asks the writer to change. */
+const CALIBRATION: Record<LineFeedback, string> = {
+  too_much: 'keep this tone a notch lower than its description',
+  too_tame: 'push this tone a notch further than its description',
+  cringe: 'keep it natural, nothing cheesy or try-hard',
+  not_me: 'stay closer to how he texts',
+  too_long: 'keep the lines shorter',
+  generic: 'make every line specific to the screenshot',
+};
+
+/** Marks of the same reason needed before a tone is adjusted for it. */
+export const CALIBRATION_MIN = 2;
+
 function section(title: string, body: string): string {
   return `## ${title}\n${body.trim()}`;
 }
@@ -110,7 +133,12 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   const parts: string[] = [section('Task', input.modeInstruction)];
 
   if (input.tone && input.mode !== 'analyse') {
-    parts.push(section(`Tone: ${input.tone.label}`, input.tone.definition));
+    const marks = (input.toneMarks ?? []).filter((mark) => mark.count >= CALIBRATION_MIN);
+    const calibration =
+      marks.length > 0
+        ? `\n\nLately he marked lines in this tone as ${marks.map((mark) => `${FEEDBACK[mark.reason]} (${mark.count} times)`).join(', ')}. So: ${marks.map((mark) => CALIBRATION[mark.reason]).join('; ')}.`
+        : '';
+    parts.push(section(`Tone: ${input.tone.label}`, `${input.tone.definition}${calibration}`));
   }
   if (input.context) {
     parts.push(section('How they know each other', CONTEXT[input.context]));
@@ -153,7 +181,11 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   }
   if (input.adjustment && input.mode !== 'analyse') {
     const previous = input.adjustment.previousLines.map((line) => `- "${line}"`).join('\n');
-    parts.push(section('Lines just shown', `${previous}\n\n${ADJUSTMENT[input.adjustment.kind]}`));
+    const fix = input.adjustment.fix;
+    const ask = fix
+      ? `He marked "${fix.line}" as ${FEEDBACK[fix.reason]}. ${FIX[fix.reason]}`
+      : ADJUSTMENT[input.adjustment.kind];
+    parts.push(section('Lines just shown', `${previous}\n\n${ask}`));
   }
 
   parts.push('The screenshot is attached.');

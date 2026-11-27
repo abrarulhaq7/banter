@@ -18,7 +18,7 @@ import {
   type ModelOutput,
   type SenderProfile,
 } from '@/engine';
-import { useHistory, type GenerationEntry } from '@/history';
+import { marksFor, useHistory, type GenerationEntry } from '@/history';
 import type { LineInsert, ProfileRow } from '@/lib/database.types';
 import { uuid } from '@/lib/uuid';
 import { toneFor, usePrompts } from '@/prompts';
@@ -72,14 +72,34 @@ function savedLineTexts(output: ModelOutput): { text: string; hook: string | nul
   return [];
 }
 
+type AdjustmentRequest = {
+  kind: Adjustment;
+  previousLines: string[];
+  fix?: { line: string; reason: LineFeedback } | null;
+};
+
+/** What each "Not for me" reason is fixed with. */
+const FIX_KIND: Record<LineFeedback, Adjustment> = {
+  too_much: 'new_lines',
+  too_tame: 'bolder',
+  cringe: 'new_lines',
+  not_me: 'new_lines',
+  too_long: 'shorter',
+  generic: 'new_lines',
+};
+
 /** What is kept of an answer besides its lines. */
-function savedAnalysis(output: ModelOutput, direction: Direction | null): Record<string, unknown> | null {
+function savedAnalysis(
+  output: ModelOutput,
+  direction: Direction | null,
+  fix: LineFeedback | null,
+): Record<string, unknown> | null {
   if (output.kind === 'analysis') {
     return { interest: output.interest, signals: output.signals, advice: output.advice };
   }
   if (output.kind === 'declined') return { declined: output.reason };
   // Where he asked to take the chat, and the AI's read of where it stood.
-  if (direction || output.read) return { direction, read: output.read ?? null };
+  if (direction || output.read || fix) return { direction, read: output.read ?? null, fix };
   return null;
 }
 
@@ -111,6 +131,11 @@ export type GenerateController = SessionState & {
   generate: (tone?: string) => Promise<boolean>;
   /** New lines, shorter or bolder, from the set with this id (the newest when left out). */
   adjust: (kind: Adjustment, setId?: string) => Promise<boolean>;
+  /**
+   * After the user marked a line as not for them: a new set from the set it is in, made to
+   * fix that (softer, bolder, shorter, less cringe…). Resolves to true when it arrived.
+   */
+  fixLine: (lineId: string) => Promise<boolean>;
   /** Repeats the last request, after it failed. */
   retry: () => Promise<boolean>;
   copyLine: (lineId: string, text: string) => Promise<void>;
@@ -131,7 +156,11 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
   /** Where this screenshot is stored. One file serves every set made from it. */
   const screenshotPath = useRef<string | null>(null);
   /** What was asked for last, so "Try again" repeats exactly that. */
-  const lastRequest = useRef<{ adjustment: Adjustment | null; fromId: string | null; tone: string | null }>({
+  const lastRequest = useRef<{
+    adjustment: AdjustmentRequest | null;
+    fromId: string | null;
+    tone: string | null;
+  }>({
     adjustment: null,
     fromId: null,
     tone: null,
@@ -153,13 +182,13 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
   };
 
   const run = async (
-    adjustment: { kind: Adjustment; previousLines: string[] } | null,
+    adjustment: AdjustmentRequest | null,
     from?: ResultSet,
     chosenTone?: string,
   ): Promise<boolean> => {
     if (state.phase !== 'idle' || !state.screenshot) return false;
     const screenshot = state.screenshot;
-    lastRequest.current = { adjustment: adjustment?.kind ?? null, fromId: from?.id ?? null, tone: chosenTone ?? null };
+    lastRequest.current = { adjustment, fromId: from?.id ?? null, tone: chosenTone ?? null };
     if (chosenTone) dispatch({ type: 'setTone', tone: chosenTone });
 
     // An adjustment keeps the mode and tone of the set it adjusts.
@@ -199,6 +228,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           memory: memory.items,
           likedLines: taste.liked,
           dislikedLines: taste.disliked,
+          // How this tone has landed with him lately: a run of the same mark adjusts it.
+          toneMarks: tone ? marksFor(taste, tone.label) : [],
           direction: heading,
           adjustment,
         },
@@ -245,7 +276,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           screenshot_path: screenshotPath.current,
           screen_type: output.screenType,
           noticed: output.noticed || null,
-          analysis: savedAnalysis(output, heading),
+          analysis: savedAnalysis(output, heading, adjustment?.fix?.reason ?? null),
           provider: result.usedKey.provider,
           model: result.usedKey.model,
           api_key_id: result.usedKey.id,
@@ -289,6 +320,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           toneLabel: tone?.label ?? null,
           adjustment: adjustment?.kind ?? null,
           direction: heading,
+          fix: adjustment?.fix?.reason ?? null,
           output,
           usedKey: result.usedKey,
           durationMs: result.durationMs,
@@ -370,7 +402,18 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     adjust,
     retry: () => {
       const last = lastRequest.current;
-      return last.adjustment ? adjust(last.adjustment, last.fromId ?? undefined) : run(null, undefined, last.tone ?? undefined);
+      if (!last.adjustment) return run(null, undefined, last.tone ?? undefined);
+      const from = state.sets.find((set) => set.id === last.fromId) ?? state.sets[0];
+      return run(last.adjustment, from);
+    },
+
+    fixLine: async (lineId) => {
+      const reason = state.feedback[lineId];
+      const from = state.sets.find((set) => set.lineIds.includes(lineId));
+      const previousLines = adjustableLines(from);
+      if (!reason || !from || !previousLines) return false;
+      const line = previousLines[from.lineIds.indexOf(lineId)];
+      return run({ kind: FIX_KIND[reason], previousLines, fix: { line, reason } }, from);
     },
 
     copyLine: async (lineId, text) => {

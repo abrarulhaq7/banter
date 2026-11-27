@@ -71,14 +71,23 @@ export type PromptInput = {
   profile?: SenderProfile | null;
   /** Up to the last five interactions with this person. */
   memory?: MemoryItem[];
-  /** For "New lines", "Shorter" and "Bolder": the lines being adjusted. */
-  adjustment?: { kind: Adjustment; previousLines: string[] } | null;
+  /**
+   * For "New lines", "Shorter" and "Bolder": the lines being adjusted. `fix`: the line he
+   * marked as not for him, and why, when the adjustment is to fix that.
+   */
+  adjustment?: {
+    kind: Adjustment;
+    previousLines: string[];
+    fix?: { line: string; reason: LineFeedback } | null;
+  } | null;
   /** Reply only: where he wants the chat to go. Left out, or keep_going, means as usual. */
   direction?: Direction | null;
   /** Lines he chose before, with anyone, best first: his taste and voice. */
   likedLines?: string[];
   /** Lines he marked as not for him, and why. */
   dislikedLines?: { text: string; reason: LineFeedback }[];
+  /** How lines in the chosen tone have landed with him lately: his reasons, counted. */
+  toneMarks?: { reason: LineFeedback; count: number }[];
 };
 
 export type BuiltPrompt = {

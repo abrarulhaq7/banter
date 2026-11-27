@@ -1048,6 +1048,21 @@ Built:
   long, too generic. Shown on the line, can be taken back, saved with the line, used in
   the next prompts and read by Personalise for me.
 
+Added the same day, at your request (using the "Not for me" reasons):
+
+- **Fix it right away.** After choosing a reason, the sheet offers one tap to a new set
+  made for it: too much → softer, too tame → Bolder, too long → Shorter, cringe → less
+  cringe, not like me → more like you, too generic → more specific. Or "Just note it".
+  The set is named for the fix ("Casual · Story reply · Softer").
+- **Each tone calibrates itself.** Banter counts your reasons per tone over your latest 40
+  sets. Two or more of the same reason add a note to that tone in the prompt ("Lately he
+  marked lines in this tone as too much (4 times). So: keep this tone a notch lower"). No
+  extra AI request, and it follows your newest marks.
+- Tested with real Gemini on the made-up warm chat: "just waiting for an excuse to come
+  take care of those dead legs", marked too much, became "you might just give me a reason
+  to change that"; Spicy after four "too much" marks gave "keeping my evening wide open
+  for the right offer". `npm run check` passes (722 unit tests).
+
 Database and prompts (`supabase/paste-update.sql`, pasted by you on 2026-11-26 and checked: version 7 active, a reason saves, an unknown one is refused):
 
 - `20261127000600_line_feedback.sql`: a `feedback` column on lines, limited to those six

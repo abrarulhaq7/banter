@@ -257,3 +257,37 @@ describe('buildPrompt: taste and direction', () => {
     expect(buildPrompt(base).system).toContain('"read": leave it empty, unless the task asks you to judge where the chat stands.');
   });
 });
+
+describe('buildPrompt: learning from Not for me', () => {
+  it('asks to fix a marked line for its reason', () => {
+    const { user } = buildPrompt({
+      ...base,
+      adjustment: { kind: 'new_lines', previousLines: ['a', 'b'], fix: { line: 'b', reason: 'too_much' } },
+    });
+
+    expect(user).toContain('He marked "b" as too much. Write three lines in the same spirit that are clearly softer: less forward, less heat.');
+    expect(user).not.toContain('The sender did not pick any of these.');
+  });
+
+  it('adjusts the tone after a run of the same mark, not after one', () => {
+    const once = buildPrompt({ ...base, toneMarks: [{ reason: 'too_much', count: 1 }] });
+    expect(once.user).not.toContain('Lately he marked');
+
+    const { user } = buildPrompt({
+      ...base,
+      toneMarks: [
+        { reason: 'too_much', count: 4 },
+        { reason: 'too_long', count: 2 },
+        { reason: 'cringe', count: 1 },
+      ],
+    });
+    expect(user).toContain(
+      'Lately he marked lines in this tone as too much (4 times), too long (2 times). So: keep this tone a notch lower than its description; keep the lines shorter.',
+    );
+    expect(user).not.toContain('cringe (1');
+  });
+
+  it('keeps the rules where they are', () => {
+    expect(buildPrompt({ ...base, toneMarks: [{ reason: 'too_tame', count: 5 }] }).system).toBe(buildPrompt(base).system);
+  });
+});

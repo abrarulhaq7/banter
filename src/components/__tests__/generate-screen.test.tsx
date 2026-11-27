@@ -1128,7 +1128,7 @@ describe('Generate: where to take a chat', () => {
     expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Reply · Turn up the heat');
     expect(screen.getByTestId('result-read-text-0')).toHaveTextContent('She is matching his energy.');
     await waitFor(() => expect(history.interactions).toHaveLength(1));
-    expect(history.interactions[0].analysis).toEqual({ direction: 'heat_up', read: 'She is matching his energy.' });
+    expect(history.interactions[0].analysis).toEqual({ direction: 'heat_up', read: 'She is matching his energy.', fix: null });
 
     // Bolder on that set stays on the heat.
     await press(user, 'Bolder');
@@ -1199,5 +1199,77 @@ describe('Generate: learning from what the user picks', () => {
     await user.press(screen.getByTestId('feedback-clear'));
     expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Tap to copy');
     await waitFor(() => expect(history.lines.find((line) => line.position === 2)?.feedback).toBeNull());
+  });
+});
+
+describe('Generate: fixing a line marked not for me', () => {
+  it('offers to fix it for the reason given: too much becomes a softer set', async () => {
+    const { calls, history, user } = await setup({ outputs: [lines('Casual'), lines('Soft')] });
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('dislike-0-1'));
+    await user.press(screen.getByTestId('feedback-too_much'));
+    expect(screen.getByTestId('feedback-fix')).toHaveAccessibleName('Get softer lines');
+    await user.press(screen.getByTestId('feedback-fix'));
+    await screen.findByText('Soft one');
+
+    expect(calls[1].prompt.adjustment).toEqual({
+      kind: 'new_lines',
+      previousLines: ['Casual one', 'Casual two', 'Casual three'],
+      fix: { line: 'Casual two', reason: 'too_much' },
+    });
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Story reply · Softer');
+    await waitFor(() => expect(history.interactions).toHaveLength(2));
+    expect(history.interactions[1]).toMatchObject({ adjustment: 'new_lines', parent_id: history.interactions[0].id });
+  });
+
+  it('fixes too long with Shorter and too tame with Bolder', async () => {
+    const { calls, user } = await setup({ outputs: [lines('Casual'), lines('Short'), lines('Bold')] });
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('dislike-0-0'));
+    await user.press(screen.getByTestId('feedback-too_long'));
+    await user.press(screen.getByTestId('feedback-fix'));
+    await screen.findByText('Short one');
+    expect(calls[1].prompt.adjustment?.kind).toBe('shorter');
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Story reply · Shorter');
+
+    await user.press(screen.getByTestId('dislike-0-2'));
+    await user.press(screen.getByTestId('feedback-too_tame'));
+    await user.press(screen.getByTestId('feedback-fix'));
+    await screen.findByText('Bold one');
+    expect(calls[2].prompt.adjustment).toMatchObject({ kind: 'bolder', fix: { line: 'Short three', reason: 'too_tame' } });
+  });
+
+  it('can just note it, without a new set', async () => {
+    const { calls, user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('dislike-0-0'));
+    await user.press(screen.getByTestId('feedback-cringe'));
+    await user.press(screen.getByTestId('feedback-done'));
+
+    expect(screen.queryByTestId('feedback-sheet')).toBeNull();
+    expect(screen.getByTestId('line-status-0-0')).toHaveTextContent('Not for me: cringe');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('adjusts a tone from the reasons given on it lately', async () => {
+    const history = createFakeHistoryRepo();
+    await history.repo.saveInteraction({
+      id: 'old', person_id: null, mode_id: 'story_reply', tone_id: 'casual', tone_label: 'Casual',
+      screenshot_path: 'user/old.jpg', provider: 'gemini', model: 'm', created_at: '2026-11-20T10:00:00Z',
+    } as Parameters<typeof history.repo.saveInteraction>[0]);
+    await history.repo.saveLines([
+      { id: 'o1', interaction_id: 'old', position: 1, text: 'one', hook: null },
+      { id: 'o2', interaction_id: 'old', position: 2, text: 'two', hook: null },
+    ]);
+    await history.repo.patchLine('o1', { feedback: 'too_long' });
+    await history.repo.patchLine('o2', { feedback: 'too_long' });
+    const { calls, user } = await setup({ history });
+
+    await firstLines(user);
+
+    expect(calls[0].prompt.toneMarks).toEqual([{ reason: 'too_long', count: 2 }]);
   });
 });

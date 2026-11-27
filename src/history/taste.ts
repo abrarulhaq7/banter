@@ -8,9 +8,20 @@ export type Taste = {
   liked: string[];
   /** Lines they marked as not for them, newest first, with the reason. */
   disliked: { text: string; reason: LineFeedbackId }[];
+  /** Their reasons, counted per tone (by the tone's name), over the latest interactions. */
+  marksByTone: Record<string, Partial<Record<LineFeedbackId, number>>>;
 };
 
-export const NO_TASTE: Taste = { liked: [], disliked: [] };
+export const NO_TASTE: Taste = { liked: [], disliked: [], marksByTone: {} };
+
+/** The marks on one tone, most frequent first. */
+export function marksFor(taste: Taste, toneLabel: string | null | undefined): { reason: LineFeedbackId; count: number }[] {
+  const counts = toneLabel ? taste.marksByTone[toneLabel] : undefined;
+  if (!counts) return [];
+  return (Object.entries(counts) as [LineFeedbackId, number][])
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+}
 const LIKED_MAX = 5;
 const DISLIKED_MAX = 3;
 
@@ -43,5 +54,15 @@ export function buildTaste(interactions: InteractionWithLines[], skip: ReadonlyS
     .map((line) => ({ text: line.text, reason: line.feedback }))
     .slice(0, DISLIKED_MAX);
 
-  return { liked, disliked };
+  const marksByTone: Taste['marksByTone'] = {};
+  for (const row of interactions) {
+    if (!row.tone_label) continue;
+    for (const item of row.lines) {
+      if (!item.feedback) continue;
+      const counts = (marksByTone[row.tone_label] ??= {});
+      counts[item.feedback] = (counts[item.feedback] ?? 0) + 1;
+    }
+  }
+
+  return { liked, disliked, marksByTone };
 }

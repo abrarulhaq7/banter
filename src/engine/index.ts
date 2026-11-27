@@ -46,7 +46,7 @@ export {
   type UsedSet,
 } from './personalise';
 export { MAX_IMAGE_SIDE, fitWithin } from './image-size';
-export { buildPrompt } from './prompt';
+export { CALIBRATION_MIN, buildPrompt } from './prompt';
 export { MAX_LINES, cleanUsername, parseModelOutput, schemaFor, type AnswerSchema } from './schema';
 export type {
   Adjustment,

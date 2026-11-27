@@ -28,6 +28,16 @@ import { radius, spacing, useTheme } from '@/theme';
 import { LineCard } from './line-card';
 import { FEEDBACK_LABEL, ResultSetView } from './result-set-view';
 
+/** The button that fixes a line, by why it was marked. */
+const FIX_BUTTON: Record<LineFeedback, string> = {
+  too_much: 'Get softer lines',
+  too_tame: 'Get bolder lines',
+  cringe: 'Get less cringe lines',
+  not_me: 'Get lines more like me',
+  too_long: 'Get shorter lines',
+  generic: 'Get more specific lines',
+};
+
 const FEEDBACK_OPTIONS = (Object.keys(FEEDBACK_LABEL) as LineFeedback[]).map((reason) => ({
   value: reason,
   label: FEEDBACK_LABEL[reason][0].toUpperCase() + FEEDBACK_LABEL[reason].slice(1),
@@ -273,21 +283,46 @@ export function ResultsScreen() {
           options={FEEDBACK_OPTIONS}
           value={feedbackLine ? (session.feedback[feedbackLine] ?? null) : null}
           onSelect={(reason) => {
+            // Saved at once. The sheet stays, offering to fix the set for that reason.
             if (feedbackLine) session.setFeedback(feedbackLine, reason);
-            setSheet(null);
-            toast.show('Noted', 'info');
           }}
         />
         {feedbackLine && session.feedback[feedbackLine] ? (
-          <Button
-            testID="feedback-clear"
-            variant="ghost"
-            label="Take it back"
-            onPress={() => {
-              session.setFeedback(feedbackLine, null);
-              setSheet(null);
-            }}
-          />
+          <>
+            <Button
+              testID="feedback-fix"
+              icon="newLines"
+              label={FIX_BUTTON[session.feedback[feedbackLine]]}
+              onPress={() => {
+                const lineId = feedbackLine;
+                setSheet(null);
+                void session.fixLine(lineId).then(report);
+              }}
+              disabled={busy}
+            />
+            <View style={styles.sheetActions}>
+              <Button
+                testID="feedback-clear"
+                style={styles.fill}
+                variant="ghost"
+                label="Take it back"
+                onPress={() => {
+                  session.setFeedback(feedbackLine, null);
+                  setSheet(null);
+                }}
+              />
+              <Button
+                testID="feedback-done"
+                style={styles.fill}
+                variant="secondary"
+                label="Just note it"
+                onPress={() => {
+                  setSheet(null);
+                  toast.show('Noted', 'info');
+                }}
+              />
+            </View>
+          </>
         ) : null}
       </Sheet>
 
