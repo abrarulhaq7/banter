@@ -125,6 +125,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "owner": "abrarulhaq717",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7eb000b5-9903-4b0f-9be7-83b857f4a01c"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7eb000b5-9903-4b0f-9be7-83b857f4a01c"
+      }
     }
   }
 }

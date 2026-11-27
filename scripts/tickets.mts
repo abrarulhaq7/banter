@@ -125,6 +125,13 @@ async function show(tickets: Ticket[]) {
     console.log(`\n=== ${ticket.id.slice(0, 8)}  ${ticket.created_at.slice(0, 16).replace('T', ' ')}  ${ticket.kind.toUpperCase()}  ${ticket.status}  ${ticket.email ?? ''}`);
     console.log(`note:    ${ticket.message || '(none)'}`);
     console.log(`from:    ${ticket.context.where ?? '?'} · Banter ${app.version ?? '?'} on ${app.platform ?? '?'} ${app.os ?? ''}${app.device ? ` (${app.device})` : ''}`);
+    // Which code the phone ran: an over-the-air update, or (null) the code it was built with.
+    // Tickets sent before updates existed have no `update` at all.
+    if (app.update) {
+      console.log(`update:  ${app.update.id} of ${app.update.createdAt ?? '?'} (channel ${app.update.channel ?? '?'})`);
+    } else if (app.update === null) {
+      console.log('update:  none, the code it was built with');
+    }
     if (ticket.context.set) describeSet(ticket.context.set);
     const shot = await saveScreenshot(ticket);
     if (shot) console.log(`screenshot: ${shot}`);

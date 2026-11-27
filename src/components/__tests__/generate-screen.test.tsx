@@ -31,7 +31,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
-const APP = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4' };
+const APP = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4', update: null };
 /** Lets a test hand the session an image shared from another app, as the share hook does. */
 const mockShare: { open: (uri: string) => Promise<void> } = { open: async () => {} };
 const mockSend = jest.fn(async (..._args: unknown[]) => {});

@@ -11,8 +11,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# 1. Make the EAS project under the personal account; this writes its id into app.json.
-bash scripts/eas.sh init --force --non-interactive
+# 1. Link the EAS project: the one in app.json (made on expo.dev under the personal account),
+#    or a new one under that account when there is none yet.
+PROJECT_ID="$(node -e 'console.log(require("./app.json").expo?.extra?.eas?.projectId ?? "")')"
+if [[ -n "$PROJECT_ID" ]]; then
+  bash scripts/eas.sh init --id "$PROJECT_ID" --force --non-interactive
+else
+  bash scripts/eas.sh init --force --non-interactive
+fi
 
 # 2. The Supabase address and publishable key, for preview and production builds.
 value() { grep -E "^$1=" .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"; }

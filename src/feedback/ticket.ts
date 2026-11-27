@@ -2,6 +2,8 @@ import type { LineFeedback } from '@/engine';
 import type { KeptLine, ResultSet } from '@/generate/session';
 import type { ContextId, FeedbackKind } from '@/lib/database.types';
 
+import { updateTime, type AppInfo } from './app-info';
+
 /**
  * What goes into a feedback ticket. The user picks the kind and writes a note; the app
  * attaches everything needed to understand and fix the problem, so nobody has to ask.
@@ -13,9 +15,6 @@ export const FEEDBACK_KINDS: { value: FeedbackKind; label: string; placeholder: 
   { value: 'bug', label: 'Bug', placeholder: 'What happened, and what did you expect?' },
   { value: 'idea', label: 'Idea', placeholder: 'What would make Banter better?' },
 ];
-
-/** The app and the phone it runs on. */
-export type AppInfo = { version: string; platform: string; os: string; device: string | null };
 
 /** What the user did with the lines of a set. */
 export type LineMarks = {
@@ -106,6 +105,10 @@ export function includedItems(app: AppInfo, set: ResultSet | null, withScreensho
   if (withScreenshot) items.push('The screenshot');
   const platform = ({ ios: 'iOS', android: 'Android' } as Record<string, string>)[app.platform] ?? app.platform;
   items.push(`Banter ${app.version} on ${platform} ${app.os}`);
+  if (app.update) {
+    const time = updateTime(app.update);
+    items.push(time ? `The app update it runs, from ${time}` : 'The app update it runs');
+  }
   items.push('Your email, from your login, so the answer can find you');
   return items;
 }

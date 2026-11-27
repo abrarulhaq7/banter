@@ -1,8 +1,9 @@
 import type { ModelOutput } from '@/engine';
-import { includedItems, setForTicket, ticketContext, type AppInfo, type LineMarks } from '@/feedback/ticket';
+import type { AppInfo } from '@/feedback/app-info';
+import { includedItems, setForTicket, ticketContext, type LineMarks } from '@/feedback/ticket';
 import type { ResultSet } from '@/generate/session';
 
-const APP: AppInfo = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4' };
+const APP: AppInfo = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4', update: null };
 
 const lines: ModelOutput = {
   kind: 'lines',
@@ -137,6 +138,20 @@ describe('includedItems', () => {
     ]);
     expect(includedItems(APP, null, false)).toEqual([
       'Banter 0.1.0 on Android 10',
+      'Your email, from your login, so the answer can find you',
+    ]);
+  });
+
+  it('names the update sent over the air when the app runs one', () => {
+    const update = {
+      id: 'update-1',
+      createdAt: new Date(2026, 10, 27, 14, 5).toISOString(),
+      channel: 'preview',
+      runtimeVersion: 'fingerprint-1',
+    };
+    expect(includedItems({ ...APP, update }, null, false)).toEqual([
+      'Banter 0.1.0 on Android 10',
+      'The app update it runs, from 27 Nov, 14:05',
       'Your email, from your login, so the answer can find you',
     ]);
   });

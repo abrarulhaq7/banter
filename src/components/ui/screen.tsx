@@ -1,7 +1,6 @@
 import type { ComponentRef, ReactNode, RefObject } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -62,9 +61,9 @@ export function Screen({
       testID={testID}
       edges={frameEdges}
       style={[styles.fill, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* A behavior on both platforms: Expo apps draw edge to edge on Android, so the window no
+          longer shrinks for the keyboard, and without one the keyboard covers fields and the footer. */}
+      <KeyboardAvoidingView style={styles.fill} behavior="padding">
         {scroll ? (
           <ScrollView
             ref={scrollViewRef}

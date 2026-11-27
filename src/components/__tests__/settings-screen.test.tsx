@@ -1,6 +1,7 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 
 import { SettingsScreen } from '@/components/settings/settings-screen';
+import type { AppInfo } from '@/feedback/app-info';
 import { createFakeKeysRepo, createFakeProfileRepo, makeKey, makeProfile, renderWithData } from '@/test-utils';
 
 const mockPush = jest.fn();
@@ -18,9 +19,11 @@ beforeEach(() => {
   mockSignOut.mockClear();
 });
 
-async function setup(keys = [makeKey()]) {
+const APP: AppInfo = { version: '0.1.0', platform: 'android', os: '17', device: null, update: null };
+
+async function setup(keys = [makeKey()], app = APP) {
   const keysRepo = createFakeKeysRepo(keys);
-  await renderWithData(<SettingsScreen />, {
+  await renderWithData(<SettingsScreen app={app} />, {
     keysRepo: keysRepo.repo,
     profileRepo: createFakeProfileRepo(makeProfile({ display_name: 'Sam' })).repo,
   });
@@ -44,6 +47,22 @@ describe('SettingsScreen', () => {
 
     expect(mockPush.mock.calls.map(([route]) => route)).toEqual(['/profile', '/keys', '/theme', '/data', '/feedback']);
     expect(screen.getByTestId('open-theme')).toHaveTextContent(/Midnight Plum/);
+  });
+
+  it('says which version runs', async () => {
+    await setup();
+    expect(screen.getByTestId('app-version')).toHaveTextContent('Banter 0.1.0');
+  });
+
+  it('says when an update sent over the air arrived', async () => {
+    const update = {
+      id: 'update-1',
+      createdAt: new Date(2026, 10, 27, 14, 5).toISOString(),
+      channel: 'preview',
+      runtimeVersion: 'fingerprint-1',
+    };
+    await setup([makeKey()], { ...APP, update });
+    expect(screen.getByTestId('app-version')).toHaveTextContent('Banter 0.1.0 · updated 27 Nov, 14:05');
   });
 
   it('goes straight to adding a key when there is none', async () => {

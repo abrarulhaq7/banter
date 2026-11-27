@@ -16,9 +16,9 @@ import {
   useToast,
 } from '@/components/ui';
 import { dataErrorMessage } from '@/data';
-import { appInfo } from '@/feedback/app-info';
+import { appInfo, type AppInfo } from '@/feedback/app-info';
 import { createFeedbackRepo, type FeedbackRepo } from '@/feedback/feedback-repo';
-import { FEEDBACK_KINDS, includedItems, setForTicket, ticketContext, type AppInfo } from '@/feedback/ticket';
+import { FEEDBACK_KINDS, includedItems, setForTicket, ticketContext } from '@/feedback/ticket';
 import { useGenerateSession } from '@/generate/generate-provider';
 import type { FeedbackKind } from '@/lib/database.types';
 import { getSupabase } from '@/lib/supabase';

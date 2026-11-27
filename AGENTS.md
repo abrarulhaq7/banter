@@ -54,12 +54,14 @@ npm run e2e            # offline Maestro flows in .maestro/ (simulator booted, d
 npm run e2e:live       # Maestro flows against the real Supabase project; starts its own production-mode server
 npm run lines -- samples/   # run sample screenshots through the generation engine (needs keys.local.json)
 npm run db:prompts     # write supabase/paste-prompts.sql from src/engine/default-prompts.ts
+npm run ota -- "what changed"   # check, then send the JavaScript to installed builds over the air (preview channel)
 ```
 
 - Colours come only from `useTheme()`. Colour values are written only in `src/theme/`; lint fails anywhere else.
 - Build screens from `src/components/ui` and the `spacing`, `radius` and `typography` tokens. The parts: `Screen` (with `footer` and `fill`), `ScreenHeader`, `AppText`, `Button`, `IconButton`, `BarButton`, `Icon`, `Chip`, `ChipRow`, `SegmentedControl`, `OptionList`, `Card`, `ListRow`, `Avatar`, `Banner`, `Sheet`, `Dialog`, `TextField`, `EmptyState`, `FadeIn`, and `useToast()`.
 - Icons come only from `Icon` (`src/components/ui/icon.tsx`, built on `expo-symbols`). Add a name there, with both the iOS and the Android symbol; do not use `@expo/vector-icons`.
 - Colours with a meaning: `info`, `warning`, `success`, `danger`, each with a `…Soft` background. Use `Banner` for notices instead of red text on a card.
+- The keyboard: `Screen` and `Sheet` keep fields and the footer above it on both platforms (`KeyboardAvoidingView` with `behavior="padding"`). Android no longer does this by itself (Expo apps are edge to edge), so any other keyboard-avoiding view needs a `behavior` on Android too. Check keyboard changes on the Android emulator: iOS hides this kind of bug.
 - The tab bar is `Tabs` from `expo-router/js-tabs` (the `expo-router` export of `Tabs` is deprecated in SDK 58). Tab screens pass `edges={['top', 'left', 'right']}` to `Screen`.
 - Screens are components in `src/components/<area>/`; files in `src/app/` only read route params and render them. That is what lets the screens be unit tested.
 
@@ -75,6 +77,7 @@ Do not add a feature by appending another block to an existing screen. Decide wh
 6. Small edits and confirmations happen in a `Sheet` or a `Dialog`. Deleting and signing out always ask first.
 - Never commit keys, `.env` files or anything in `samples/`.
 - **EAS only through `npm run eas -- <command>`** (`scripts/eas.sh`), never `eas` or `npx eas-cli` directly: this Mac's own Expo login is the user's work account and must never be used for Banter. The wrapper uses the personal token in `expo-token.local`, a separate settings folder (`.expo-home`), and stops if the token is the work login. `npm run eas:setup` links the project and sets the Supabase values once.
+- Updates over the air (EAS Update): `npm run ota` (`scripts/ota.sh`), never `eas update` by hand. Builds take updates by runtime **fingerprint**: a change to native code (a library with native code, `app.json` plugins or permissions, the Expo SDK) needs a new build, and an update made after it reaches no older build. Read expo-updates only through `appInfo()` (`src/feedback/app-info.ts`, a guarded `require`): importing it directly crashes development builds made before it was added.
 - Feedback tickets: when the user gives an email, run `npm run tickets -- <email>` (add `--json` for the request as sent) and read the saved screenshots in `tickets.local/`; resolve with `npm run tickets -- --resolve <id> "what was done"`. The admin login lives only in `admin-account.local.json`. A new table needs `revoke all ... from anon, authenticated` before its grants: Supabase gives new tables every right by default, so column grants alone restrict nothing.
 - Made-up keys in tests and flows must look fake (`fake-gemini-key-for-tests`), never like a real key. GitHub flags key-shaped strings even when they are invented; `scripts/__tests__/no-key-shaped-strings.test.js` fails the check if one appears.
 - Database changes go in a new file in `supabase/migrations/`, with checks added to `supabase/tests/access_test.sql`. Every table needs row-level security.

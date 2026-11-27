@@ -5,11 +5,15 @@ import { StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth';
 import { AppText, Banner, Dialog, ListRow, Screen, ScreenHeader } from '@/components/ui';
 import { usableKeys, useKeys, useProfile } from '@/data';
+import { appInfo, versionLabel, type AppInfo } from '@/feedback/app-info';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { spacing, useTheme } from '@/theme';
 
-/** The Settings tab: a short menu. Each row opens its own screen. */
-export function SettingsScreen() {
+/**
+ * The Settings tab: a short menu. Each row opens its own screen. The line at the bottom says
+ * which version runs, and when an update sent over the air arrived.
+ */
+export function SettingsScreen({ app = appInfo() }: { app?: AppInfo }) {
   const router = useRouter();
   const { label: themeLabel } = useTheme();
   const { session } = useAuth();
@@ -100,6 +104,10 @@ export function SettingsScreen() {
         onPress={() => setAsking(true)}
       />
 
+      <AppText testID="app-version" variant="caption" color="textMuted" style={styles.version}>
+        {versionLabel(app)}
+      </AppText>
+
       <Dialog
         visible={asking}
         tone="danger"
@@ -119,4 +127,5 @@ const styles = StyleSheet.create({
   content: { gap: spacing.xl },
   header: { gap: spacing.xs },
   list: { gap: spacing.sm },
+  version: { textAlign: 'center' },
 });

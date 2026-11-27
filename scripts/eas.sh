@@ -58,8 +58,9 @@ if [[ "${1:-}" == "whoami" ]]; then
   printf '%s\n' "$WHO"
   exit 0
 fi
-# A new project is made under the personal account, said out loud.
-if [[ "${1:-}" == "init" && " $* " != *" --account "* ]]; then
+# A new project is made under the personal account, said out loud (not when linking an
+# existing project by its id: the two cannot go together).
+if [[ "${1:-}" == "init" && " $* " != *" --account "* && " $* " != *" --id "* ]]; then
   set -- "$@" --account "$ME"
 fi
 exec "${EAS[@]}" "$@"

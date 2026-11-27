@@ -1,7 +1,7 @@
 # Banter — Build Plan
 
-Status: **Better replies is merged into main and pushed (2026-11-26): turn up the heat, ask her out, Roman Urdu, learning from your picks and Not for me, People > Saved, and a calmer Generate screen. Supabase is at prompt version 7.** Next: Phase 8, phone builds.
-Last updated: 2026-11-25
+Status: **Phase 8 under way (2026-11-27): the EAS project is linked to the personal account, updates over the air are set up (`npm run ota`), and the first Android APK was built on EAS and checked on the emulator.** Next: install it on the phone, then send the Android keyboard fix as the first update over the air.
+Last updated: 2026-11-27
 
 ## 1. What we are building
 
@@ -1359,16 +1359,55 @@ Ready (2026-11-27):
   template and the secure-store module add; `android.blockedPermissions` removes them.
 - The whole app ran on the Android emulator for the first time: sign-in, Generate, the
   Guide button, the new tones, and the share menu (a real share from Google Photos).
+- Linked (2026-11-27): the EAS project `banter` under the personal account, its id in
+  `app.json`; the personal token checked (`npm run eas -- whoami`); the two Supabase values
+  set for preview and production.
 
-To build, when you say so:
+Updates over the air (EAS Update, set up 2026-11-27):
 
-1. Put a token from your personal Expo account in `expo-token.local`
-   (https://expo.dev/settings/access-tokens).
-2. `npm run eas:setup` once: makes the EAS project under your account (its id goes into
-   `app.json`, to commit) and sets the two Supabase values.
-3. `npm run eas -- build -p android --profile preview`, then open the link on the phone.
-4. On the phone: opening Banter from a share while it is closed (a development build
+- A JavaScript-only change (screens, wording, prompts, styles, images) reaches installed
+  builds without a new build: `npm run ota -- "what changed"` (`scripts/ota.sh`). It runs
+  `npm run check` first, then `eas update` on the `preview` channel (the APK) through the
+  wrapper; `--channel production` is for store builds later.
+- The phone downloads the update the next time Banter opens and runs it from the launch
+  after that (Expo's default: it never holds up the launch). Settings shows
+  "Banter 0.1.0 · updated 27 Nov, 14:05" once it runs one, and feedback tickets carry the
+  update's id (`npm run tickets` prints it).
+- Which builds an update fits is the runtime **fingerprint** (`runtimeVersion.policy`), a hash
+  of everything native: native libraries, `app.json` plugins and permissions, the Expo SDK.
+  Change any of those and the fingerprint changes: the update then reaches no installed
+  build (nothing breaks), and a new build is needed. Checked: with `android/` and `ios/`
+  gitignored, the fingerprint leaves them out (expo-updates treats the project as
+  "managed"), so the one computed on this Mac matches the build's. See it with
+  `npx expo-updates runtimeversion:resolve --platform android`.
+- Development builds do not use updates: they load JavaScript from the dev server. The app
+  reads expo-updates through a guarded `require` (`src/feedback/app-info.ts`), so a
+  development build made before expo-updates was added keeps working.
+
+The first APK (2026-11-27):
+
+- Built on EAS: version 0.1.0 (code 2), 90 MB, channel `preview`, runtime fingerprint
+  `c72739de…` (the same as computed on this Mac). Expo made and keeps the signing key.
+  Before it, the Expo packages were brought to SDK 58's expected versions (`expo` 58.1.0)
+  and Android was compiled locally with expo-updates.
+- Checked on the emulator: it opens, signs in (so the Supabase values are in it), asks
+  Expo for an update on launch ("No update available"), and has none of the blocked
+  permissions.
+- Found there: on Android the keyboard covered the sign-in password and button, every
+  pinned footer, and the sheets. Android no longer shrinks the window for the keyboard
+  (edge to edge) and `Screen` and `Sheet` handled it on iOS only. Fixed in both (checked
+  on the emulator); to reach the phone as the first update over the air.
+- Emulator tip: started without a window it can fall back to software drawing
+  ("SwiftShader" in its log) and run about ten times slower (Android's own Settings took
+  16 s to open). Start it with `emulator -avd Pixel_8_Pro -gpu host`.
+
+To build:
+
+1. ~~Token in `expo-token.local`~~ and ~~`npm run eas:setup`~~: done 2026-11-27.
+2. `npm run eas -- build -p android --profile preview`, then open the link on the phone.
+3. On the phone: opening Banter from a share while it is closed (a development build
    cannot show this), the share menu from Instagram, Use latest, and sign-in.
+4. Then one small JavaScript change through `npm run ota`, to see it arrive.
 
 1. iPhone: build from this Mac with your free Apple ID. It needs reinstalling every
    7 days with one command.

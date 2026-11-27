@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { radius, spacing, useTheme } from '@/theme';
@@ -25,7 +25,9 @@ export function Sheet({ visible, title, subtitle, onClose, children, testID }: S
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* A behavior on both platforms: on Android the sheet's window does not shrink for the
+          keyboard either (checked on the emulator), and without one the keyboard covers it. */}
+      <KeyboardAvoidingView style={styles.fill} behavior="padding">
         <Pressable
           testID="sheet-backdrop"
           accessibilityLabel="Close"
