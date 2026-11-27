@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Better replies (turn up the heat, ask her out, learning from your picks) is built on the branch `better-replies` (2026-11-26), committed there, not merged or pushed. Supabase is updated for it (prompt version 7, the feedback column; checked the same day).** Main holds Phases 0 to 7.7, all pushed. Next after this: Phase 8, phone builds.
+Status: **Better replies is merged into main and pushed (2026-11-26): turn up the heat, ask her out, Roman Urdu, learning from your picks and Not for me, People > Saved, and a calmer Generate screen. Supabase is at prompt version 7.** Next: Phase 8, phone builds.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -1021,7 +1021,7 @@ Tested: `npm run check` passes (692 unit tests). The new live flow `live/tune.ya
 against the real Supabase project with real Gemini answers: write a goal, tune, compare,
 save all, see Banter's tones marked Edited in My tones, reset, see them back.
 
-### Better replies (branch `better-replies`)
+### Better replies (built on the branch `better-replies`, merged 2026-11-26)
 
 Added on 2026-11-26 at your request, before the phone builds: help take a chat somewhere,
 and learn from what you pick. Kept on its own branch until you approve it.
