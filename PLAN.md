@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Better replies (turn up the heat, ask her out, learning from your picks) is built on the branch `better-replies` (2026-11-26), committed there, not merged or pushed. Needs `supabase/paste-update.sql` pasted.** Main holds Phases 0 to 7.7, all pushed. Next after this: Phase 8, phone builds.
+Status: **Better replies (turn up the heat, ask her out, learning from your picks) is built on the branch `better-replies` (2026-11-26), committed there, not merged or pushed. Supabase is updated for it (prompt version 7, the feedback column; checked the same day).** Main holds Phases 0 to 7.7, all pushed. Next after this: Phase 8, phone builds.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -1048,7 +1048,7 @@ Built:
   long, too generic. Shown on the line, can be taken back, saved with the line, used in
   the next prompts and read by Personalise for me.
 
-Database and prompts (`supabase/paste-update.sql`, to paste once):
+Database and prompts (`supabase/paste-update.sql`, pasted by you on 2026-11-26 and checked: version 7 active, a reason saves, an unknown one is refused):
 
 - `20261127000600_line_feedback.sql`: a `feedback` column on lines, limited to those six
   reasons. Until it is pasted, a "Not for me" mark shows in the app but is not saved.
