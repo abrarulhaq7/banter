@@ -408,6 +408,17 @@ describe('what a limit says about when to try again', () => {
     expect(limitHint({ status: 429, body })).toEqual({ daily: true, retryAfterMs: 37_000 });
   });
 
+  it('reads Gemini\'s daily limit with the time until it resets (its answer on 2026-11-27)', () => {
+    const body = {
+      error: {
+        message:
+          'Rate limit exceeded for model gemini-4-hydrogen (limit: 20 requests per day on Free Tier). Please retry in 22h38m10s or upgrade.',
+        status: 'too_many_requests',
+      },
+    };
+    expect(limitHint({ status: 429, body })).toEqual({ daily: true, retryAfterMs: (22 * 3600 + 38 * 60 + 10) * 1000 });
+  });
+
   it('tells a per-minute limit from a daily one', () => {
     const body = {
       error: {

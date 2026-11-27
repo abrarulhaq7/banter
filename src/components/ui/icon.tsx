@@ -64,6 +64,11 @@ const ICONS = {
   power: { ios: 'power', android: 'power_settings_new' },
   checkAgain: { ios: 'checkmark.shield', android: 'verified_user' },
   model: { ios: 'cpu', android: 'memory' },
+  // Guide
+  guide: { ios: 'questionmark.circle', android: 'help' },
+  date: { ios: 'calendar.badge.plus', android: 'event' },
+  idea: { ios: 'lightbulb', android: 'lightbulb' },
+  quote: { ios: 'quote.bubble', android: 'format_quote' },
   // Notices
   info: { ios: 'info.circle.fill', android: 'info' },
   warning: { ios: 'exclamationmark.triangle.fill', android: 'warning' },

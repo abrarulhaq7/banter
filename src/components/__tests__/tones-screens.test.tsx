@@ -351,7 +351,18 @@ describe('PersonaliseScreen', () => {
     await screen.findByTestId('suggestion-flirty');
 
     const { input } = calls[0];
-    expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe', 'prompt-nerdy']);
+    expect(input.tones.map((tone) => tone.key)).toEqual([
+      'casual',
+      'funny',
+      'flirty',
+      'spicy',
+      'confident',
+      'safe',
+      'teasing',
+      'mysterious',
+      'sincere',
+      'prompt-nerdy',
+    ]);
     expect(input.profile).toEqual({ age: null, work: null, interests: null, textingStyle: 'short, dry', goal: null });
     expect(input.history).toEqual([
       {
@@ -682,10 +693,12 @@ describe('TuneTonesScreen', () => {
   it('says which tones will be rewritten, and which stay', async () => {
     await setup();
 
-    expect(await screen.findByTestId('tune-built-in')).toHaveTextContent('Casual, Funny, Flirty, Spicy, Confident, Safe');
+    expect(await screen.findByTestId('tune-built-in')).toHaveTextContent(
+      'Casual, Funny, Flirty, Spicy, Confident, Safe, Teasing, Mysterious, Sincere',
+    );
     expect(screen.getByTestId('tune-own')).toHaveTextContent('Nerdy');
     expect(screen.getByTestId('tune-goal')).toHaveTextContent(/close friends I flirt with/);
-    expect(screen.getByTestId('tune-run')).toHaveAccessibleName('Tune 6 tones');
+    expect(screen.getByTestId('tune-run')).toHaveAccessibleName('Tune 9 tones');
   });
 
   it('asks for more words first, and sends nothing', async () => {
@@ -705,7 +718,15 @@ describe('TuneTonesScreen', () => {
     await user.press(screen.getByTestId('tune-run'));
 
     const { input } = (tune.mock.calls[0] as unknown as [{ input: { tones: { key: string; definition: string }[]; profile: object } }])[0];
-    expect(input.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe']);
+    expect(input.tones.map((tone) => tone.key)).toEqual([
+      'casual',
+      'funny',
+      'flirty',
+      'spicy',
+      'confident',
+      'safe',
+      'teasing', 'mysterious', 'sincere',
+    ]);
     expect(input.tones.find((tone) => tone.key === 'flirty')?.definition).toBe(DEFAULT_TONES.flirty.definition);
     expect(input.profile).toEqual({ goal: GOAL, textingStyle: 'short, lowercase', interests: null, age: null });
   });

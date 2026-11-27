@@ -186,7 +186,7 @@ function print(result: GenerationResult) {
   } else {
     output.lines.forEach((line, index) => {
       console.log(`  ${index + 1}. ${line.text}`);
-      console.log(`       hook: ${line.hook}`);
+      console.log(`       hook: ${line.hook}${line.move ? `   move: ${line.move}` : ""}`);
     });
   }
 }

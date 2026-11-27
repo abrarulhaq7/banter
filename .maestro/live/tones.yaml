@@ -59,7 +59,7 @@ onFlowComplete:
     text: "Casual, Relaxed and low-pressure.*"
 - assertVisible:
     id: "tone-row-flirty"
-    text: "Flirty, Shows interest.*"
+    text: "Flirty, Shows he is interested.*"
 - assertVisible:
     id: "add-tone"
 - takeScreenshot: tones-list
@@ -260,7 +260,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       id: "tone-row-flirty"
-      text: "Flirty, Shows interest.*"
+      text: "Flirty, Shows he is interested.*"
     timeout: 15000
 - runScript:
     file: ../scripts/check-tones.js

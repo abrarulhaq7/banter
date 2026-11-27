@@ -33,8 +33,10 @@ const LINES_SCHEMA: AnswerSchema = {
         type: 'array',
         items: {
           type: 'object',
-          properties: { text: { type: 'string' }, hook: { type: 'string' } },
-          required: ['text', 'hook'],
+          // In this order (also alphabetical, which some providers use): the detail first,
+          // then the move, then the line, so the line is planned before it is written.
+          properties: { hook: { type: 'string' }, move: { type: 'string' }, text: { type: 'string' } },
+          required: ['hook', 'move', 'text'],
           additionalProperties: false,
         },
       },
@@ -156,12 +158,13 @@ export function parseModelOutput(mode: ModeId, raw: string): ModelOutput {
   const seen = new Set<string>();
   const lines: Line[] = [];
   for (const item of Array.isArray(data.lines) ? data.lines : []) {
-    const entry = (item ?? {}) as { text?: unknown; hook?: unknown };
+    const entry = (item ?? {}) as { text?: unknown; hook?: unknown; move?: unknown };
     const message = messageText(entry.text);
     const key = message.toLowerCase();
     if (!message || seen.has(key)) continue;
     seen.add(key);
-    lines.push({ text: message, hook: text(entry.hook, 500) });
+    const move = text(entry.move, 60);
+    lines.push({ text: message, hook: text(entry.hook, 500), ...(move ? { move } : {}) });
     if (lines.length === MAX_LINES) break;
   }
   if (lines.length === 0) throw unreadable('The answer has no lines and no refusal.');

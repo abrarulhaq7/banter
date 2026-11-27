@@ -11,7 +11,7 @@
 -- Seed data
 -- =========================================================================================
 select tests.ok((select count(*) from public.modes) = 4, 'seed: four modes');
-select tests.ok((select count(*) from public.tones) = 6, 'seed: six tones, Spicy included');
+select tests.ok((select count(*) from public.tones) = 9, 'seed: nine tones, Spicy, Teasing, Mysterious and Sincere included');
 select tests.ok((select count(*) from public.prompt_core where is_active) = 1,
   'seed: exactly one active version of the core rules');
 select tests.ok(

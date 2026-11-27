@@ -145,6 +145,12 @@ beforeEach(() => {
 });
 
 describe('Generate: getting lines', () => {
+  it('opens the guide from the button at the top', async () => {
+    const { user } = await setup();
+    await user.press(screen.getByTestId('open-guide'));
+    expect(mockPush).toHaveBeenCalledWith('/guide');
+  });
+
   it('cannot generate before a screenshot is chosen', async () => {
     await setup();
     expect(screen.getByRole('button', { name: 'Get lines' })).toBeDisabled();
@@ -1008,6 +1014,27 @@ describe('Generate: who she is, before asking', () => {
     await waitFor(() => expect(history.interactions.find((row) => row.id !== 'old')?.person_id).toBe('person-1'));
   });
 
+  it('without picking her, sends the notes on everyone in the first request, then only hers', async () => {
+    const { calls, user } = await setup({
+      // The AI reads her username from the screenshot.
+      outputs: [{ ...lines('Casual'), username: 'close.friend' }, lines('Flirty')],
+      history: await savedFriend(),
+    });
+    await firstLines(user);
+
+    expect(calls[0].prompt.aboutHer).toBeNull();
+    expect(calls[0].prompt.notedPeople).toEqual([
+      { username: 'close.friend', note: 'Close friend, we flirt a lot, she flirts back.', context: 'know_her' },
+    ]);
+
+    // Now it is known who she is: her own note goes in, and no list.
+    await anotherTone(user, 'Flirty');
+    await screen.findByText('Flirty one');
+
+    expect(calls[1].prompt.aboutHer).toBe('Close friend, we flirt a lot, she flirts back.');
+    expect(calls[1].prompt.notedPeople).toEqual([]);
+  });
+
   it('can go back to letting Banter read the username, before anything is made', async () => {
     const { calls, user } = await setup({ history: await savedFriend() });
     await press(user, 'Use latest');
@@ -1050,7 +1077,7 @@ describe('Generate: choosing which tones show', () => {
 
   it('shows every tone at first, with a Tones button that lists them all', async () => {
     const { user } = await setup();
-    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe']);
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe', 'teasing', 'mysterious', 'sincere']);
 
     await user.press(screen.getByTestId('tone-all'));
 
@@ -1068,7 +1095,7 @@ describe('Generate: choosing which tones show', () => {
     await user.press(screen.getByTestId('tone-eye-safe'));
     await user.press(screen.getByTestId('sheet-close'));
 
-    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy']);
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'teasing', 'mysterious', 'sincere']);
     await waitFor(() =>
       expect(profile.repo.update).toHaveBeenLastCalledWith(expect.any(String), {
         settings: { save_screenshots: false, hidden_tones: ['confident', 'safe'] },
@@ -1079,14 +1106,14 @@ describe('Generate: choosing which tones show', () => {
   it('keeps hidden tones hidden next time, and shows one again with its eye', async () => {
     const profile = createFakeProfileRepo(makeProfile({ settings: { hidden_tones: ['funny', 'safe'] } }));
     const { user } = await setup({ profile });
-    await waitFor(() => expect(chips()).toEqual(['casual', 'flirty', 'spicy', 'confident']));
+    await waitFor(() => expect(chips()).toEqual(['casual', 'flirty', 'spicy', 'confident', 'teasing', 'mysterious', 'sincere']));
 
     await user.press(screen.getByTestId('tone-all'));
     expect(screen.getByTestId('tone-eye-funny')).not.toBeSelected();
     await user.press(screen.getByTestId('tone-eye-funny'));
     await user.press(screen.getByTestId('sheet-close'));
 
-    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident']);
+    expect(chips()).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'teasing', 'mysterious', 'sincere']);
   });
 
   it('uses a hidden tone picked from the list, and shows it while it is in use', async () => {

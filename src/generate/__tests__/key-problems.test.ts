@@ -8,7 +8,15 @@ const later = (ms: number) => new Date(NOW.getTime() + ms).toISOString();
 
 describe('limitRestMs', () => {
   it('rests a model at a daily limit for an hour, then tries it again', () => {
+    expect(limitRestMs({ daily: true })).toBe(DAILY_LIMIT_REST_MS);
     expect(limitRestMs({ daily: true, retryAfterMs: 20_000 })).toBe(DAILY_LIMIT_REST_MS);
+  });
+
+  it('rests a model at a daily limit until the provider says it resets, at most a day', () => {
+    // Gemini on 2026-11-27: "limit: 20 requests per day on Free Tier. Please retry in 22h38m10s".
+    const reset = (22 * 60 + 38) * 60_000 + 10_000;
+    expect(limitRestMs({ daily: true, retryAfterMs: reset })).toBe(reset);
+    expect(limitRestMs({ daily: true, retryAfterMs: 3 * 24 * 60 * 60_000 })).toBe(24 * 60 * 60_000);
   });
 
   it('waits as long as the provider says, within reason', () => {

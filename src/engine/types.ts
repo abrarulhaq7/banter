@@ -70,6 +70,11 @@ export type PromptInput = {
   context?: ContextId | null;
   /** The sender's own note about her and where things stand ("close friend, she flirts back"). */
   aboutHer?: string | null;
+  /**
+   * Before it is known who the screenshot is of: the notes he wrote about people, newest
+   * first, so the first set can already use hers when the screenshot shows her username.
+   */
+  notedPeople?: { username: string; note: string; context?: ContextId | null }[];
   profile?: SenderProfile | null;
   /** Up to the last five interactions with this person. */
   memory?: MemoryItem[];
@@ -105,6 +110,8 @@ export type Line = {
   text: string;
   /** The detail in the screenshot the line hooks to. */
   hook: string;
+  /** Which move from the core rules the line uses ("playful assumption", "tease"...). */
+  move?: string;
 };
 
 type OutputBase = {

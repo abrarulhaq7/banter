@@ -1124,7 +1124,7 @@ Tested:
   screenshot area on Generate gets small, and on a phone smaller than the iPhone 17, or
   with the no-key notice showing, the screen scrolls a little.
 
-### More providers, best model first (branch `more-providers`, 2026-11-26)
+### More providers, best model first (branch `more-providers`, merged 2026-11-27)
 
 Asked for on 2026-11-26: the Gemini free tier was hitting its limits ("You have reached a
 rate limit" on Gemini 4 Hydrogen, 5 a minute and 20 a day). Find free providers, add
@@ -1153,9 +1153,10 @@ Built:
   Picking one model for a key still works (to keep a paid key on a cheap model).
 - **A limit rests only that model.** When a model hits its limit, Banter moves straight to
   the next and remembers the rest on the key (`api_keys.model_limits`): as long as the
-  provider says (Gemini's retry time, Groq's "try again in", a Retry-After header), an hour
-  for a daily limit (tried again every hour, because providers reset at different times),
-  five minutes when it says nothing. Resting models are still tried last, so a request
+  provider says (Gemini's retry time, Groq's "try again in", a Retry-After header); for a
+  daily limit until the time Gemini gives for the reset, or else an hour (tried again
+  every hour, because providers reset at different times); five minutes when it says
+  nothing. Resting models are still tried last, so a request
   never fails while something might answer. The key's own status changes only when the
   whole key is affected: rejected, or out of credit.
 - **A busy model is passed over at once** (Gemini's "high demand" 503), and waited for only
@@ -1208,9 +1209,101 @@ Added on 2026-11-27, at your request, on the same branch:
   got a reply, then copied ones), and Personalise reads them. A line is liked or "not for
   me", never both: the newer choice replaces the other. Needs
   `20261128000800_line_likes.sql` (`lines.liked_at`).
+- **Her note from the first set.** Until it is known who a screenshot is of, the prompt
+  lists the notes on people (up to 20, newest first, 300 characters each, with how you
+  know each one). The AI uses a note only if the screenshot clearly shows that username,
+  and never mentions the notes. Once her username is known, only her own note goes in,
+  as before. No extra request. Live on Flash-Lite: her "only replies when I joke" note
+  turned the first set lighter; a list with only someone else's "flirts back hard" note
+  changed nothing.
+- **The order, from real lines** (four of your screenshots, Flirty, every free model,
+  2026-11-27): Gemini 3.6 Flash and OpenRouter's Nemotron wrote the best lines (both slow,
+  15 to 70 seconds); Flash-Lite good and fast (2.5 s); Groq's Qwen fastest but weakest
+  (wordy, misread text, one line cut off); Ling busy every time. Hydrogen and 3.8 Flash
+  were busy or at their 20-a-day limit and could not be compared. So Nemotron moves above
+  Flash-Lite (`20261128000900_model_order.sql`).
 - Groq's free plan allows 1,000 output tokens a minute on Qwen (about one request a
   minute). Its refusal links to its billing page, which Banter read as "no credit" and
   would have set the whole key aside; it is now a one-minute rest for that model.
+
+### Better lines: research and core rules version 8 (2026-11-27)
+
+Asked for on 2026-11-27: "our AI responses are basic, we need to level up". Research first,
+then the build.
+
+What the research found (sources in the session; studies and data first, books through
+detailed notes): specific lines win (Hinge: a like with a comment is twice as likely to
+lead to a date); short (40 to 90 characters did best on OkCupid); humour helps (a funny
+opener got 12% more replies in a Tinder test; women prefer men who make the jokes);
+compliment her choices, not her body (OkCupid: "beautiful", "sexy" got fewer replies);
+statements with a point of view beat interview questions (Manson's Models, coaches);
+playful assumptions, teasing, challenges, made-up scenarios and callbacks are the moves
+that work; matching her texting style goes with mutual interest (Ireland et al. 2011);
+heat comes from imagination and anticipation (Perel), one step at a time; never needy;
+comedy craft: true detail, exaggerate, funny word last, never explain. Turn-offs:
+negging, early sexual messages, dry replies, anything that sounds written by an AI.
+
+Why the lines were basic: the rules were mostly guardrails with one line on craft, so
+almost every line was "a verdict on an object + a question about it" ("That sweatshirt
+goes hard. Where did you find it?"), with AI words ("elite", "iconic", "goes hard").
+
+Built:
+
+- **Core rules version 8:** what makes a line good (specific, a point of view, easy to
+  answer, makes sense at once, fresh, short, not needy, funny part last); thirteen named
+  moves (playful assumption, tease, exaggeration, misplaced focus, made-up frame,
+  challenge, compliment with a twist, genuine notice, unfinished hint, honest reaction,
+  plain interest, implication, build on her words), three different ones per set, chosen
+  to fit the tone; five made-up examples of weak against strong; words that sound like an
+  AI are banned (`AI_WORDS`), and stock jokes ("judging you", "plotting an escape"). Every
+  safety rule is kept; the stranger rule now also covers makeup, expression and pose, and
+  teasing about her body or weight is banned even indirectly. Light teasing about a
+  harmless choice is a move with anyone; heat (sexual tension, innuendo) still only when
+  they know each other or are already talking.
+- **The answer names its move:** each line is now `hook`, then `move`, then `text`, so the
+  model picks the detail and the move before writing (also the alphabetical order, which
+  some providers use).
+- **A final check from the app's code** at the end of every request (not editable in the
+  database): real detail, makes sense, three different moves, none of the AI words, and,
+  unless they know each other, nothing about her looks. Small models follow what they read
+  last best.
+- **Modes:** Story reply names the moves that suit a story; Opener asks for curiosity and
+  nothing about her looks; Reply texts the way she texts (length, capitals, emoji, slang)
+  and builds on what she said.
+- **Tones rewritten** with what works for each, and each names its moves. **Three new
+  tones** at the end of the list (so the order of the others does not change): Teasing
+  (playful banter), Mysterious (says less, leaves her curious) and Sincere (warm, genuine).
+
+Tested on your four sample stories (Flirty, "follow each other") and the made-up chats:
+
+- Before, Flash-Lite: "That sweatshirt goes hard. Where did you find it?", "okay the black
+  outfit is working". After: "table twenty four is judging your herb to noodle ratio",
+  "name 3 other songs by them or the aux gets revoked" (Teasing), "that song reminds me of
+  a terrible decision I almost made" (Mysterious), "anyone who finds the exact right meal
+  for a 48 degree day has proper priorities" (Sincere).
+- After, Gemini 3.6 Flash: "those bangles look like they announce your arrival three rooms
+  away", "i bet you steal the aux cord without asking". Nemotron: "great taste in quotes,
+  slightly alarming life philosophy", "violently remove you? that's a lot for a tuesday".
+- Chats: "free tonight if you can still walk", "you get 5 minutes to negotiate my payment";
+  the cold chat with Turn up the heat still backs off ("she is cooling off… do not push").
+- Rounds of fixes from the tests: tones all sounded like jokes until each tone named its
+  own moves; a weight joke ("those bracelets weigh more than you do") led to the indirect
+  body rule; copied example openers ("you seem like…", "settle this") led to new examples
+  and a rule to vary openings. Flash-Lite still uses a banned word in about one line in
+  fifteen; the bigger models keep to the rules better.
+- `npm run check` passes (829 unit tests); `npm run test:db` passes (103 checks).
+
+Database: `supabase/paste-prompts.sql` (version 8, the four modes and nine tones), pasted by
+you on 2026-11-27 and checked: version 8 active, modes and all nine tones match the app.
+
+**Guide** (asked for the same day): a "?" button at the top right of Generate opens it.
+Best setups first, one row per situation (her story when she doesn't know you, her story
+when you're close, a first message, a chat going well, wanting it hotter, wanting to meet
+her, not sure she's into you, Roman Urdu); each opens a page with the options to pick
+(shown as they read on Generate), why it works, and a made-up example line. Then what
+each option does: what you screenshot, tones, how you know her, where to take it, and the
+rest. The words live in one file (`src/components/guide/guide-content.ts`); a test fails if
+the guide names an option or a tone that Generate does not have.
 
 ### Phase 8 — Phone builds
 

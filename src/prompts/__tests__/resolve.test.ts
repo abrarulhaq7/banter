@@ -24,7 +24,17 @@ describe('resolvePrompts: where the defaults come from', () => {
     expect(resolved.defaultsFrom).toBe('app');
     expect(resolved.core).toBe(DEFAULT_CORE);
     expect(resolved.modes.opener.instruction).toBe(DEFAULT_MODES.opener.instruction);
-    expect(resolved.tones.map((tone) => tone.key)).toEqual(['casual', 'funny', 'flirty', 'spicy', 'confident', 'safe']);
+    expect(resolved.tones.map((tone) => tone.key)).toEqual([
+      'casual',
+      'funny',
+      'flirty',
+      'spicy',
+      'confident',
+      'safe',
+      'teasing',
+      'mysterious',
+      'sincere',
+    ]);
     expect(resolved.tones.every((tone) => tone.kind === 'default')).toBe(true);
   });
 
@@ -96,7 +106,7 @@ describe('resolvePrompts: the user\'s own tones', () => {
   it('ignores a personal version of a mode, which the app does not offer', () => {
     const mode = makeUserPrompt({ id: 'p3', mode_id: 'opener', content: 'x' });
 
-    expect(resolvePrompts(null, [mode]).tones).toHaveLength(6);
+    expect(resolvePrompts(null, [mode]).tones).toHaveLength(9);
   });
 
   it('falls back to the first tone when the chosen one is gone', () => {

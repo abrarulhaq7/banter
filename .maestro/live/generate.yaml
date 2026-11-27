@@ -55,6 +55,39 @@ onFlowComplete:
     timeout: 30000
 - takeScreenshot: generate-empty
 
+# --- Guide: the button at the top opens the best setups, each on its own page ------------
+- tapOn:
+    id: "open-guide"
+- assertVisible:
+    id: "guide-screen"
+- takeScreenshot: guide
+- tapOn:
+    id: "guide-setup-heat"
+- assertVisible:
+    id: "guide-choose"
+- assertVisible: "Turn up the heat"
+- takeScreenshot: guide-setup-heat
+- tapOn:
+    id: "back-button"
+- scrollUntilVisible:
+    element:
+      id: "guide-topic-how-you-know-her"
+    direction: DOWN
+- waitForAnimationToEnd
+- tapOn:
+    id: "guide-topic-how-you-know-her"
+- assertVisible:
+    id: "guide-topic-screen"
+- takeScreenshot: guide-topic
+- tapOn:
+    id: "back-button"
+# The guide list is still scrolled down, so its Back button is off the top of the screen.
+- runFlow: ../common/scroll-to-top.yaml
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "generate-screen"
+
 # --- Screenshot --------------------------------------------------------------------------
 - tapOn:
     id: "use-latest"

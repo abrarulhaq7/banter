@@ -1,3 +1,4 @@
+import { AI_WORDS } from './default-prompts';
 import type {
   Adjustment,
   BuiltPrompt,
@@ -23,6 +24,21 @@ const CONTEXT: Record<ContextId, string> = {
   know_her: 'They know each other in real life.',
   already_talking: 'They are already in a conversation.',
 };
+
+/** How they know each other, in a few words, for the list of people with notes. */
+const CONTEXT_SHORT: Record<ContextId, string> = {
+  stranger: 'they have never talked',
+  mutual_follow: 'they follow each other but have not really talked',
+  know_her: 'they know each other in real life',
+  already_talking: 'they are already talking',
+};
+
+/** How many people with notes go in a prompt, and how much of each note. */
+export const NOTED_PEOPLE_MAX = 20;
+export const NOTED_NOTE_MAX = 300;
+
+const BOLDNESS_FROM_NOTE =
+  'bolder when it says she flirts back or they are close, lighter when it says she keeps things friendly';
 
 const ADJUSTMENT: Record<Adjustment, string> = {
   new_lines:
@@ -127,6 +143,26 @@ function memoryText(memory: MemoryItem[]): string {
   return `${items.join('\n\n')}\n\nDo not repeat these lines or their hooks. You may refer back to something that was sent. Only a line marked "sent, no reply" went unanswered: then do not chase it, and write lines that stand on their own. "Sent, waiting for a reply" and "already offered" are not silence.`;
 }
 
+/**
+ * A short checklist at the very end of the request. Smaller models follow what they read
+ * last best, and these are the rules they slipped on in testing (2026-11-27). It comes from
+ * the app's code, so it holds whatever the editable prompts say.
+ */
+function finalCheck(input: PromptInput): string {
+  const looks =
+    input.context === 'know_her' || input.context === 'already_talking'
+      ? null
+      : '- Nothing about her face, hair, makeup, body, expression or pose: they do not know each other well enough.';
+  return [
+    '- Each line hooks to something you can really see, and makes sense at once.',
+    '- Each line uses a move that fits the tone, and the three moves are different.',
+    `- No line uses any of these words: ${AI_WORDS.join(', ')}.`,
+    looks,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function buildPrompt(input: PromptInput): BuiltPrompt {
   const system = [input.core.rules.trim(), section('Answer format', input.core.outputFormat)].join('\n\n');
 
@@ -148,7 +184,21 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     parts.push(
       section(
         'What the sender says about her',
-        `${aboutHer}\n\nUse this to judge how bold to be: bolder when it says she flirts back or they are close, lighter when it says she keeps things friendly. It is background for you, not something to quote back to her.`,
+        `${aboutHer}\n\nUse this to judge how bold to be: ${BOLDNESS_FROM_NOTE}. It is background for you, not something to quote back to her.`,
+      ),
+    );
+  } else if (input.notedPeople && input.notedPeople.length > 0) {
+    const people = input.notedPeople.slice(0, NOTED_PEOPLE_MAX).map((person) => {
+      const note = person.note.trim();
+      const short = note.length > NOTED_NOTE_MAX ? `${note.slice(0, NOTED_NOTE_MAX).trimEnd()}…` : note;
+      // A "How they know each other" chosen for this screenshot wins over the remembered one.
+      const how = person.context && !input.context ? ` (${CONTEXT_SHORT[person.context]})` : '';
+      return `- @${person.username}${how}: ${short}`;
+    });
+    parts.push(
+      section(
+        'People he has written notes about',
+        `${people.join('\n')}\n\nOnly if the screenshot clearly shows one of these usernames, that note is about her: use it to judge how bold to be (${BOLDNESS_FROM_NOTE}), and take how they know each other from it. If it shows none of them, ignore this list. Never mention these notes, or anyone else on this list, in a line.`,
       ),
     );
   }
@@ -196,6 +246,8 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
       ),
     );
   }
+
+  if (input.mode !== 'analyse') parts.push(section('Check before you answer', finalCheck(input)));
 
   parts.push('The screenshot is attached.');
   return { system, user: parts.join('\n\n') };

@@ -16,10 +16,11 @@ import {
   type GenerationResult,
   type ModeId,
   type ModelOutput,
+  type PromptInput,
   type SenderProfile,
 } from '@/engine';
 import { marksFor, useHistory, type GenerationEntry } from '@/history';
-import type { LineInsert, ProfileRow } from '@/lib/database.types';
+import type { LineInsert, PersonRow, ProfileRow } from '@/lib/database.types';
 import { uuid } from '@/lib/uuid';
 import { toneFor, usePrompts } from '@/prompts';
 import { getLatestScreenshot, pickFromGallery } from '@/screenshot';
@@ -148,6 +149,13 @@ export type GenerateController = SessionState & {
   clear: () => void;
 };
 
+/** People with a note, most recently used first (the order the list is kept in). */
+function notedPeople(people: PersonRow[]): NonNullable<PromptInput['notedPeople']> {
+  return people
+    .filter((person) => person.notes?.trim())
+    .map((person) => ({ username: person.username, note: person.notes ?? '', context: person.context }));
+}
+
 export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateController {
   const deps = { ...realDeps, ...overrides };
   const { session } = useAuth();
@@ -227,6 +235,8 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           tone: tone ? { label: tone.label, definition: tone.definition } : null,
           context: state.context,
           aboutHer: state.username ? (history.personByUsername(state.username)?.notes ?? null) : null,
+          // Not known yet who this is: the notes on everyone, so hers counts from the first set.
+          notedPeople: state.username ? [] : notedPeople(history.people),
           profile: senderProfile(profile),
           memory: memory.items,
           likedLines: taste.liked,

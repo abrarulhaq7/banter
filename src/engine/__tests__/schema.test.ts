@@ -61,6 +61,27 @@ describe('parseModelOutput: lines', () => {
     expect(parseModelOutput('reply', lines({ read: '' }))).not.toHaveProperty('read');
   });
 
+  it('asks for the detail, then the move, then the line, and keeps the move', () => {
+    const items = (schemaFor('story_reply').schema.properties as Record<string, { items: Record<string, unknown> }>).lines.items;
+    expect(Object.keys(items.properties as object)).toEqual(['hook', 'move', 'text']);
+    expect(items.required).toEqual(['hook', 'move', 'text']);
+
+    const raw = JSON.stringify({
+      username: '',
+      screen_type: 'story',
+      noticed: 'n',
+      refusal: '',
+      sent_line_status: 'unknown',
+      read: '',
+      lines: [{ hook: 'the dog', move: ' Misplaced focus ', text: 'the dog has opinions' }, { hook: 'x', move: '', text: 'no move' }],
+    });
+    const output = parseModelOutput('story_reply', raw);
+    expect(output.kind === 'lines' && output.lines).toEqual([
+      { hook: 'the dog', move: 'Misplaced focus', text: 'the dog has opinions' },
+      { hook: 'x', text: 'no move' },
+    ]);
+  });
+
   it('asks every provider for the read', () => {
     expect((schemaFor('reply').schema.required as string[]).includes('read')).toBe(true);
   });

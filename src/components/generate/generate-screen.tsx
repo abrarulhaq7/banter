@@ -156,9 +156,19 @@ export function GenerateScreen() {
           />
         </View>
       }>
-      <AppText variant="display" accessibilityRole="header">
-        Banter
-      </AppText>
+      <View style={styles.titleRow}>
+        <AppText variant="display" accessibilityRole="header">
+          Banter
+        </AppText>
+        <IconButton
+          testID="open-guide"
+          icon="guide"
+          label="Guide: which options to pick"
+          variant="filled"
+          color="accent"
+          onPress={() => router.push('/guide')}
+        />
+      </View>
 
       {!session.hasUsableKey ? (
         <Banner
@@ -406,6 +416,7 @@ export function GenerateScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.md },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   zone: {
     flex: 1,
     minHeight: 150,
