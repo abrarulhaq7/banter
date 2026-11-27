@@ -23,6 +23,8 @@ type LineCardProps = {
   onLike?: () => void;
   /** Opens the screenshot the line was written for (People > Saved). */
   onOpen?: () => void;
+  /** Reports this one line (Results): the flag in the corner. Left out where it cannot be. */
+  onReport?: () => void;
 };
 
 /** One line to send. Tap it, or the copy button, to copy; the bookmark keeps it. */
@@ -39,6 +41,7 @@ export function LineCard({
   liked = false,
   onLike,
   onOpen,
+  onReport,
 }: LineCardProps) {
   const { colors } = useTheme();
 
@@ -48,22 +51,35 @@ export function LineCard({
         styles.card,
         { backgroundColor: colors.surface, borderColor: copied ? colors.accent : colors.border },
       ]}>
-      <Pressable
-        testID={`line-${testKey}`}
-        onPress={onCopy}
-        accessibilityRole="button"
-        // The caption is inside the button, so it is part of what is read out (and of what
-        // test tools can see): the line first, then what it hooks to or who it was for.
-        accessibilityLabel={caption ? `${text}, ${caption}` : text}
-        accessibilityHint="Copies this line"
-        style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
-        {caption ? (
-          <AppText variant="caption" color="accentAlt" numberOfLines={1}>
-            {caption}
-          </AppText>
+      <View style={styles.top}>
+        <Pressable
+          testID={`line-${testKey}`}
+          onPress={onCopy}
+          accessibilityRole="button"
+          // The caption is inside the button, so it is part of what is read out (and of what
+          // test tools can see): the line first, then what it hooks to or who it was for.
+          accessibilityLabel={caption ? `${text}, ${caption}` : text}
+          accessibilityHint="Copies this line"
+          style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
+          {caption ? (
+            <AppText variant="caption" color="accentAlt" numberOfLines={1}>
+              {caption}
+            </AppText>
+          ) : null}
+          <AppText>{text}</AppText>
+        </Pressable>
+        {/* Beside the line, not inside it: a button within the copy button would be out of reach. */}
+        {onReport ? (
+          <IconButton
+            testID={`report-${testKey}`}
+            icon="report"
+            label="Report this line"
+            color="textMuted"
+            onPress={onReport}
+            style={styles.report}
+          />
         ) : null}
-        <AppText>{text}</AppText>
-      </Pressable>
+      </View>
       <View style={styles.footer}>
         <View style={styles.status}>
           {copied ? <Icon name="check" size={14} color="success" /> : null}
@@ -113,7 +129,9 @@ export function LineCard({
 
 const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: 1, paddingLeft: spacing.lg, paddingRight: spacing.xs, paddingTop: spacing.md },
-  body: { gap: spacing.xs, paddingRight: spacing.md },
+  top: { flexDirection: 'row', alignItems: 'flex-start' },
+  body: { flex: 1, gap: spacing.xs, paddingRight: spacing.md },
+  report: { marginTop: -spacing.sm },
   pressed: { opacity: 0.6 },
   footer: { flexDirection: 'row', alignItems: 'center' },
   status: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

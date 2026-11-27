@@ -181,6 +181,24 @@ describe('adapters: what is sent', () => {
   });
 });
 
+describe('adapters: several images', () => {
+  const images = [
+    { base64: 'AAA', mediaType: 'image/jpeg' as const },
+    { base64: 'BBB', mediaType: 'image/jpeg' as const },
+  ];
+  /** The image data each provider was sent, in order, found in its own format. */
+  const sentImages = (body: Record<string, any>): string[] =>
+    JSON.stringify(body).match(/AAA|BBB|QUJD/g) ?? [];
+
+  it.each(ALL)('%s sends every image, in order, in place of the one image', async (provider) => {
+    const { fetchImpl, calls } = fakeFetch(200, OK[provider]);
+
+    await ADAPTERS[provider](request({ fetch: fetchImpl, images }));
+
+    expect(sentImages(calls[0].body)).toEqual(['AAA', 'BBB']);
+  });
+});
+
 describe('adapters: problems are mapped to the same plain cases', () => {
   const providers = ALL;
 

@@ -26,6 +26,7 @@ import { haptics } from '@/lib/haptics';
 import { radius, spacing, useTheme } from '@/theme';
 
 import { LineCard } from './line-card';
+import { ReportLineSheet } from './report-line-sheet';
 import { FEEDBACK_LABEL, ResultSetView } from './result-set-view';
 
 /** The button that fixes a line, by why it was marked. */
@@ -60,6 +61,9 @@ export function ResultsScreen() {
   const [sheet, setSheet] = useState<'tone' | 'username' | 'kept' | 'feedback' | null>(null);
   /** The line the "Not for me" sheet is about. */
   const [feedbackLine, setFeedbackLine] = useState<string | null>(null);
+  /** The line being reported (its place in the set), and a count so each report starts empty. */
+  const [reportAt, setReportAt] = useState<number | null>(null);
+  const [reports, setReports] = useState(0);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -274,6 +278,22 @@ export function ResultsScreen() {
         onLike={(lineId) => {
           if (!session.liked[lineId]) toast.show('Liked. Banter will write more like this.');
           session.toggleLike(lineId);
+        }}
+        onReport={(position) => {
+          setReports((count) => count + 1);
+          setReportAt(position);
+        }}
+      />
+
+      <ReportLineSheet
+        key={`report:${reports}`}
+        visible={reportAt !== null}
+        set={shown}
+        position={reportAt ?? 0}
+        onClose={() => setReportAt(null)}
+        onSent={() => {
+          setReportAt(null);
+          toast.show('Reported. Thank you!');
         }}
       />
 

@@ -1,6 +1,6 @@
 import { EngineError } from '../errors';
 
-import { postJson, throwForStatus, type Adapter } from './http';
+import { postJson, requestImages, throwForStatus, type Adapter } from './http';
 
 /**
  * Claude, through the Messages API with plain requests. Anthropic's SDK is not used
@@ -21,14 +21,10 @@ export const claudeAdapter: Adapter = async (request) => {
         {
           role: 'user',
           content: [
-            ...(request.image
-              ? [
-                  {
-                    type: 'image',
-                    source: { type: 'base64', media_type: request.image.mediaType, data: request.image.base64 },
-                  },
-                ]
-              : []),
+            ...requestImages(request).map((image) => ({
+              type: 'image',
+              source: { type: 'base64', media_type: image.mediaType, data: image.base64 },
+            })),
             { type: 'text', text: request.user },
           ],
         },

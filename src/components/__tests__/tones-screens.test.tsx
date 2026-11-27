@@ -529,6 +529,12 @@ describe('LearnToneScreen', () => {
     ok: true as const,
     screenshot: { previewUri: 'file:///shot.jpg', image: { base64: 'QUJD', mediaType: 'image/jpeg' as const }, width: 10, height: 20 },
   };
+  const PICTURE = (name: string) => ({
+    previewUri: `file:///${name}.jpg`,
+    image: { base64: name.toUpperCase(), mediaType: 'image/jpeg' as const },
+    width: 10,
+    height: 20,
+  });
 
   async function setup(answer: unknown = LEARNED, keys = [makeKey()]) {
     const learn = jest.fn(async () => {
@@ -541,7 +547,8 @@ describe('LearnToneScreen', () => {
         deps={{
           learn: learn as never,
           getLatestScreenshot: jest.fn(async () => SHOT),
-          pickFromGallery: jest.fn(async () => SHOT),
+          // The photo picker hands back two pictures, or fewer if there is less room.
+          pickPictures: jest.fn(async (limit: number) => [PICTURE('a'), PICTURE('b')].slice(0, limit)),
         }}
       />,
       { keysRepo: keysRepo.repo, promptsRepo: createFakePromptsRepo([NERDY]).repo },
@@ -573,12 +580,34 @@ describe('LearnToneScreen', () => {
     const { learn, user } = await setup();
 
     await user.press(screen.getByTestId('learn-latest'));
-    expect(await screen.findByTestId('learn-preview')).toBeOnTheScreen();
+    expect(await screen.findByTestId('learn-preview-0')).toBeOnTheScreen();
     await user.press(screen.getByTestId('learn-run'));
 
-    expect(learn).toHaveBeenCalledWith(expect.objectContaining({ input: { kind: 'image', image: SHOT.screenshot.image } }));
+    expect(learn).toHaveBeenCalledWith(expect.objectContaining({ input: { kind: 'image', images: [SHOT.screenshot.image] } }));
     await user.press(await screen.findByTestId('learn-line-1'));
     expect(screen.getByTestId('learn-name')).toHaveTextContent('Mock outrage');
+  });
+
+  it('learns from up to three screenshots at once, and one can be taken out again', async () => {
+    const { learn, user } = await setup();
+
+    await user.press(screen.getByTestId('learn-latest'));
+    await screen.findByTestId('learn-preview-0');
+    // Two from the gallery fill it: three is the most.
+    await user.press(screen.getByTestId('learn-gallery'));
+    expect(screen.getByTestId('learn-preview-2')).toBeOnTheScreen();
+    expect(screen.getByTestId('learn-count')).toHaveTextContent(/3 of 3, the most/);
+    expect(screen.getByTestId('learn-gallery')).toBeDisabled();
+    expect(screen.getByTestId('learn-latest')).toBeDisabled();
+
+    await user.press(screen.getByTestId('learn-remove-0'));
+    expect(screen.queryByTestId('learn-preview-2')).toBeNull();
+    expect(screen.getByTestId('learn-count')).toHaveTextContent(/2 of 3/);
+    await user.press(screen.getByTestId('learn-run'));
+
+    expect(learn).toHaveBeenCalledWith(
+      expect.objectContaining({ input: { kind: 'image', images: [PICTURE('a').image, PICTURE('b').image] } }),
+    );
   });
 
   it('opens a new tone filled in with the style and the example', async () => {

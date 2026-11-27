@@ -35,6 +35,8 @@ const APP = { version: '0.1.0', platform: 'android', os: '10', device: 'Pixel 4'
 /** Lets a test hand the session an image shared from another app, as the share hook does. */
 const mockShare: { open: (uri: string) => Promise<void> } = { open: async () => {} };
 const mockSend = jest.fn(async (..._args: unknown[]) => {});
+// A line's report sends through the same function as the feedback screen.
+jest.mock('@/feedback/send', () => ({ sendFeedback: (...args: unknown[]) => mockSend(...args) }));
 const picture = (name: string): PreparedScreenshot => ({
   previewUri: `file:///${name}.jpg`,
   image: { base64: name.toUpperCase(), mediaType: 'image/jpeg' },
@@ -1765,6 +1767,64 @@ describe('Generate: an image shared from another app', () => {
 
     expect(deps.prepareShared).toHaveBeenCalledWith('content://media/external/images/1');
     expect(await screen.findByTestId('screenshot-preview')).toBeOnTheScreen();
+  });
+});
+
+describe('Feedback: reporting one line', () => {
+  it('sends the line he flagged with his reason, the set and the screenshot', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('report-0-1'));
+    expect(screen.getByTestId('report-line-sheet')).toBeOnTheScreen();
+    expect(screen.getByTestId('report-line-text')).toHaveTextContent('Casual two');
+    expect(screen.getByTestId('report-line-screenshot')).toHaveTextContent(/On/);
+    await user.type(screen.getByTestId('report-line-why'), 'Table 24 is not in the picture');
+    await user.press(screen.getByTestId('report-line-send'));
+
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    const [ticket, files] = mockSend.mock.calls[0] as [Record<string, any>, Record<string, unknown>];
+    expect(ticket).toMatchObject({ kind: 'lines', message: 'Table 24 is not in the picture' });
+    expect(ticket.context).toMatchObject({
+      where: 'results',
+      line: { position: 2, text: 'Casual two', hook: 'table 24', move: null },
+      set: { tone: 'Casual', lines: expect.arrayContaining([expect.objectContaining({ text: 'Casual two' })]) },
+    });
+    expect(files).toEqual({ userId: TEST_USER_ID, screenshot: 'QUJD', pictures: [] });
+    expect(await screen.findByText('Reported. Thank you!')).toBeOnTheScreen();
+    expect(screen.queryByTestId('report-line-sheet')).toBeNull();
+    // The whole set can still be reported too.
+    expect(screen.getByTestId('report-set')).toBeOnTheScreen();
+  });
+
+  it('sends it without the screenshot when that is switched off, and with no words if he writes none', async () => {
+    const { user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('report-0-0'));
+    await user.press(screen.getByTestId('report-line-screenshot'));
+    expect(screen.getByTestId('report-line-screenshot')).toHaveTextContent(/Off/);
+    await user.press(screen.getByTestId('report-line-send'));
+
+    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1));
+    expect(mockSend.mock.calls[0][0]).toMatchObject({ message: '', context: { line: { position: 1 } } });
+    expect(mockSend.mock.calls[0][1]).toEqual({ userId: TEST_USER_ID, screenshot: null, pictures: [] });
+  });
+
+  it('keeps what he wrote and says so when sending fails', async () => {
+    mockSend.mockImplementationOnce(async () => {
+      throw new Error('Network request failed');
+    });
+    const { user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('report-0-2'));
+    await user.type(screen.getByTestId('report-line-why'), 'Too cheesy');
+    await user.press(screen.getByTestId('report-line-send'));
+
+    expect(await screen.findByTestId('report-line-error')).toBeOnTheScreen();
+    expect(screen.getByTestId('report-line-why')).toHaveDisplayValue('Too cheesy');
+    expect(screen.getByTestId('report-line-sheet')).toBeOnTheScreen();
   });
 });
 

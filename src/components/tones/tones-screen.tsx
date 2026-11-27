@@ -50,7 +50,7 @@ export function TonesScreen() {
         testID="learn-row"
         icon="screenshot"
         title="Learn from an example"
-        subtitle="Show it a line you liked. It makes a tone that writes like that."
+        subtitle="Show it lines you liked, in up to 3 screenshots. It makes a tone that writes like that."
         onPress={() => router.push('/tones/learn')}
       />
 

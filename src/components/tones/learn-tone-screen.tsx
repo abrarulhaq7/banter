@@ -16,7 +16,7 @@ import {
   Sheet,
   TextField,
 } from '@/components/ui';
-import { learnedToneText } from '@/engine';
+import { MAX_EXAMPLE_IMAGES, learnedToneText } from '@/engine';
 import { haptics } from '@/lib/haptics';
 import { TONE_DEFINITION_MAX, usePrompts } from '@/prompts';
 import { useLearnTone, type LearnDeps } from '@/prompts/use-learn-tone';
@@ -185,7 +185,7 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
       }>
       <ScreenHeader
         title="Learn from an example"
-        subtitle="Show Banter a line you liked. It works out the move, so it can write like that."
+        subtitle={`Show Banter lines you liked, in up to ${MAX_EXAMPLE_IMAGES} screenshots. It works out the move, so it can write like that.`}
         onBack={() => router.back()}
       />
 
@@ -196,25 +196,29 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
       ) : null}
 
       <View style={[styles.zone, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {learn.screenshot ? (
-          <>
-            <Image
-              testID="learn-preview"
-              source={{ uri: learn.screenshot.previewUri }}
-              resizeMode="contain"
-              accessibilityLabel="The screenshot with the line"
-              style={styles.fill}
-            />
-            <IconButton
-              testID="learn-clear"
-              icon="close"
-              label="Remove the screenshot"
-              variant="filled"
-              onPress={learn.clearScreenshot}
-              disabled={busy}
-              style={styles.clear}
-            />
-          </>
+        {learn.screenshots.length > 0 ? (
+          <View style={styles.shots}>
+            {learn.screenshots.map((shot, index) => (
+              <View key={shot.previewUri} style={styles.fill}>
+                <Image
+                  testID={`learn-preview-${index}`}
+                  source={{ uri: shot.previewUri }}
+                  resizeMode="contain"
+                  accessibilityLabel={`Example ${index + 1}`}
+                  style={styles.fill}
+                />
+                <IconButton
+                  testID={`learn-remove-${index}`}
+                  icon="close"
+                  label={`Remove example ${index + 1}`}
+                  variant="filled"
+                  onPress={() => learn.removeScreenshot(index)}
+                  disabled={busy}
+                  style={styles.clear}
+                />
+              </View>
+            ))}
+          </View>
         ) : learn.phase === 'loading' ? (
           <View style={styles.empty}>
             <ActivityIndicator color={colors.accent} />
@@ -222,7 +226,7 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
         ) : (
           <View style={styles.empty}>
             <AppText color="textMuted" style={styles.center}>
-              A screenshot of the comment or message you liked.
+              {`Screenshots of comments or messages you liked. Up to ${MAX_EXAMPLE_IMAGES}: Banter learns from all of them.`}
             </AppText>
           </View>
         )}
@@ -236,7 +240,7 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
           icon="screenshot"
           label="Use latest"
           onPress={learn.useLatest}
-          disabled={busy}
+          disabled={busy || !learn.canAddMore}
         />
         <Button
           testID="learn-gallery"
@@ -246,9 +250,16 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
           icon="gallery"
           label="From gallery"
           onPress={learn.pick}
-          disabled={busy}
+          disabled={busy || !learn.canAddMore}
         />
       </View>
+      {learn.screenshots.length > 0 ? (
+        <AppText testID="learn-count" variant="caption" color="textMuted">
+          {learn.canAddMore
+            ? `${learn.screenshots.length} of ${MAX_EXAMPLE_IMAGES}. Add more, or learn from ${learn.screenshots.length === 1 ? 'this one' : 'these'}.`
+            : `${MAX_EXAMPLE_IMAGES} of ${MAX_EXAMPLE_IMAGES}, the most. Banter learns from all of them.`}
+        </AppText>
+      ) : null}
 
       <TextField
         testID="learn-text"
@@ -283,6 +294,7 @@ export function LearnToneScreen({ deps }: LearnToneScreenProps) {
 
 const styles = StyleSheet.create({
   zone: { flex: 1, minHeight: 140, borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
+  shots: { flex: 1, flexDirection: 'row', gap: spacing.xs },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   center: { textAlign: 'center' },
   clear: { position: 'absolute', top: spacing.sm, right: spacing.sm },

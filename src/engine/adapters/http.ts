@@ -12,6 +12,8 @@ export type AdapterRequest = {
   user: string;
   /** Left out for a request that is text only (tone suggestions). */
   image?: ImageInput;
+  /** Several images, sent in this order (examples to learn a tone from). Wins over `image`. */
+  images?: ImageInput[];
   schema: AnswerSchema;
   /** Tests pass a fake. */
   fetch?: typeof fetch;
@@ -20,6 +22,12 @@ export type AdapterRequest = {
 
 /** Sends the prompt, with the screenshot when there is one, and returns the model's answer as text. */
 export type Adapter = (request: AdapterRequest) => Promise<string>;
+
+/** The images a request carries, in order: `images`, else the one `image`, else none. */
+export function requestImages(request: Pick<AdapterRequest, 'image' | 'images'>): ImageInput[] {
+  if (request.images && request.images.length > 0) return request.images;
+  return request.image ? [request.image] : [];
+}
 
 export const DEFAULT_TIMEOUT_MS = 90000;
 

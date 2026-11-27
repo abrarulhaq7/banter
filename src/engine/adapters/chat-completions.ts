@@ -2,7 +2,7 @@ import type { ProviderId } from '@/lib/database.types';
 
 import { EngineError } from '../errors';
 
-import { postJson, throwForStatus, type Adapter, type AdapterRequest } from './http';
+import { postJson, requestImages, throwForStatus, type Adapter, type AdapterRequest } from './http';
 
 type Setup = {
   provider: ProviderId;
@@ -46,14 +46,10 @@ export function chatCompletionsAdapter({ provider, url, extra }: Setup): Adapter
             role: 'user',
             content: [
               { type: 'text', text: request.user },
-              ...(request.image
-                ? [
-                    {
-                      type: 'image_url',
-                      image_url: { url: `data:${request.image.mediaType};base64,${request.image.base64}` },
-                    },
-                  ]
-                : []),
+              ...requestImages(request).map((image) => ({
+                type: 'image_url',
+                image_url: { url: `data:${image.mediaType};base64,${image.base64}` },
+              })),
             ],
           },
         ],

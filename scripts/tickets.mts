@@ -145,6 +145,11 @@ async function show(tickets: Ticket[]) {
     } else if (app.update === null) {
       console.log('update:  none, the code it was built with');
     }
+    // A report about one line of the set says which.
+    if (ticket.context.line) {
+      const reported = ticket.context.line;
+      console.log(`line:    ${reported.position}. "${reported.text}"   (hook: ${reported.hook})`);
+    }
     if (ticket.context.set) describeSet(ticket.context.set);
     const shot = await saveScreenshot(ticket);
     if (shot) console.log(`screenshot: ${shot}`);

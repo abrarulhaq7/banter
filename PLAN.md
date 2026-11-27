@@ -1435,6 +1435,14 @@ After the first APK (2026-11-27, asked for from the phone, sent over the air):
   after asking. "Tones" and "Help me pick" became one small pill of two icons (`IconChip`),
   and the Tones sheet has up and down arrows: his order (`tone_order` in the profile
   settings) is the order of the tones on Generate and in My tones.
+- Report one line (2026-11-28): a flag in the corner of each line card on Results opens a
+  sheet with that line, a "Why are you reporting it?" field and the screenshot switch. The
+  ticket carries the line (position, text, hook, move) and the whole set as before; "Report
+  these lines" stays for the whole set.
+- Learn from an example takes up to 3 screenshots at once (2026-11-28): several from the
+  gallery in one go, or Use latest to add the newest; each can be taken out again. They go
+  in one request (every adapter now sends a list of images); the model learns one style from
+  lines that share a move. Checked with a real two-screenshot request on Gemini.
 - Feedback pictures: up to three of the user's own pictures with a ticket (a screenshot of
   the problem), next to the reported set's screenshot. Column `feedback.pictures`, checked to
   be in the sender's own folder (migration `20261128001100`); admins can open them, and

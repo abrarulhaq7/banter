@@ -24,15 +24,24 @@ describe('buildLearnPrompt', () => {
     const built = buildLearnPrompt({ kind: 'text', text: '  you look like trouble  ' });
 
     expect(built.user).toContain('"""\nyou look like trouble\n"""');
-    expect(built.image).toBeUndefined();
+    expect(built.images).toBeUndefined();
   });
 
   it('sends a screenshot as the example', () => {
     const image = { base64: 'QUJD', mediaType: 'image/jpeg' as const };
-    const built = buildLearnPrompt({ kind: 'image', image });
+    const built = buildLearnPrompt({ kind: 'image', images: [image] });
 
-    expect(built.image).toBe(image);
-    expect(built.user).toMatch(/attached screenshot/);
+    expect(built.images).toEqual([image]);
+    expect(built.user).toBe('The example is in the attached screenshot. Find the line or lines and describe the style.');
+  });
+
+  it('sends up to three screenshots together, and says to learn from all of them', () => {
+    const shot = (data: string) => ({ base64: data, mediaType: 'image/jpeg' as const });
+    const built = buildLearnPrompt({ kind: 'image', images: [shot('A'), shot('B'), shot('C'), shot('D')] });
+
+    expect(built.images).toEqual([shot('A'), shot('B'), shot('C')]);
+    expect(built.user).toMatch(/in the 3 attached screenshots/);
+    expect(built.system).toContain('Lines that use the same move are one style, learned from all of them');
   });
 
   it('learns the move only, and keeps the limits', () => {

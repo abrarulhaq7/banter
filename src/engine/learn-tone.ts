@@ -12,8 +12,12 @@ import type { ImageInput } from './types';
  */
 
 export type LearnInput =
-  | { kind: 'image'; image: ImageInput }
+  /** One to three screenshots of lines he liked. */
+  | { kind: 'image'; images: ImageInput[] }
   | { kind: 'text'; text: string };
+
+/** How many screenshots one request learns from. Every provider takes this many in one message. */
+export const MAX_EXAMPLE_IMAGES = 3;
 
 export type LearnedStyle = {
   /** The example line, as found. */
@@ -44,6 +48,7 @@ const SYSTEM = `You help one person, "the sender", write short messages on Insta
 
 What to find:
 - In a screenshot, find lines that a person sent as a message, a comment or a reply. Not the caption of the post, not usernames, not buttons or other app text. Give up to three, the best first. If the screenshot holds only one, give one.
+- You may get several screenshots. Read every one. Lines that use the same move are one style, learned from all of them: give the clearest of them as "line". Lines with different moves are different styles.
 - If you are given the line as text, that is the one line.
 
 For each line:
@@ -85,12 +90,16 @@ const SCHEMA: AnswerSchema = {
   },
 };
 
-export function buildLearnPrompt(input: LearnInput): { system: string; user: string; image?: ImageInput } {
+export function buildLearnPrompt(input: LearnInput): { system: string; user: string; images?: ImageInput[] } {
   if (input.kind === 'image') {
+    const images = input.images.slice(0, MAX_EXAMPLE_IMAGES);
     return {
       system: SYSTEM,
-      user: 'The example is in the attached screenshot. Find the line or lines and describe the style.',
-      image: input.image,
+      user:
+        images.length > 1
+          ? `The examples are in the ${images.length} attached screenshots. Find the line or lines in each and describe the style.`
+          : 'The example is in the attached screenshot. Find the line or lines and describe the style.',
+      images,
     };
   }
   return {

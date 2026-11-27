@@ -129,6 +129,14 @@ describe('ticketContext', () => {
       app: APP,
       set: { tone: 'Flirty' },
     });
+    // A report about one line of the set says which.
+    const line = { position: 2, text: 'Two', hook: 'table 24', move: null };
+    expect(ticketContext('results', APP, { tone: 'Flirty' }, line)).toEqual({
+      where: 'results',
+      app: APP,
+      set: { tone: 'Flirty' },
+      line,
+    });
   });
 });
 

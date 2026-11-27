@@ -23,6 +23,7 @@ export {
 export {
   LEARNED_DEFINITION_MAX,
   LEARNED_NAME_MAX,
+  MAX_EXAMPLE_IMAGES,
   buildLearnPrompt,
   learnTone,
   learnedToneText,

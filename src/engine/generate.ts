@@ -97,7 +97,7 @@ export type Asked<T> = {
  */
 export async function askWithKeys<T>(
   options: AskOptions,
-  request: { system: string; user: string; image?: ImageInput; schema: AnswerSchema },
+  request: { system: string; user: string; image?: ImageInput; images?: ImageInput[]; schema: AnswerSchema },
   parse: (text: string) => T,
 ): Promise<Asked<T>> {
   const { keys, onKeyProblem, now = Date.now } = options;

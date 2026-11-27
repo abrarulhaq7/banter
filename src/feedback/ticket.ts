@@ -82,13 +82,20 @@ export function setForTicket(set: ResultSet, marks: LineMarks, session: SetSessi
   return { ...base, ...answer, request: set.request ?? null };
 }
 
-/** The whole context of a ticket: where it was sent from, the app, and the set if any. */
+/** The one line a report is about, when it is about a single line of a set. */
+export type ReportedLine = { position: number; text: string; hook: string; move: string | null };
+
+/**
+ * The whole context of a ticket: where it was sent from, the app, the set if any, and the
+ * line when the report is about one line of it.
+ */
 export function ticketContext(
   where: 'results' | 'settings',
   app: AppInfo,
   set: Record<string, unknown> | null,
+  line?: ReportedLine | null,
 ): Record<string, unknown> {
-  return { where, app, ...(set ? { set } : {}) };
+  return { where, app, ...(set ? { set } : {}), ...(line ? { line } : {}) };
 }
 
 /** What the screen says is attached, in plain words. */

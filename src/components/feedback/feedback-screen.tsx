@@ -18,11 +18,11 @@ import {
 } from '@/components/ui';
 import { dataErrorMessage } from '@/data';
 import { appInfo, type AppInfo } from '@/feedback/app-info';
-import { createFeedbackRepo, MAX_PICTURES, type FeedbackRepo } from '@/feedback/feedback-repo';
+import { MAX_PICTURES, type FeedbackRepo } from '@/feedback/feedback-repo';
+import { sendFeedback } from '@/feedback/send';
 import { FEEDBACK_KINDS, includedItems, setForTicket, ticketContext } from '@/feedback/ticket';
 import { useGenerateSession } from '@/generate/generate-provider';
 import type { FeedbackKind } from '@/lib/database.types';
-import { getSupabase } from '@/lib/supabase';
 import { uuid } from '@/lib/uuid';
 import { pickPictures, type PreparedScreenshot } from '@/screenshot';
 import { radius, spacing, useTheme } from '@/theme';
@@ -36,12 +36,6 @@ type FeedbackScreenProps = {
   pick?: (limit: number) => Promise<PreparedScreenshot[]>;
 };
 
-const defaultSend: FeedbackRepo['send'] = (ticket, files) => {
-  const client = getSupabase();
-  if (!client) throw new Error('Supabase is not connected');
-  return createFeedbackRepo(client).send(ticket, files);
-};
-
 /**
  * Report a problem or send an idea. From Results the set of lines is attached, with the
  * options, the model, the marks on each line and the request as sent; the screenshot too,
@@ -50,7 +44,7 @@ const defaultSend: FeedbackRepo['send'] = (ticket, files) => {
  */
 export function FeedbackScreen({
   setId,
-  send = defaultSend,
+  send = sendFeedback,
   app = appInfo(),
   pick = pickPictures,
 }: FeedbackScreenProps) {

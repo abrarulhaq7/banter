@@ -1,6 +1,6 @@
 import { EngineError } from '../errors';
 
-import { postJson, throwForStatus, type Adapter } from './http';
+import { postJson, requestImages, throwForStatus, type Adapter } from './http';
 
 /** Gemini, through the Interactions API. */
 export const geminiAdapter: Adapter = async (request) => {
@@ -14,9 +14,7 @@ export const geminiAdapter: Adapter = async (request) => {
       system_instruction: request.system,
       input: [
         { type: 'text', text: request.user },
-        ...(request.image
-          ? [{ type: 'image', data: request.image.base64, mime_type: request.image.mediaType }]
-          : []),
+        ...requestImages(request).map((image) => ({ type: 'image', data: image.base64, mime_type: image.mediaType })),
       ],
       response_format: {
         type: 'text',

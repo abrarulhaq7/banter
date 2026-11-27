@@ -19,6 +19,8 @@ type ResultSetViewProps = {
   /** The lines the user liked, by line id. */
   liked: Readonly<Record<string, true>>;
   onLike: (lineId: string) => void;
+  /** Reports one line (`position` counts from 0). */
+  onReport?: (position: number) => void;
 };
 
 export const FEEDBACK_LABEL: Record<LineFeedback, string> = {
@@ -52,12 +54,16 @@ export function ResultSetView({
   onDislike,
   liked,
   onLike,
+  onReport,
 }: ResultSetViewProps) {
   const { output } = set;
   const label = setLabel(set);
 
-  /** `position` names the line in test ids; `id` is the saved line's id; `order` staggers the arrival. */
-  const line = (position: string, id: string, text: string, caption?: string, order = 0) => {
+  /**
+   * `position` names the line in test ids; `id` is the saved line's id; `order` staggers the
+   * arrival. `reportAt` is the line's place in the set, for reporting it (lines only).
+   */
+  const line = (position: string, id: string, text: string, caption?: string, order = 0, reportAt?: number) => {
     return (
       // Keyed by the line, so a new set fades in and a copied mark on the same set does not.
       <FadeIn key={id} delay={order * 70}>
@@ -73,6 +79,7 @@ export function ResultSetView({
           onDislike={() => onDislike(id)}
           liked={Boolean(liked[id])}
           onLike={() => onLike(id)}
+          onReport={onReport && reportAt !== undefined ? () => onReport(reportAt) : undefined}
         />
       </FadeIn>
     );
@@ -105,7 +112,7 @@ export function ResultSetView({
 
       {output.kind === 'lines'
         ? output.lines.map((item, position) =>
-            line(String(position), set.lineIds[position], item.text, item.hook || undefined, position),
+            line(String(position), set.lineIds[position], item.text, item.hook || undefined, position, position),
           )
         : null}
 

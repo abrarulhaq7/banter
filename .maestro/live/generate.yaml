@@ -216,6 +216,19 @@ onFlowComplete:
     text: "Liked"
 - takeScreenshot: generate-line-liked
 
+# Report one line: its flag opens a sheet with the line and a field for why. Not sent.
+- tapOn:
+    id: "report-0-2"
+- assertVisible:
+    id: "report-line-sheet"
+- assertVisible:
+    id: "report-line-why"
+- takeScreenshot: generate-report-line
+- tapOn:
+    id: "sheet-close"
+- assertNotVisible:
+    id: "report-line-sheet"
+
 # Report these lines: the set is attached. Not sent, so test runs leave no tickets.
 - scrollUntilVisible:
     element:

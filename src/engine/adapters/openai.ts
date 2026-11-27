@@ -1,6 +1,6 @@
 import { EngineError } from '../errors';
 
-import { postJson, throwForStatus, type Adapter } from './http';
+import { postJson, requestImages, throwForStatus, type Adapter } from './http';
 
 /** OpenAI, through the Responses API. */
 export const openaiAdapter: Adapter = async (request) => {
@@ -17,14 +17,10 @@ export const openaiAdapter: Adapter = async (request) => {
           role: 'user',
           content: [
             { type: 'input_text', text: request.user },
-            ...(request.image
-              ? [
-                  {
-                    type: 'input_image',
-                    image_url: `data:${request.image.mediaType};base64,${request.image.base64}`,
-                  },
-                ]
-              : []),
+            ...requestImages(request).map((image) => ({
+              type: 'input_image',
+              image_url: `data:${image.mediaType};base64,${image.base64}`,
+            })),
           ],
         },
       ],
