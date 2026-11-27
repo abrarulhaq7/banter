@@ -51,6 +51,8 @@ const ICONS = {
   add: { ios: 'plus', android: 'add' },
   delete: { ios: 'trash', android: 'delete' },
   check: { ios: 'checkmark', android: 'check' },
+  dislike: { ios: 'hand.thumbsdown', android: 'thumb_down' },
+  disliked: { ios: 'hand.thumbsdown.fill', android: 'thumb_down' },
   shown: { ios: 'eye', android: 'visibility' },
   hidden: { ios: 'eye.slash', android: 'visibility_off' },
   up: { ios: 'chevron.up', android: 'keyboard_arrow_up' },

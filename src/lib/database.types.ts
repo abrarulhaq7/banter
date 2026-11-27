@@ -134,6 +134,8 @@ export type InteractionRow = {
   created_at: string;
 };
 
+export type LineFeedbackId = 'too_much' | 'too_tame' | 'cringe' | 'not_me' | 'too_long' | 'generic';
+
 export type LineRow = {
   id: string;
   user_id: string;
@@ -145,6 +147,8 @@ export type LineRow = {
   kept_at: string | null;
   result: LineResult | null;
   result_at: string | null;
+  /** Why the user did not like the line. Missing on databases without the column yet. */
+  feedback?: LineFeedbackId | null;
   created_at: string;
 };
 
@@ -156,7 +160,7 @@ export type InteractionInsert = Omit<InteractionRow, 'user_id' | 'user_prompt_id
 };
 export type LineInsert = Pick<LineRow, 'id' | 'interaction_id' | 'position' | 'text' | 'hook'> &
   Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at'>>;
-export type LinePatch = Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at'>>;
+export type LinePatch = Partial<Pick<LineRow, 'copied_at' | 'kept_at' | 'result' | 'result_at' | 'feedback'>>;
 
 /** One row of the usage view: generations made with one key on one model. */
 export type UsageRow = {

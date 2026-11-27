@@ -245,6 +245,11 @@ select tests.ok(
   'A: everything is unchanged after B''s and the visitor''s attempts');
 
 select tests.ok(
+  tests.changed($$update public.lines set feedback = 'cringe' where position = 1$$) = 1,
+  'A: can mark why a line was not for them');
+select tests.refused($$update public.lines set feedback = 'boring' where position = 2$$,
+  'lines: only the known feedback reasons are accepted');
+select tests.ok(
   (select count(*) from public.usage_summary) = 1
   and (select provider = 'gemini' and model = 'gemini-3.5-flash-lite' and key_label = 'Main'
               and generations = 1 and this_month = 1 and last_used_at is not null

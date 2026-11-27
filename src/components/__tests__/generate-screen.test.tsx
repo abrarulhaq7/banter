@@ -824,7 +824,10 @@ describe('Generate: history', () => {
   it('shows the lines even when history cannot be saved right now', async () => {
     const { history, user } = await setup();
     await press(user, 'Use latest');
-    history.failNext();
+    // Saving fails; reading the user's taste still works.
+    history.repo.upsertPerson = jest.fn(async () => {
+      throw new TypeError('Network request failed');
+    });
     await press(user, 'Get lines');
 
     expect(await screen.findByText('Casual one')).toBeOnTheScreen();
@@ -1092,5 +1095,109 @@ describe('Generate: choosing which tones show', () => {
     await user.press(screen.getByTestId('tone-new'));
 
     expect(mockPush).toHaveBeenCalledWith('/tones/new');
+  });
+});
+
+describe('Generate: where to take a chat', () => {
+  const read = (prefix: string, text: string): ModelOutput => ({ ...lines(prefix), read: text } as ModelOutput);
+
+  it('offers it only for Reply, and starts at keep it going', async () => {
+    const { user } = await setup();
+    expect(screen.queryByTestId('direction-row')).toBeNull();
+
+    await press(user, 'Reply');
+
+    expect(screen.getByTestId('direction-row')).toHaveTextContent(/Keep it going/);
+  });
+
+  it('turns up the heat: sends it, names the set, and shows where the chat stands', async () => {
+    const { calls, history, user } = await setup({
+      outputs: [read('Hot', 'She is matching his energy.'), read('Hotter', 'Still with him.')],
+    });
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Reply');
+    await user.press(screen.getByTestId('direction-row'));
+    await user.press(screen.getByTestId('direction-heat_up'));
+    expect(screen.getByTestId('direction-row')).toHaveTextContent(/Turn up the heat/);
+
+    await press(user, 'Get lines');
+    await screen.findByText('Hot one');
+
+    expect(calls[0].prompt.direction).toBe('heat_up');
+    expect(screen.getByTestId('result-heading-0')).toHaveTextContent('Casual · Reply · Turn up the heat');
+    expect(screen.getByTestId('result-read-text-0')).toHaveTextContent('She is matching his energy.');
+    await waitFor(() => expect(history.interactions).toHaveLength(1));
+    expect(history.interactions[0].analysis).toEqual({ direction: 'heat_up', read: 'She is matching his energy.' });
+
+    // Bolder on that set stays on the heat.
+    await press(user, 'Bolder');
+    await screen.findByText('Hotter one');
+    expect(calls[1].prompt.direction).toBe('heat_up');
+  });
+
+  it('goes back to keep it going for the next screenshot', async () => {
+    const { user } = await setup();
+    await press(user, 'Use latest');
+    await screen.findByTestId('screenshot-preview');
+    await press(user, 'Reply');
+    await user.press(screen.getByTestId('direction-row'));
+    await user.press(screen.getByTestId('direction-ask_out'));
+
+    await press(user, 'From gallery');
+
+    await waitFor(() => expect(screen.getByTestId('direction-row')).toHaveTextContent(/Keep it going/));
+  });
+
+  it('sends no direction outside Reply', async () => {
+    const { calls, user } = await setup();
+    await firstLines(user);
+
+    expect(calls[0].prompt.direction).toBeNull();
+  });
+});
+
+describe('Generate: learning from what the user picks', () => {
+  /** Earlier lines with someone else: one answered, one copied, one marked cringe. */
+  async function before(history = createFakeHistoryRepo()) {
+    const personId = await history.repo.upsertPerson('someone.else', null, '2026-11-20T10:00:00Z');
+    await history.repo.saveInteraction({
+      id: 'old', person_id: personId, mode_id: 'story_reply', tone_id: 'casual', tone_label: 'Casual',
+      screenshot_path: 'user/old.jpg', provider: 'gemini', model: 'm', created_at: '2026-11-20T10:00:00Z',
+    } as Parameters<typeof history.repo.saveInteraction>[0]);
+    await history.repo.saveLines([
+      { id: 'o1', interaction_id: 'old', position: 1, text: 'that playlist is dangerous', hook: null },
+      { id: 'o2', interaction_id: 'old', position: 2, text: 'ok you win this round', hook: null },
+      { id: 'o3', interaction_id: 'old', position: 3, text: 'you are a vision', hook: null },
+    ]);
+    await history.repo.patchLine('o1', { copied_at: 't', result: 'replied' });
+    await history.repo.patchLine('o2', { copied_at: 't' });
+    await history.repo.patchLine('o3', { feedback: 'cringe' });
+    return history;
+  }
+
+  it('sends the lines the user chose before, and the ones they turned down', async () => {
+    const { calls, user } = await setup({ history: await before() });
+    await firstLines(user);
+
+    expect(calls[0].prompt.likedLines).toEqual(['that playlist is dangerous', 'ok you win this round']);
+    expect(calls[0].prompt.dislikedLines).toEqual([{ text: 'you are a vision', reason: 'cringe' }]);
+  });
+
+  it('marks a line as not for me with a reason, saves it, and can take it back', async () => {
+    const { history, user } = await setup();
+    await firstLines(user);
+
+    await user.press(screen.getByTestId('dislike-0-1'));
+    expect(screen.getByTestId('feedback-sheet')).toBeOnTheScreen();
+    await user.press(screen.getByTestId('feedback-too_much'));
+
+    expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Not for me: too much');
+    await waitFor(() => expect(history.lines.find((line) => line.position === 2)?.feedback).toBe('too_much'));
+
+    await user.press(screen.getByTestId('dislike-0-1'));
+    await user.press(screen.getByTestId('feedback-clear'));
+    expect(screen.getByTestId('line-status-0-1')).toHaveTextContent('Tap to copy');
+    await waitFor(() => expect(history.lines.find((line) => line.position === 2)?.feedback).toBeNull());
   });
 });

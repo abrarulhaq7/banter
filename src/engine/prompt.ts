@@ -1,4 +1,13 @@
-import type { Adjustment, BuiltPrompt, ContextId, MemoryItem, PromptInput, SenderProfile } from './types';
+import type {
+  Adjustment,
+  BuiltPrompt,
+  ContextId,
+  Direction,
+  LineFeedback,
+  MemoryItem,
+  PromptInput,
+  SenderProfile,
+} from './types';
 
 /**
  * Assembles the prompt from its layers, in the order of PLAN.md section 6.
@@ -21,6 +30,33 @@ const ADJUSTMENT: Record<Adjustment, string> = {
   shorter: 'The sender wants shorter versions. Write three lines in the same spirit, each clearly shorter.',
   bolder:
     'The sender wants bolder versions. Write three lines that are more direct and confident, without breaking any rule above.',
+};
+
+/** What each "Where to take it" choice asks for. Keep it going is the usual task, so it adds nothing. */
+const DIRECTION: Record<Exclude<Direction, 'keep_going'>, { title: string; body: string }> = {
+  heat_up: {
+    title: 'Where to take it: turn up the heat',
+    body: `He wants this chat to get hotter, one step at a time. First judge where it stands now, and say it in "read": is she matching his energy, keeping it light, or cooling off?
+
+Then write three lines that are each one step hotter than the chat is now, each a different move: one turns the topic to the two of them, one teases or dares her, one asks a "what if" question that lets her imagination do the work. Every line leaves her an easy way to match him or to laugh it off.
+
+Go one step, not three: suggestive, not explicit. If she has already gone further herself, you may meet her level. If she is deflecting, slow or cold, do not escalate: say so in "read", and write warm lines that keep the door open instead. This applies only when they know each other or are already talking; with a stranger write warm, clean lines and say in "read" that it is too soon.`,
+  },
+  ask_out: {
+    title: 'Where to take it: ask her out',
+    body: `He wants to ask her out. First judge whether the chat is warm enough for it, and say it in "read".
+
+Then write three ways to suggest meeting. Each is specific (a place or a plan, tied to something from the chat or her interests when you can), low-pressure, and easy to say yes to, or to answer with another time. One can be playful, one direct, one casual. If it is clearly too early, say so in "read" and write lines that build towards it instead.`,
+  },
+};
+
+const FEEDBACK: Record<LineFeedback, string> = {
+  too_much: 'too much',
+  too_tame: 'too tame',
+  cringe: 'cringe',
+  not_me: 'not like him',
+  too_long: 'too long',
+  generic: 'too generic',
 };
 
 function section(title: string, body: string): string {
@@ -94,6 +130,26 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   }
   if (input.memory && input.memory.length > 0) {
     parts.push(section('Earlier with this person (newest first)', memoryText(input.memory)));
+  }
+  if (input.likedLines && input.likedLines.length > 0 && input.mode !== 'analyse') {
+    const liked = input.likedLines.slice(0, 5).map((line) => `- "${line}"`).join('\n');
+    parts.push(
+      section(
+        'Lines he chose before',
+        `${liked}\n\nThese show his taste and his voice. Write lines that would sit well among them. Never reuse their words or their hooks.`,
+      ),
+    );
+  }
+  if (input.dislikedLines && input.dislikedLines.length > 0 && input.mode !== 'analyse') {
+    const disliked = input.dislikedLines
+      .slice(0, 3)
+      .map((line) => `- "${line.text}" (${FEEDBACK[line.reason]})`)
+      .join('\n');
+    parts.push(section('Lines he did not like', `${disliked}\n\nAvoid what made these miss.`));
+  }
+  if (input.mode === 'reply' && input.direction && input.direction !== 'keep_going') {
+    const direction = DIRECTION[input.direction];
+    parts.push(section(direction.title, direction.body));
   }
   if (input.adjustment && input.mode !== 'analyse') {
     const previous = input.adjustment.previousLines.map((line) => `- "${line}"`).join('\n');

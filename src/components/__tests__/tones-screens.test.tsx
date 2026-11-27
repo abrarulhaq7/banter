@@ -358,9 +358,9 @@ describe('PersonaliseScreen', () => {
         toneLabel: 'Flirty',
         modeLabel: 'Story reply',
         lines: [
-          { text: 'ok that broth looks serious', copied: true, kept: false, result: 'replied' },
-          { text: 'is that table 24', copied: true, kept: false, result: null },
-          { text: 'What a lovely bowl!', copied: false, kept: false, result: null },
+          { text: 'ok that broth looks serious', copied: true, kept: false, result: 'replied', feedback: null },
+          { text: 'is that table 24', copied: true, kept: false, result: null, feedback: null },
+          { text: 'What a lovely bowl!', copied: false, kept: false, result: null, feedback: null },
         ],
       },
     ]);

@@ -53,6 +53,7 @@ export function usedSets(
         copied: line.copied_at !== null,
         kept: line.kept_at !== null,
         result: line.result,
+        feedback: line.feedback ?? null,
       })),
     }));
 }

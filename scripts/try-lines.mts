@@ -18,6 +18,7 @@
  *   --context stranger|mutual_follow|know_her|already_talking
  *   --about "free text"               how the sender texts (stands in for the profile)
  *   --her "free text"                 the sender's note about her ("close friend, she flirts back")
+ *   --direction keep_going|heat_up|ask_out   Reply only: where to take the chat
  *   --delay <ms>                      wait between requests (free tiers allow few per minute)
  *   --show-prompt                     print the exact prompt that is sent
  *   --json                            print the raw result as JSON
@@ -162,11 +163,13 @@ const tones = flags.has('all-tones') ? TONES : [choice('tone', TONES, 'casual')]
 const context = flags.has('context') ? choice('context', CONTEXTS, 'stranger') : null;
 const about = flags.get('about');
 const her = flags.get('her');
+const direction = flags.get('direction');
 
 function print(result: GenerationResult) {
   const { output } = result;
   const seconds = (result.durationMs / 1000).toFixed(1);
   console.log(`  username: ${output.username ?? '(not read)'}   screen: ${output.screenType}   ${seconds}s`);
+  if (output.kind === 'lines' && output.read) console.log(`  read:     ${output.read}`);
   if (output.noticed) console.log(`  noticed:  ${output.noticed}`);
 
   if (output.kind === 'declined') {
@@ -201,6 +204,7 @@ for (const file of files) {
       tone: tone ? DEFAULT_TONES[tone] : null,
       context,
       aboutHer: typeof her === 'string' && her ? her : null,
+      direction: direction === 'heat_up' || direction === 'ask_out' ? direction : null,
       profile: typeof about === 'string' && about ? { textingStyle: about } : null,
     };
 

@@ -13,11 +13,12 @@ import {
   Icon,
   IconButton,
   Screen,
+  OptionList,
   Sheet,
   TextField,
   useToast,
 } from '@/components/ui';
-import type { Adjustment } from '@/engine';
+import type { Adjustment, LineFeedback } from '@/engine';
 import { useGenerateSession } from '@/generate/generate-provider';
 import { ToneSheet } from '@/components/tones/tone-sheet';
 import { adjustableLines, setChipLabel, type KeptLine } from '@/generate/session';
@@ -25,7 +26,12 @@ import { haptics } from '@/lib/haptics';
 import { radius, spacing, useTheme } from '@/theme';
 
 import { LineCard } from './line-card';
-import { ResultSetView } from './result-set-view';
+import { FEEDBACK_LABEL, ResultSetView } from './result-set-view';
+
+const FEEDBACK_OPTIONS = (Object.keys(FEEDBACK_LABEL) as LineFeedback[]).map((reason) => ({
+  value: reason,
+  label: FEEDBACK_LABEL[reason][0].toUpperCase() + FEEDBACK_LABEL[reason].slice(1),
+}));
 
 
 /**
@@ -41,7 +47,9 @@ export function ResultsScreen() {
   // The set being looked at. A choice only holds until a newer set arrives; then the
   // newest is shown again.
   const [choice, setChoice] = useState<{ setId: string; newest: string } | null>(null);
-  const [sheet, setSheet] = useState<'tone' | 'username' | 'kept' | null>(null);
+  const [sheet, setSheet] = useState<'tone' | 'username' | 'kept' | 'feedback' | null>(null);
+  /** The line the "Not for me" sheet is about. */
+  const [feedbackLine, setFeedbackLine] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -247,7 +255,41 @@ export function ResultsScreen() {
         keptIds={keptIds}
         onCopy={copy}
         onToggleKeep={toggleKeep}
+        feedback={session.feedback}
+        onDislike={(lineId) => {
+          setFeedbackLine(lineId);
+          setSheet('feedback');
+        }}
       />
+
+      <Sheet
+        testID="feedback-sheet"
+        visible={sheet === 'feedback'}
+        title="Not for me"
+        subtitle="Why? Banter steers away from it in the next lines."
+        onClose={() => setSheet(null)}>
+        <OptionList
+          testIDPrefix="feedback"
+          options={FEEDBACK_OPTIONS}
+          value={feedbackLine ? (session.feedback[feedbackLine] ?? null) : null}
+          onSelect={(reason) => {
+            if (feedbackLine) session.setFeedback(feedbackLine, reason);
+            setSheet(null);
+            toast.show('Noted', 'info');
+          }}
+        />
+        {feedbackLine && session.feedback[feedbackLine] ? (
+          <Button
+            testID="feedback-clear"
+            variant="ghost"
+            label="Take it back"
+            onPress={() => {
+              session.setFeedback(feedbackLine, null);
+              setSheet(null);
+            }}
+          />
+        ) : null}
+      </Sheet>
 
       <ToneSheet
         testID="tone-sheet"

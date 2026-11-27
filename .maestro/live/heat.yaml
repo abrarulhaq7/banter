@@ -1,0 +1,97 @@
+# Turn up the heat on a chat, against the real Supabase project with real answers from
+# Gemini. Needs a chat screenshot as the newest photo in the simulator: a made-up one
+# between two invented people is fine (see PLAN.md, "Better replies").
+#
+#   npm run e2e:live -- .maestro/live/heat.yaml
+appId: com.banterlines.app
+onFlowComplete:
+  - runScript:
+      file: ../scripts/remove-history.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+  - runScript:
+      file: ../scripts/remove-keys.js
+      env:
+        EMAIL: ${output.email}
+        PASSWORD: ${output.password}
+---
+- runFlow:
+    file: ../common/new-test-account.yaml
+    env:
+      PREFIX: "heat"
+- runFlow: ../common/open-app.yaml
+- runFlow: ../common/ensure-signed-out.yaml
+- runFlow: ../common/sign-up-new-account.yaml
+- runFlow: ../common/finish-onboarding-quickly.yaml
+- runScript:
+    file: ../scripts/seed-real-key.js
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+- stopApp
+- runFlow: ../common/open-app.yaml
+- extendedWaitUntil:
+    visible:
+      id: "generate-screen"
+    timeout: 90000
+
+# --- A chat, someone he is already talking to, Spicy, turn up the heat --------------------
+- tapOn:
+    id: "use-latest"
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- extendedWaitUntil:
+    visible:
+      id: "screenshot-preview"
+    timeout: 30000
+- tapOn:
+    id: "mode-reply"
+- assertVisible:
+    id: "direction-row"
+    text: ".*Keep it going.*"
+- tapOn:
+    id: "direction-row"
+- takeScreenshot: heat-direction-sheet
+- tapOn:
+    id: "direction-heat_up"
+- tapOn:
+    id: "context-row"
+- tapOn:
+    id: "context-already_talking"
+- tapOn:
+    id: "tone-spicy"
+- takeScreenshot: heat-chosen
+- tapOn:
+    id: "generate-button"
+- runFlow:
+    file: ../common/wait-for-result.yaml
+    env:
+      HEADING: "Spicy · Reply · Turn up the heat"
+- assertVisible:
+    id: "result-read-0"
+- assertVisible:
+    id: "line-0-2"
+- takeScreenshot: heat-lines
+
+# --- Not for me, with a reason ------------------------------------------------------------
+- tapOn:
+    id: "dislike-0-0"
+- assertVisible:
+    id: "feedback-sheet"
+- takeScreenshot: heat-feedback-sheet
+- tapOn:
+    id: "feedback-too_much"
+- assertVisible:
+    id: "line-status-0-0"
+    text: "Not for me: too much"
+- takeScreenshot: heat-feedback-marked
+
+# Leave the app signed out.
+- tapOn:
+    id: "back-button"
+- runFlow: ../common/go-to-settings.yaml
+- runFlow: ../common/sign-out.yaml

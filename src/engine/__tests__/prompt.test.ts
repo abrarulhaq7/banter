@@ -205,3 +205,55 @@ describe('buildPrompt: what the sender wants', () => {
     expect(user).toContain('What he wants from these chats: turn close friends into more');
   });
 });
+
+describe('buildPrompt: taste and direction', () => {
+  const reply = { ...base, mode: 'reply' as const, modeInstruction: DEFAULT_MODES.reply.instruction };
+
+  it('shows the lines he chose before as his taste, not to copy', () => {
+    const { user } = buildPrompt({ ...base, likedLines: ['one', 'two', 'three', 'four', 'five', 'six'] });
+
+    expect(user).toContain('## Lines he chose before\n- "one"');
+    expect(user).toContain('- "five"');
+    expect(user).not.toContain('- "six"');
+    expect(user).toContain('Never reuse their words or their hooks.');
+  });
+
+  it('shows the lines he did not like, with why', () => {
+    const { user } = buildPrompt({ ...base, dislikedLines: [{ text: 'too keen', reason: 'too_much' }, { text: 'meh', reason: 'not_me' }] });
+
+    expect(user).toContain('## Lines he did not like\n- "too keen" (too much)\n- "meh" (not like him)');
+  });
+
+  it('leaves taste out of Analyse', () => {
+    const { user } = buildPrompt({ ...base, mode: 'analyse', likedLines: ['one'], dislikedLines: [{ text: 'x', reason: 'cringe' }] });
+
+    expect(user).not.toContain('Lines he chose before');
+    expect(user).not.toContain('Lines he did not like');
+  });
+
+  it('turns up the heat one step, reading her first, and only in Reply', () => {
+    const { user } = buildPrompt({ ...reply, direction: 'heat_up' });
+
+    expect(user).toContain('## Where to take it: turn up the heat');
+    expect(user).toContain('say it in "read"');
+    expect(user).toContain('Go one step, not three: suggestive, not explicit.');
+    expect(user).toContain('If she is deflecting, slow or cold, do not escalate');
+    expect(user).toContain('with a stranger write warm, clean lines');
+    expect(buildPrompt({ ...base, direction: 'heat_up' }).user).not.toContain('Where to take it');
+  });
+
+  it('asks her out in specific, low-pressure ways', () => {
+    const { user } = buildPrompt({ ...reply, direction: 'ask_out' });
+
+    expect(user).toContain('## Where to take it: ask her out');
+    expect(user).toContain('low-pressure, and easy to say yes to');
+  });
+
+  it('adds nothing for keeping it going, the usual task', () => {
+    expect(buildPrompt({ ...reply, direction: 'keep_going' }).user).toBe(buildPrompt(reply).user);
+  });
+
+  it('asks for the read in the answer format', () => {
+    expect(buildPrompt(base).system).toContain('"read": leave it empty, unless the task asks you to judge where the chat stands.');
+  });
+});

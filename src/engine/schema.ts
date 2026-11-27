@@ -28,6 +28,7 @@ const LINES_SCHEMA: AnswerSchema = {
     type: 'object',
     properties: {
       ...SHARED_PROPERTIES,
+      read: { type: 'string' },
       lines: {
         type: 'array',
         items: {
@@ -38,7 +39,7 @@ const LINES_SCHEMA: AnswerSchema = {
         },
       },
     },
-    required: [...SHARED_REQUIRED, 'lines'],
+    required: [...SHARED_REQUIRED, 'read', 'lines'],
     additionalProperties: false,
   },
 };
@@ -164,5 +165,6 @@ export function parseModelOutput(mode: ModeId, raw: string): ModelOutput {
     if (lines.length === MAX_LINES) break;
   }
   if (lines.length === 0) throw unreadable('The answer has no lines and no refusal.');
-  return { ...base, kind: 'lines', lines };
+  const read = text(data.read, 400);
+  return { ...base, kind: 'lines', lines, ...(read ? { read } : {}) };
 }

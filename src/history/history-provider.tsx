@@ -1,4 +1,4 @@
-import { createContext, use, useEffect, useState, type ReactNode } from 'react';
+import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { createUserCache, dataErrorMessage, type Result, type UserCache } from '@/data';
 import type { PersonRow, UsageRow } from '@/lib/database.types';
@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase';
 
 import { createHistoryRepo, type HistoryRepo, type InteractionWithLines } from './history-repo';
 import { buildMemory, MEMORY_SIZE, type Memory } from './memory';
+import { buildTaste, NO_TASTE, type Taste } from './taste';
 import { createOutbox, type Outbox } from './outbox';
 import type { OutboxEntry, QueuedEntry } from './types';
 
@@ -34,6 +35,11 @@ type HistoryContextValue = {
   /** Deletes the account and everything in it. The caller signs out afterwards. */
   deleteAccount: () => Promise<Result>;
   usage: () => Promise<UsageRow[]>;
+  /**
+   * The lines the user chose before, and the ones they marked as not for them, across
+   * everyone. For the prompt. Empty when offline. `skip`: sets of the screenshot in hand.
+   */
+  taste: (skip?: ReadonlySet<string>) => Promise<Taste>;
   /** The latest interactions with anyone, newest first: what "Personalise for me" reads. */
   recentInteractions: () => Promise<InteractionWithLines[]>;
   screenshotUrl: (path: string) => Promise<string | null>;
@@ -46,6 +52,10 @@ const NO_MEMORY: Memory = { items: [], awaitingReplyLineId: null };
 const TIMELINE_SIZE = 50;
 /** How many interactions "Personalise for me" looks at. */
 const RECENT_SIZE = 60;
+/** How many interactions the taste for the prompt is read from. */
+const TASTE_SIZE = 40;
+/** The taste is read again at most this often, or after the user copies, keeps or marks a line. */
+const TASTE_FRESH_MS = 5 * 60 * 1000;
 
 type HistoryProviderProps = {
   children: ReactNode;
@@ -79,6 +89,8 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
   const [peopleStatus, setPeopleStatus] = useState<'loading' | 'ready'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(0);
+  // Read again when it is stale or the user changed something it is made from.
+  const tasteCache = useRef<{ rows: InteractionWithLines[] | null; at: number }>({ rows: null, at: 0 });
 
   const refreshPeople = async (isCurrent: () => boolean = () => true) => {
     try {
@@ -131,6 +143,7 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
     personByUsername: (username) => people.find((person) => person.username === username),
 
     async save(entry) {
+      if (entry.kind !== 'personContext') tasteCache.current.rows = null;
       await source.outbox.add(entry);
       setWaiting(await source.outbox.waiting());
       await flush();
@@ -188,6 +201,20 @@ export function HistoryProvider({ children, userId, repo, outboxCache, peopleCac
 
     listInteractions: (personId) => source.repo.listInteractions(personId, TIMELINE_SIZE),
     recentInteractions: () => source.repo.listRecent(RECENT_SIZE),
+
+    async taste(skip) {
+      try {
+        const cache = tasteCache.current;
+        if (!cache.rows || Date.now() - cache.at > TASTE_FRESH_MS) {
+          cache.rows = await source.repo.listRecent(TASTE_SIZE);
+          cache.at = Date.now();
+        }
+        return buildTaste(cache.rows, skip);
+      } catch {
+        // No connection: lines are still written, just without it.
+        return NO_TASTE;
+      }
+    },
     screenshotUrl: (path) => source.repo.screenshotUrl(path),
   };
 

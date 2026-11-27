@@ -13,10 +13,24 @@ type LineCardProps = {
   kept: boolean;
   onCopy: () => void;
   onToggleKeep: () => void;
+  /** Why the user did not like the line, shown on the card. */
+  feedbackLabel?: string | null;
+  /** Opens the reasons. Left out where a line cannot be marked (the Kept sheet). */
+  onDislike?: () => void;
 };
 
 /** One line to send. Tap it, or the copy button, to copy; the bookmark keeps it. */
-export function LineCard({ testKey, text, caption, copied, kept, onCopy, onToggleKeep }: LineCardProps) {
+export function LineCard({
+  testKey,
+  text,
+  caption,
+  copied,
+  kept,
+  onCopy,
+  onToggleKeep,
+  feedbackLabel,
+  onDislike,
+}: LineCardProps) {
   const { colors } = useTheme();
 
   return (
@@ -42,10 +56,20 @@ export function LineCard({ testKey, text, caption, copied, kept, onCopy, onToggl
       <View style={styles.footer}>
         <View style={styles.status}>
           {copied ? <Icon name="check" size={14} color="success" /> : null}
-          <AppText testID={`line-status-${testKey}`} variant="caption" color={copied ? 'success' : 'textMuted'}>
-            {copied ? 'Copied' : 'Tap to copy'}
+          <AppText testID={`line-status-${testKey}`} variant="caption" color={copied ? 'success' : feedbackLabel ? 'danger' : 'textMuted'}>
+            {copied ? 'Copied' : feedbackLabel ? `Not for me: ${feedbackLabel}` : 'Tap to copy'}
           </AppText>
         </View>
+        {onDislike ? (
+          <IconButton
+            testID={`dislike-${testKey}`}
+            icon={feedbackLabel ? 'disliked' : 'dislike'}
+            label={feedbackLabel ? `Not for me: ${feedbackLabel}` : 'Not for me'}
+            color={feedbackLabel ? 'danger' : 'textMuted'}
+            selected={Boolean(feedbackLabel)}
+            onPress={onDislike}
+          />
+        ) : null}
         <IconButton testID={`copy-${testKey}`} icon="copy" label="Copy" color="textMuted" onPress={onCopy} />
         <IconButton
           testID={`keep-${testKey}`}

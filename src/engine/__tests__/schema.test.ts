@@ -54,6 +54,17 @@ describe('parseModelOutput: lines', () => {
     });
   });
 
+  it('keeps the read of where a chat stands, when there is one', () => {
+    const output = parseModelOutput('reply', lines({ read: '  She is matching his energy.  ' }));
+
+    expect(output.kind === 'lines' && output.read).toBe('She is matching his energy.');
+    expect(parseModelOutput('reply', lines({ read: '' }))).not.toHaveProperty('read');
+  });
+
+  it('asks every provider for the read', () => {
+    expect((schemaFor('reply').schema.required as string[]).includes('read')).toBe(true);
+  });
+
   it('finds the answer inside a code block or surrounding words', () => {
     const fenced = 'Here you go:\n```json\n' + lines() + '\n```\nHope that helps!';
     const prose = 'Sure. ' + lines() + ' Let me know.';

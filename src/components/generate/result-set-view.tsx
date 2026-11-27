@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Banner, Card, FadeIn } from '@/components/ui';
-import type { Interest } from '@/engine';
+import type { Interest, LineFeedback } from '@/engine';
 import { setHeading, setLabel, type KeptLine, type ResultSet } from '@/generate/session';
 import { spacing, type ColorRole } from '@/theme';
 
@@ -13,6 +13,18 @@ type ResultSetViewProps = {
   keptIds: ReadonlySet<string>;
   onCopy: (lineId: string, text: string) => void;
   onToggleKeep: (line: KeptLine) => void;
+  /** Why the user did not like each line, by line id. */
+  feedback: Readonly<Record<string, LineFeedback>>;
+  onDislike: (lineId: string) => void;
+};
+
+export const FEEDBACK_LABEL: Record<LineFeedback, string> = {
+  too_much: 'too much',
+  too_tame: 'too tame',
+  cringe: 'cringe',
+  not_me: 'not like me',
+  too_long: 'too long',
+  generic: 'too generic',
 };
 
 const INTEREST: Record<Interest, { label: string; color: ColorRole }> = {
@@ -27,7 +39,7 @@ const INTEREST: Record<Interest, { label: string; color: ColorRole }> = {
  * Only one set is shown at a time, so the test ids carry no set number: `result-heading-0`,
  * `line-0-<position>` always mean the set being looked at.
  */
-export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep }: ResultSetViewProps) {
+export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep, feedback, onDislike }: ResultSetViewProps) {
   const { output } = set;
   const label = setLabel(set);
 
@@ -44,6 +56,8 @@ export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep
           kept={keptIds.has(id)}
           onCopy={() => onCopy(id, text)}
           onToggleKeep={() => onToggleKeep({ id, text, label })}
+          feedbackLabel={feedback[id] ? FEEDBACK_LABEL[feedback[id]] : null}
+          onDislike={() => onDislike(id)}
         />
       </FadeIn>
     );
@@ -61,6 +75,12 @@ export function ResultSetView({ set, copiedLineId, keptIds, onCopy, onToggleKeep
           </AppText>
         ) : null}
       </View>
+
+      {output.kind === 'lines' && output.read ? (
+        <Banner testID="result-read-0" tone="info" title="Where it stands" messageTestID="result-read-text-0">
+          {output.read}
+        </Banner>
+      ) : null}
 
       {output.kind === 'declined' ? (
         <Banner testID="result-declined-0" tone="warning" title="No lines for this one">

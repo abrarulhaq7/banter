@@ -1,6 +1,8 @@
 import type {
   Adjustment,
   ContextId,
+  Direction,
+  LineFeedback,
   EngineErrorKind,
   GenerationResult,
   ModeId,
@@ -32,6 +34,8 @@ export type ResultSet = {
   /** Null for Analyse. */
   toneLabel: string | null;
   adjustment: Adjustment | null;
+  /** Reply only: where the user asked to take the chat. Null for the usual. */
+  direction?: Direction | null;
   output: ModelOutput;
   usedKey: GenerationResult['usedKey'];
   durationMs: number;
@@ -68,6 +72,10 @@ export type SessionState = {
   error: SessionError | null;
   /** The line that was copied last, to show "Copied" on it. */
   copiedLineId: string | null;
+  /** Reply only: where to take the chat. Back to keep_going with each new screenshot. */
+  direction: Direction;
+  /** Why the user did not like a line, by line id. */
+  feedback: Record<string, LineFeedback>;
 };
 
 export type SessionAction =
@@ -87,6 +95,8 @@ export type SessionAction =
   | { type: 'toggleKeep'; line: KeptLine }
   | { type: 'copied'; lineId: string }
   | { type: 'dismissError' }
+  | { type: 'setDirection'; direction: Direction }
+  | { type: 'setFeedback'; lineId: string; reason: LineFeedback | null }
   /** Back to no screenshot. The chosen mode and tone stay: they are the user's habits. */
   | { type: 'clear' };
 
@@ -101,6 +111,8 @@ export const initialSession: SessionState = {
   phase: 'idle',
   error: null,
   copiedLineId: null,
+  direction: 'keep_going',
+  feedback: {},
 };
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -120,6 +132,9 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         copiedLineId: null,
         phase: 'idle',
         error: null,
+        // Turning up the heat is a choice about one conversation, not a habit.
+        direction: 'keep_going',
+        feedback: {},
       };
 
     case 'screenshotFailed':
@@ -171,6 +186,14 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, copiedLineId: action.lineId };
     case 'dismissError':
       return { ...state, error: null };
+    case 'setDirection':
+      return { ...state, direction: action.direction };
+    case 'setFeedback': {
+      const feedback = { ...state.feedback };
+      if (action.reason) feedback[action.lineId] = action.reason;
+      else delete feedback[action.lineId];
+      return { ...state, feedback };
+    }
     case 'clear':
       // Nothing is lost: every set was saved to history when it arrived.
       return state.phase === 'idle' ? { ...initialSession, mode: state.mode, tone: state.tone } : state;
@@ -189,14 +212,33 @@ export function setLabel(set: Pick<ResultSet, 'toneLabel' | 'modeLabel'>): strin
 
 const ADJUSTMENT_LABEL: Record<Adjustment, string> = { new_lines: 'New lines', shorter: 'Shorter', bolder: 'Bolder' };
 
-/** The full name of a set: "Flirty · Story reply · Shorter". */
-export function setHeading(set: Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment'>): string {
-  return [setLabel(set), set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null].filter(Boolean).join(' · ');
+export const DIRECTION_LABEL: Record<Direction, string> = {
+  keep_going: 'Keep it going',
+  heat_up: 'Turn up the heat',
+  ask_out: 'Ask her out',
+};
+const DIRECTION_SHORT: Record<Direction, string | null> = { keep_going: null, heat_up: 'Heat', ask_out: 'Ask out' };
+
+type Named = Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment' | 'direction'>;
+
+/** The full name of a set: "Flirty · Story reply · Shorter", "Spicy · Reply · Turn up the heat". */
+export function setHeading(set: Named): string {
+  return [
+    setLabel(set),
+    set.direction && set.direction !== 'keep_going' ? DIRECTION_LABEL[set.direction] : null,
+    set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** The short name of a set, for the chips that switch between sets: "Flirty · Shorter". */
-export function setChipLabel(set: Pick<ResultSet, 'toneLabel' | 'modeLabel' | 'adjustment'>): string {
-  return [set.toneLabel ?? set.modeLabel, set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null]
+export function setChipLabel(set: Named): string {
+  return [
+    set.toneLabel ?? set.modeLabel,
+    set.direction ? DIRECTION_SHORT[set.direction] : null,
+    set.adjustment ? ADJUSTMENT_LABEL[set.adjustment] : null,
+  ]
     .filter(Boolean)
     .join(' · ');
 }

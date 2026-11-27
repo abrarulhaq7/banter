@@ -10,7 +10,9 @@ import {
   isEngineError,
   type Adjustment,
   type ContextId,
+  type Direction,
   type GenerateOptions,
+  type LineFeedback,
   type GenerationResult,
   type ModeId,
   type ModelOutput,
@@ -71,11 +73,13 @@ function savedLineTexts(output: ModelOutput): { text: string; hook: string | nul
 }
 
 /** What is kept of an answer besides its lines. */
-function savedAnalysis(output: ModelOutput): Record<string, unknown> | null {
+function savedAnalysis(output: ModelOutput, direction: Direction | null): Record<string, unknown> | null {
   if (output.kind === 'analysis') {
     return { interest: output.interest, signals: output.signals, advice: output.advice };
   }
   if (output.kind === 'declined') return { declined: output.reason };
+  // Where he asked to take the chat, and the AI's read of where it stood.
+  if (direction || output.read) return { direction, read: output.read ?? null };
   return null;
 }
 
@@ -87,6 +91,10 @@ export type GenerateController = SessionState & {
   setMode: (mode: ModeId) => void;
   /** Takes a tone's key (see `Tone.key`). */
   setTone: (tone: string) => void;
+  /** Reply only: where to take the chat. */
+  setDirection: (direction: Direction) => void;
+  /** Why the user did not like a line, or null to take it back. Saved with the line. */
+  setFeedback: (lineId: string, reason: LineFeedback | null) => void;
   setContext: (context: ContextId) => void;
   /** Corrects who the screenshot is of. Returns a message when the username is not valid. */
   setUsername: (username: string) => string | null;
@@ -156,6 +164,11 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
 
     // An adjustment keeps the mode and tone of the set it adjusts.
     const mode = from?.mode ?? state.mode;
+    // Only a reply has somewhere to go. An adjustment keeps the direction of the set it adjusts.
+    const direction: Direction | null =
+      mode === 'reply' ? (from ? (from.direction ?? 'keep_going') : state.direction) : null;
+    const heading = direction && direction !== 'keep_going' ? direction : null;
+
     // The tone is read now, so an edit made a moment ago in My tones is what gets sent.
     const tone =
       mode === 'analyse' ? null : toneFor(prompts.tones, from ? from.toneKey : (chosenTone ?? state.tone));
@@ -163,9 +176,14 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     dispatch({ type: 'generateStarted' });
     try {
       // Once the person is known, what was said to them before goes into the prompt.
-      const memory = state.username
-        ? await history.memoryFor(state.username, new Set(state.sets.map((set) => set.id)))
-        : { items: [], awaitingReplyLineId: null };
+      const thisScreenshot = new Set(state.sets.map((set) => set.id));
+      const [memory, taste] = await Promise.all([
+        state.username
+          ? history.memoryFor(state.username, thisScreenshot)
+          : Promise.resolve({ items: [], awaitingReplyLineId: null }),
+        // What he chose and turned down before, with anyone: his taste.
+        history.taste(thisScreenshot),
+      ]);
 
       const result = await deps.runEngine({
         keys: candidates,
@@ -179,6 +197,9 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           aboutHer: state.username ? (history.personByUsername(state.username)?.notes ?? null) : null,
           profile: senderProfile(profile),
           memory: memory.items,
+          likedLines: taste.liked,
+          dislikedLines: taste.disliked,
+          direction: heading,
           adjustment,
         },
         // Save what was learned about a key, so the Keys screen shows it and it is skipped.
@@ -224,7 +245,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           screenshot_path: screenshotPath.current,
           screen_type: output.screenType,
           noticed: output.noticed || null,
-          analysis: savedAnalysis(output),
+          analysis: savedAnalysis(output, heading),
           provider: result.usedKey.provider,
           model: result.usedKey.model,
           api_key_id: result.usedKey.id,
@@ -267,6 +288,7 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
           toneKey: tone?.key ?? null,
           toneLabel: tone?.label ?? null,
           adjustment: adjustment?.kind ?? null,
+          direction: heading,
           output,
           usedKey: result.usedKey,
           durationMs: result.durationMs,
@@ -314,6 +336,12 @@ export function useGenerate(overrides: Partial<GenerateDeps> = {}): GenerateCont
     pickScreenshot: () => loadScreenshot(deps.pickFromGallery),
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
     setTone: (tone) => dispatch({ type: 'setTone', tone }),
+    setDirection: (direction) => dispatch({ type: 'setDirection', direction }),
+
+    setFeedback: (lineId, reason) => {
+      dispatch({ type: 'setFeedback', lineId, reason });
+      void history.save({ kind: 'linePatch', lineId, patch: { feedback: reason } });
+    },
 
     setContext: (context) => {
       dispatch({ type: 'setContext', context });

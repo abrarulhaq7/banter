@@ -18,7 +18,14 @@ export type ToneForReview = { key: string; label: string; definition: string };
 export type UsedSet = {
   toneLabel: string | null;
   modeLabel: string;
-  lines: { text: string; copied: boolean; kept: boolean; result: 'replied' | 'no_reply' | null }[];
+  lines: {
+    text: string;
+    copied: boolean;
+    kept: boolean;
+    result: 'replied' | 'no_reply' | null;
+    /** Why he marked it as not for him. */
+    feedback?: string | null;
+  }[];
 };
 
 export type PersonaliseInput = {
@@ -93,7 +100,17 @@ const SCHEMA: AnswerSchema = {
   },
 };
 
+const FEEDBACK_WORDS: Record<string, string> = {
+  too_much: 'too much',
+  too_tame: 'too tame',
+  cringe: 'cringe',
+  not_me: 'not like him',
+  too_long: 'too long',
+  generic: 'too generic',
+};
+
 function outcome(line: UsedSet['lines'][number]): string {
+  if (line.feedback) return `he marked it not for him: ${FEEDBACK_WORDS[line.feedback] ?? line.feedback}`;
   if (line.result === 'replied') return 'sent, she replied';
   if (line.result === 'no_reply') return 'sent, no reply';
   if (line.copied) return 'copied to send';

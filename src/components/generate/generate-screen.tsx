@@ -18,7 +18,8 @@ import {
   TextField,
   useToast,
 } from '@/components/ui';
-import { DEFAULT_MODES, type ContextId, type ModeId } from '@/engine';
+import { DEFAULT_MODES, type ContextId, type Direction, type ModeId } from '@/engine';
+import { DIRECTION_LABEL } from '@/generate/session';
 import { useGenerateSession } from '@/generate/generate-provider';
 import { useHistory } from '@/history';
 import { CONTEXT_LABELS } from '@/history/labels';
@@ -30,6 +31,16 @@ import { radius, spacing, useTheme } from '@/theme';
 
 const MODE_IDS = Object.keys(DEFAULT_MODES) as ModeId[];
 const CONTEXTS = (Object.keys(CONTEXT_LABELS) as ContextId[]).map((id) => ({ value: id, label: CONTEXT_LABELS[id] }));
+const DIRECTIONS: { value: Direction; label: string; subtitle: string }[] = [
+  { value: 'keep_going', label: DIRECTION_LABEL.keep_going, subtitle: 'Lines that keep the conversation going.' },
+  {
+    value: 'heat_up',
+    label: DIRECTION_LABEL.heat_up,
+    subtitle: 'One step hotter than the chat is now, if she is matching you. For someone you know.',
+  },
+  { value: 'ask_out', label: DIRECTION_LABEL.ask_out, subtitle: 'Specific, low-pressure ways to suggest meeting.' },
+];
+
 /** The "let Banter read her username" choice in the Who is she sheet. */
 const SOMEONE_NEW = '__new__';
 /** How many people the Who is she sheet lists; a search field finds the rest. */
@@ -49,6 +60,8 @@ export function GenerateScreen() {
   const history = useHistory();
   const [contextOpen, setContextOpen] = useState(false);
   const [toneOpen, setToneOpen] = useState(false);
+  const [directionOpen, setDirectionOpen] = useState(false);
+  const isReply = session.mode === 'reply';
   const { shown: shownTones } = useToneVisibility();
   // The tone in use always shows, even one hidden from this screen, so the choice is visible.
   const currentTone = prompts.tones.find((tone) => tone.key === session.tone);
@@ -220,12 +233,24 @@ export function GenerateScreen() {
         </ChipRow>
       ) : null}
 
+      {isReply ? (
+        <ListRow
+          testID="direction-row"
+          icon="bolder"
+          tone={session.direction === 'heat_up' ? 'warning' : 'accent'}
+          title="Where to take it"
+          subtitle={DIRECTION_LABEL[session.direction]}
+          onPress={() => setDirectionOpen(true)}
+          disabled={busy}
+        />
+      ) : null}
+
       {canChoosePerson ? (
         <ListRow
           testID="person-pick-row"
           icon="people"
           title="Who is she"
-          value={session.username ? `@${session.username}` : 'Banter reads it'}
+          subtitle={session.username ? `@${session.username}` : 'Banter reads it'}
           onPress={() => {
             setPersonQuery('');
             setPersonOpen(true);
@@ -238,7 +263,7 @@ export function GenerateScreen() {
         testID="context-row"
         icon="person"
         title="How you know her"
-        value={session.context ? CONTEXT_LABELS[session.context] : 'Not set'}
+        subtitle={session.context ? CONTEXT_LABELS[session.context] : 'Not set'}
         onPress={() => setContextOpen(true)}
       />
 
@@ -256,6 +281,23 @@ export function GenerateScreen() {
           {screenshotError.message}
         </Banner>
       ) : null}
+
+      <Sheet
+        testID="direction-sheet"
+        visible={directionOpen}
+        title="Where to take it"
+        subtitle="Banter reads the chat first and tells you where it stands."
+        onClose={() => setDirectionOpen(false)}>
+        <OptionList
+          testIDPrefix="direction"
+          options={DIRECTIONS}
+          value={session.direction}
+          onSelect={(direction) => {
+            session.setDirection(direction);
+            setDirectionOpen(false);
+          }}
+        />
+      </Sheet>
 
       <ToneSheet
         testID="tone-picker-sheet"

@@ -1,6 +1,6 @@
 # Banter — Build Plan
 
-Status: **Phases 7 to 7.7 are done and pushed (2026-11-26): settings and polish, bolder flirting, learning a tone from an example, and Tune my tones.** Supabase is at prompt version 6 with Spicy. Next: Phase 8, phone builds.
+Status: **Better replies (turn up the heat, ask her out, learning from your picks) is built on the branch `better-replies` (2026-11-26), committed there, not merged or pushed. Needs `supabase/paste-update.sql` pasted.** Main holds Phases 0 to 7.7, all pushed. Next after this: Phase 8, phone builds.
 Last updated: 2026-11-25
 
 ## 1. What we are building
@@ -1020,6 +1020,57 @@ Built:
 Tested: `npm run check` passes (692 unit tests). The new live flow `live/tune.yaml` passes
 against the real Supabase project with real Gemini answers: write a goal, tune, compare,
 save all, see Banter's tones marked Edited in My tones, reset, see them back.
+
+### Better replies (branch `better-replies`)
+
+Added on 2026-11-26 at your request, before the phone builds: help take a chat somewhere,
+and learn from what you pick. Kept on its own branch until you approve it.
+
+Built:
+
+- **"Where to take it" on Generate, in Reply mode:** Keep it going (as before), **Turn up
+  the heat**, or **Ask her out**. Shown under the title, so long choices are not cut off.
+  Back to Keep it going with each new screenshot: it is a choice about one conversation.
+- **Turn up the heat:** the AI first reads where the chat stands and says it ("Where it
+  stands", above the lines), then writes three lines one step hotter than the chat is now,
+  each a different move (turn the topic to the two of you, a tease or dare, a "what if"
+  question), each leaving her an easy way to match or laugh it off. Suggestive, not
+  explicit, unless she has already gone further. If she is cold or deflecting it says so
+  and writes warm lines instead. With a stranger it stays clean. Shorter and Bolder on
+  such a set stay on the heat.
+- **Ask her out:** a read of whether it is warm enough, then three specific, low-pressure
+  ways to suggest meeting, tied to the chat where possible.
+- **Your taste in every prompt:** up to five lines you chose before, with anyone (the ones
+  that got a reply first), as examples of your taste and voice, never to be copied; and up
+  to three you turned down, with why. Read again at most every five minutes, or at once
+  after you copy, keep or mark a line.
+- **"Not for me" on every line** (thumbs down): too much, too tame, cringe, not like me, too
+  long, too generic. Shown on the line, can be taken back, saved with the line, used in
+  the next prompts and read by Personalise for me.
+
+Database and prompts (`supabase/paste-update.sql`, to paste once):
+
+- `20261127000600_line_feedback.sql`: a `feedback` column on lines, limited to those six
+  reasons. Until it is pasted, a "Not for me" mark shows in the app but is not saved.
+- Core rules version 7: the answer format gains "read" (left empty unless a direction
+  asks for it). Until pasted, the app uses its own copy of the prompts, as designed.
+
+Tested:
+
+- `npm run check` passes (714 unit tests); `npm run test:db` passes (91 checks).
+- With real Gemini, on a made-up chat between two invented people ("what are you up to
+  tonight" after flirting about the gym): Spicy + Turn up the heat gave "just figuring out
+  how to convince you to let me come over and take care of those dead legs", with the read
+  "She is matching his playful energy". On a made-up cold chat ("maybe", "busy") it backed
+  off: "She is pulling back… keep it completely low-pressure", and wrote "All good, enjoy
+  your weekend". Ask her out gave "free tonight if you want to grab dinner and I can carry
+  you to the table".
+- New live flow `live/heat.yaml` passes: Reply, Turn up the heat, Already talking, Spicy,
+  the read on screen, then Not for me with a reason. It needs a chat screenshot as the
+  newest photo in the simulator (the made-up one is in this session's scratchpad only).
+- In Reply mode with Who is she, Where to take it and How you know her all showing, the
+  screenshot area on Generate gets small, and on a phone smaller than the iPhone 17, or
+  with the no-key notice showing, the screen scrolls a little.
 
 ### Phase 8 — Phone builds
 

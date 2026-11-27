@@ -3,6 +3,8 @@ import {
   adjustableLines,
   initialSession,
   sessionReducer,
+  setChipLabel,
+  setHeading,
   setLabel,
   type ResultSet,
   type SessionAction,
@@ -145,6 +147,25 @@ describe('sessionReducer', () => {
     expect(sessionReducer(running, { type: 'clear' })).toBe(running);
   });
 
+  it('starts each new screenshot back at keep it going, with no marks on lines', () => {
+    const state = play([
+      { type: 'screenshotReady', screenshot: screenshot('a') },
+      { type: 'setDirection', direction: 'heat_up' },
+      { type: 'setFeedback', lineId: 'l1', reason: 'cringe' },
+      { type: 'screenshotReady', screenshot: screenshot('b') },
+    ]);
+
+    expect(state.direction).toBe('keep_going');
+    expect(state.feedback).toEqual({});
+  });
+
+  it('marks why a line was not for the user, and takes it back', () => {
+    const marked = play([{ type: 'setFeedback', lineId: 'l1', reason: 'too_much' }]);
+    expect(marked.feedback).toEqual({ l1: 'too_much' });
+
+    expect(sessionReducer(marked, { type: 'setFeedback', lineId: 'l1', reason: null }).feedback).toEqual({});
+  });
+
   it('keeps the current screenshot and lines when choosing another one fails or is cancelled', () => {
     const before = play([
       { type: 'screenshotReady', screenshot: screenshot('a') },
@@ -230,6 +251,10 @@ describe('adjustableLines', () => {
 describe('setLabel', () => {
   it('names the tone and the mode, or just the mode for Analyse', () => {
     expect(setLabel({ toneLabel: 'Flirty', modeLabel: 'Story reply' })).toBe('Flirty · Story reply');
+    expect(setHeading({ toneLabel: 'Spicy', modeLabel: 'Reply', adjustment: 'bolder', direction: 'heat_up' })).toBe(
+      'Spicy · Reply · Turn up the heat · Bolder',
+    );
+    expect(setChipLabel({ toneLabel: 'Spicy', modeLabel: 'Reply', adjustment: null, direction: 'ask_out' })).toBe('Spicy · Ask out');
     expect(setLabel({ toneLabel: null, modeLabel: 'Analyse' })).toBe('Analyse');
   });
 });

@@ -5,6 +5,10 @@ export type ContextId = 'stranger' | 'mutual_follow' | 'know_her' | 'already_tal
 export type ScreenType = 'story' | 'profile' | 'chat' | 'other';
 export type Interest = 'high' | 'medium' | 'low' | 'unclear';
 export type Adjustment = 'new_lines' | 'shorter' | 'bolder';
+/** Where the sender wants a chat to go next (Reply only). */
+export type Direction = 'keep_going' | 'heat_up' | 'ask_out';
+/** Why the sender did not like a line. */
+export type LineFeedback = 'too_much' | 'too_tame' | 'cringe' | 'not_me' | 'too_long' | 'generic';
 /** What a chat screenshot shows about the last line the sender used. */
 export type SentLineStatus = 'replied' | 'no_reply' | 'unknown';
 
@@ -69,6 +73,12 @@ export type PromptInput = {
   memory?: MemoryItem[];
   /** For "New lines", "Shorter" and "Bolder": the lines being adjusted. */
   adjustment?: { kind: Adjustment; previousLines: string[] } | null;
+  /** Reply only: where he wants the chat to go. Left out, or keep_going, means as usual. */
+  direction?: Direction | null;
+  /** Lines he chose before, with anyone, best first: his taste and voice. */
+  likedLines?: string[];
+  /** Lines he marked as not for him, and why. */
+  dislikedLines?: { text: string; reason: LineFeedback }[];
 };
 
 export type BuiltPrompt = {
@@ -96,7 +106,12 @@ type OutputBase = {
   sentLineStatus: SentLineStatus;
 };
 
-export type LinesOutput = OutputBase & { kind: 'lines'; lines: Line[] };
+export type LinesOutput = OutputBase & {
+  kind: 'lines';
+  lines: Line[];
+  /** When asked where to take a chat: where it stands now, in a sentence or two. */
+  read?: string | null;
+};
 
 export type AnalysisOutput = OutputBase & {
   kind: 'analysis';

@@ -7,6 +7,7 @@ export {
 } from './history-repo';
 export { MEMORY_SIZE, buildMemory, type Memory } from './memory';
 export { groupShots, tonesTried, type Shot, type ShotStatus } from './shots';
+export { NO_TASTE, buildTaste, type Taste } from './taste';
 export { createOutbox, type FlushResult, type Outbox } from './outbox';
 export type {
   AssignPersonEntry,

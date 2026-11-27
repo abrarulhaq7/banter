@@ -51,6 +51,8 @@ export { MAX_LINES, cleanUsername, parseModelOutput, schemaFor, type AnswerSchem
 export type {
   Adjustment,
   AnalysisOutput,
+  Direction,
+  LineFeedback,
   BuiltPrompt,
   ContextId,
   DeclinedOutput,
